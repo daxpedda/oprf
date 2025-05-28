@@ -1,0 +1,172 @@
+//! [`MockCurve`] implementation.
+
+use core::convert::Infallible;
+use core::ops::{Add, Deref, Mul, Sub};
+
+use elliptic_curve::hash2curve::ExpandMsg;
+use hybrid_array::Array;
+use oprf::group::{Dst, Group};
+use typenum::U0;
+use zeroize::Zeroize;
+
+/// A mock [`Group`] for testing purposes. It is zero-sized and does no checks
+/// whatsoever.
+pub struct MockCurve;
+
+/// A mock [`Group::NonZeroScalar`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
+pub struct NonZeroScalar;
+
+/// A mock [`Group::Scalar`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
+pub struct Scalar;
+
+/// A mock [`Group::NonIdentityElement`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
+pub struct NonIdentityElement;
+
+/// A mock [`Group::Element`].
+#[derive(Clone, Copy)]
+pub struct Element;
+
+impl Group for MockCurve {
+	type NonZeroScalar = NonZeroScalar;
+	type Scalar = Scalar;
+	type ScalarLength = U0;
+
+	type NonIdentityElement = NonIdentityElement;
+	type Element = Element;
+	type ElementLength = U0;
+
+	fn random_scalar<R: rand::TryCryptoRng>(_: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
+		Ok(NonZeroScalar)
+	}
+
+	fn hash_to_scalar<E: for<'dst> ExpandMsg<'dst>>(_: &[&[u8]], _: Dst) -> Self::Scalar {
+		Scalar
+	}
+
+	fn non_zero_scalar_mul_by_generator(_: &Self::NonZeroScalar) -> Self::NonIdentityElement {
+		NonIdentityElement
+	}
+
+	fn scalar_mul_by_generator(_: &Self::Scalar) -> Self::Element {
+		Element
+	}
+
+	fn scalar_invert(_: &Self::NonZeroScalar) -> Self::NonZeroScalar {
+		NonZeroScalar
+	}
+
+	fn serialize_scalar(_: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
+		Array::default()
+	}
+
+	fn identity_element() -> Self::Element {
+		Element
+	}
+
+	fn generator_element() -> Self::Element {
+		Element
+	}
+
+	fn hash_to_group<E: for<'dst> ExpandMsg<'dst>>(_: &[&[u8]], _: Dst) -> Self::Element {
+		Element
+	}
+
+	fn serialize_element(_: &Self::Element) -> Array<u8, Self::ElementLength> {
+		Array::default()
+	}
+}
+
+impl Deref for NonZeroScalar {
+	type Target = Scalar;
+
+	fn deref(&self) -> &Self::Target {
+		&Scalar
+	}
+}
+
+impl Mul<&NonIdentityElement> for NonZeroScalar {
+	type Output = NonIdentityElement;
+
+	fn mul(self, _: &NonIdentityElement) -> Self::Output {
+		NonIdentityElement
+	}
+}
+
+impl TryFrom<Scalar> for NonZeroScalar {
+	type Error = Infallible;
+
+	fn try_from(_: Scalar) -> Result<Self, Self::Error> {
+		Ok(Self)
+	}
+}
+
+impl Add<&Self> for Scalar {
+	type Output = Self;
+
+	fn add(self, _: &Self) -> Self::Output {
+		Self
+	}
+}
+
+impl From<NonZeroScalar> for Scalar {
+	fn from(_: NonZeroScalar) -> Self {
+		Self
+	}
+}
+
+impl Mul<&Element> for Scalar {
+	type Output = Element;
+
+	fn mul(self, _: &Element) -> Self::Output {
+		Element
+	}
+}
+
+impl Mul<&Self> for Scalar {
+	type Output = Self;
+
+	fn mul(self, _: &Self) -> Self::Output {
+		Self
+	}
+}
+
+impl Sub<&Self> for Scalar {
+	type Output = Self;
+
+	fn sub(self, _: &Self) -> Self::Output {
+		Self
+	}
+}
+
+impl Deref for NonIdentityElement {
+	type Target = Element;
+
+	fn deref(&self) -> &Self::Target {
+		&Element
+	}
+}
+
+impl TryFrom<Element> for NonIdentityElement {
+	type Error = Infallible;
+
+	fn try_from(_: Element) -> Result<Self, Self::Error> {
+		Ok(Self)
+	}
+}
+
+impl Add<&Self> for Element {
+	type Output = Self;
+
+	fn add(self, _: &Self) -> Self::Output {
+		Self
+	}
+}
+
+impl From<NonIdentityElement> for Element {
+	fn from(_: NonIdentityElement) -> Self {
+		Self
+	}
+}
