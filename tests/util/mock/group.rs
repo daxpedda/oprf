@@ -4,6 +4,7 @@ use core::convert::Infallible;
 use core::ops::{Add, Deref, Mul, Sub};
 
 use elliptic_curve::hash2curve::ExpandMsg;
+use elliptic_curve::subtle::{Choice, CtOption};
 use hybrid_array::Array;
 use oprf::group::{Dst, Group};
 use typenum::U0;
@@ -30,6 +31,8 @@ pub struct NonIdentityElement;
 pub struct Element;
 
 impl Group for MockCurve {
+	type K = U0;
+
 	type NonZeroScalar = NonZeroScalar;
 	type Scalar = Scalar;
 	type ScalarLength = U0;
@@ -42,7 +45,10 @@ impl Group for MockCurve {
 		Ok(NonZeroScalar)
 	}
 
-	fn hash_to_scalar<E: for<'dst> ExpandMsg<'dst>>(_: &[&[u8]], _: Dst) -> Self::Scalar {
+	fn hash_to_scalar<E>(_: &[&[u8]], _: Dst) -> Self::Scalar
+	where
+		E: ExpandMsg<Self::K>,
+	{
 		Scalar
 	}
 
@@ -70,8 +76,22 @@ impl Group for MockCurve {
 		Element
 	}
 
-	fn hash_to_group<E: for<'dst> ExpandMsg<'dst>>(_: &[&[u8]], _: Dst) -> Self::Element {
+	fn hash_to_group<E>(_: &[&[u8]], _: Dst) -> Self::Element
+	where
+		E: ExpandMsg<Self::K>,
+	{
 		Element
+	}
+
+	#[cfg(feature = "alloc")]
+	fn scalar_batch_invert(scalars: Vec<Self::Scalar>) -> CtOption<Vec<Self::Scalar>> {
+		CtOption::new(scalars, Choice::from(1))
+	}
+
+	fn scalar_batch_invert_fixed<const N: usize>(
+		scalars: [Self::Scalar; N],
+	) -> CtOption<[Self::Scalar; N]> {
+		CtOption::new(scalars, Choice::from(1))
 	}
 
 	fn serialize_element(_: &Self::Element) -> Array<u8, Self::ElementLength> {

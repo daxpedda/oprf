@@ -1,13 +1,14 @@
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::ops::Add;
 
-use digest::{FixedOutput, Update};
-use elliptic_curve::group::cofactor::CofactorGroup;
-use elliptic_curve::hash2curve::{ExpandMsg, FromOkm, GroupDigest};
-use elliptic_curve::ops::{Invert, LinearCombination};
+use elliptic_curve::hash2curve::{ExpandMsg, GroupDigest};
+use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
 use elliptic_curve::point::NonIdentity;
 use elliptic_curve::sec1::{CompressedPointSize, ModulusSize, Tag, ToEncodedPoint};
+use elliptic_curve::subtle::CtOption;
 use elliptic_curve::{
-	FieldBytesSize, Group as _, NonZeroScalar, PrimeField, ProjectivePoint, VoprfParameters,
+	FieldBytesSize, Group as _, NonZeroScalar, OprfParameters, PrimeField, ProjectivePoint, Scalar,
 };
 use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;
@@ -19,11 +20,12 @@ use crate::ciphersuite::{CipherSuite, Id};
 impl<C> Group for C
 where
 	C: GroupDigest,
-	C::Scalar: FromOkm,
 	FieldBytesSize<C>: Add<FieldBytesSize<C>, Output: ArraySize> + ModulusSize,
 	CompressedPointSize<C>: IsLess<U65536, Output = True>,
-	ProjectivePoint<C>: CofactorGroup + ToEncodedPoint<C>,
+	ProjectivePoint<C>: ToEncodedPoint<C>,
 {
+	type K = C::K;
+
 	type NonZeroScalar = NonZeroScalar<C>;
 	type Scalar = C::Scalar;
 	type ScalarLength = FieldBytesSize<C>;
@@ -36,7 +38,10 @@ where
 		NonZeroScalar::try_from_rng(rng)
 	}
 
-	fn hash_to_scalar<E: for<'dst> ExpandMsg<'dst>>(input: &[&[u8]], dst: Dst) -> Self::Scalar {
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Self::Scalar
+	where
+		E: ExpandMsg<Self::K>,
+	{
 		C::hash_to_scalar::<E>(input, dst.as_ref()).expect("invalid cipher suite")
 	}
 
@@ -52,6 +57,17 @@ where
 		scalar.invert()
 	}
 
+	#[cfg(feature = "alloc")]
+	fn scalar_batch_invert(scalars: Vec<Self::Scalar>) -> CtOption<Vec<Self::Scalar>> {
+		Scalar::<C>::batch_invert(scalars)
+	}
+
+	fn scalar_batch_invert_fixed<const N: usize>(
+		scalars: [Self::Scalar; N],
+	) -> CtOption<[Self::Scalar; N]> {
+		Scalar::<C>::batch_invert(scalars)
+	}
+
 	fn serialize_scalar(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
 		scalar.to_repr()
 	}
@@ -64,7 +80,10 @@ where
 		ProjectivePoint::<C>::generator()
 	}
 
-	fn hash_to_group<E: for<'dst> ExpandMsg<'dst>>(input: &[&[u8]], dst: Dst) -> Self::Element {
+	fn hash_to_group<E>(input: &[&[u8]], dst: Dst) -> Self::Element
+	where
+		E: ExpandMsg<Self::K>,
+	{
 		C::hash_from_bytes::<E>(input, dst.as_ref()).expect("invalid cipher suite")
 	}
 
@@ -89,11 +108,11 @@ where
 	}
 }
 
-impl<G: Group + VoprfParameters> CipherSuite for G
+impl<G> CipherSuite for G
 where
-	G::Hash: Default + FixedOutput<OutputSize: IsLess<U65536, Output = True>> + Update,
+	G: Group<K = <G as GroupDigest>::K> + OprfParameters,
 {
-	const ID: Id = Id::new(G::ID.as_bytes()).unwrap();
+	const ID: Id = Id::new(G::ID).unwrap();
 
 	type Group = G;
 	type Hash = G::Hash;

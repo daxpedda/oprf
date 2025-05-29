@@ -8,14 +8,14 @@ use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 /// A mock [`ExpandMsg`] for testing purposes. It is no-op.
 pub struct ExpandMsgMock;
 
-impl ExpandMsg<'_> for ExpandMsgMock {
-	type Expander = Self;
+impl<K> ExpandMsg<K> for ExpandMsgMock {
+	type Expander<'dst> = Self;
 
-	fn expand_message(
+	fn expand_message<'dst>(
 		_: &[&[u8]],
-		_: &[&[u8]],
+		_: &'dst [&[u8]],
 		_: NonZero<usize>,
-	) -> Result<Self::Expander, Error> {
+	) -> Result<Self::Expander<'dst>, Error> {
 		Ok(Self)
 	}
 }

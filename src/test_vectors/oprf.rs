@@ -1,6 +1,7 @@
 //! OPRF test vectors testing.
 
 use core::ops::Deref;
+use core::{array, iter};
 
 use super::parse::{TEST_VECTORS, Vector};
 use super::{KEY_INFO, SEED};
@@ -68,6 +69,27 @@ fn oprf<CS: CipherSuite>() {
 					.unwrap()
 					.as_slice(),
 			);
+
+			let [output] = OprfClient::batch_finalize_fixed(
+				array::from_ref(&client),
+				iter::once::<&[&[u8]]>(&[&vector.input]),
+				iter::once(&evaluation_element),
+			)
+			.unwrap();
+			assert_eq!(vector.output, output.as_slice());
+
+			#[cfg(feature = "alloc")]
+			{
+				let [output] = OprfClient::batch_finalize(
+					iter::once(&client),
+					iter::once::<&[&[u8]]>(&[&vector.input]),
+					iter::once(&evaluation_element),
+				)
+				.unwrap()
+				.try_into()
+				.unwrap();
+				assert_eq!(vector.output, output.as_slice());
+			}
 
 			// Evaluate.
 			assert_eq!(

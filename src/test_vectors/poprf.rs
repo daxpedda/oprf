@@ -135,6 +135,7 @@ fn poprf_batch<CS: CipherSuite>() {
 					(client, blinded_element)
 				})
 				.unzip();
+			let clients: [_; 2] = clients.try_into().unwrap();
 
 			// Blind evaluate.
 			let rng = &mut CycleRng::new(&vector_proof.r);
@@ -199,25 +200,43 @@ fn poprf_batch<CS: CipherSuite>() {
 
 			// Finalize.
 			let inputs = vector.inputs.each_ref().map(Vec::as_slice);
-			PoprfClient::batch_finalize(
+			let inputs = inputs.each_ref().map(slice::from_ref);
+			PoprfClient::batch_finalize_fixed(
 				&clients,
 				server.public_key(),
-				inputs.each_ref().map(slice::from_ref).into_iter(),
+				inputs.into_iter(),
 				&evaluation_elements,
 				&proof,
 				&INFO,
 			)
 			.unwrap()
+			.into_iter()
 			.zip(&vector.outputs)
 			.for_each(|(output, vector_output)| {
-				assert_eq!(vector_output, output.unwrap().as_slice());
+				assert_eq!(vector_output, output.as_slice());
+			});
+
+			#[cfg(feature = "alloc")]
+			PoprfClient::batch_finalize(
+				&clients,
+				server.public_key(),
+				inputs.into_iter(),
+				&evaluation_elements,
+				&proof,
+				&INFO,
+			)
+			.unwrap()
+			.into_iter()
+			.zip(&vector.outputs)
+			.for_each(|(output, vector_output)| {
+				assert_eq!(vector_output, output.as_slice());
 			});
 
 			// Evaluate.
 			for (input, output) in inputs.into_iter().zip(&vector.outputs) {
 				assert_eq!(
 					output,
-					server.evaluate(&state, &[input], &INFO).unwrap().as_slice(),
+					server.evaluate(&state, input, &INFO).unwrap().as_slice(),
 				);
 			}
 		}

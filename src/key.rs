@@ -29,9 +29,7 @@ impl<G: Group> KeyPair<G> {
 		seed: &[u8; 32],
 		info: &[u8],
 	) -> Result<Self> {
-		Ok(Self::from_secret_key(SecretKey::derive::<CS>(
-			mode, seed, info,
-		)?))
+		SecretKey::derive::<CS>(mode, seed, info).map(Self::from_secret_key)
 	}
 
 	pub fn from_secret_key(secret_key: SecretKey<G>) -> Self {

@@ -6,10 +6,11 @@ use std::slice::SliceIndex;
 
 use derive_where::derive_where;
 use digest::Output;
+use hybrid_array::{ArraySize, AssocArraySize};
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
 use oprf::key::PublicKey;
-use oprf::oprf::{OprfBlindResult, OprfClient};
+use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 use oprf::poprf::{
 	PoprfBatchBlindEvaluateState, PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient,
 	PoprfEvaluateState, PoprfFinishBatchBlindEvaluateResult, PoprfPrepareBatchBlindEvaluateResult,
@@ -19,7 +20,7 @@ use oprf::voprf::{
 	VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient, VoprfFinishBatchBlindEvaluateResult,
 	VoprfServer,
 };
-use oprf::{Error, OprfServer, Result};
+use oprf::{Error, Result};
 use rand::TryRngCore;
 use rand_core::OsRng;
 
@@ -43,6 +44,7 @@ pub struct HelperClient<CS: CipherSuite> {
 /// Wrapper around multiple clients in all [`Mode`]s.
 #[derive_where(Debug)]
 enum ClientBatch<CS: CipherSuite> {
+	Oprf(Vec<OprfClient<CS>>),
 	Voprf(Vec<VoprfClient<CS>>),
 	Poprf(Vec<PoprfClient<CS>>),
 }
@@ -74,10 +76,15 @@ enum Server<CS: CipherSuite> {
 /// stage [`PoprfBatchBlindEvaluateState`] output.
 #[derive_where(Debug)]
 enum ServerPrepare<CS: CipherSuite> {
-	Voprf(VoprfServer<CS>),
+	Oprf(OprfServer<CS>),
+	Voprf {
+		server: VoprfServer<CS>,
+		prepared_elements: Vec<PreparedElement<CS>>,
+	},
 	Poprf {
 		server: PoprfServer<CS>,
 		state: PoprfBatchBlindEvaluateState<CS>,
+		prepared_elements: Vec<PreparedElement<CS>>,
 	},
 }
 
@@ -102,7 +109,6 @@ pub struct HelperServerBatch<CS: CipherSuite> {
 #[derive_where(Debug)]
 pub struct HelperServerPrepareBatch<CS: CipherSuite> {
 	server: ServerPrepare<CS>,
-	prepared_elements: Vec<PreparedElement<CS>>,
 }
 
 /// Wrapper around servers in all [`Mode`]s and their batched `BlindEvalaute`
@@ -111,16 +117,20 @@ pub struct HelperServerPrepareBatch<CS: CipherSuite> {
 pub struct HelperServerFinishBatch<CS: CipherSuite> {
 	server: ServerFinish<CS>,
 	evaluation_elements: Vec<EvaluationElement<CS>>,
-	proof: Proof<CS>,
 }
 
 /// Wrapper around servers in all [`Mode`]s and their `BlindEvalaute` prepare
 /// stage [`PoprfBatchBlindEvaluateState`] output.
 #[derive_where(Debug)]
 enum ServerFinish<CS: CipherSuite> {
-	Voprf(VoprfServer<CS>),
+	Oprf(OprfServer<CS>),
+	Voprf {
+		server: VoprfServer<CS>,
+		proof: Proof<CS>,
+	},
 	Poprf {
 		server: PoprfServer<CS>,
+		proof: Proof<CS>,
 		state: PoprfEvaluateState<CS>,
 	},
 }
@@ -268,6 +278,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 	#[must_use]
 	fn mode(&self) -> Mode {
 		match self.clients {
+			ClientBatch::Oprf(_) => Mode::Oprf,
 			ClientBatch::Voprf(_) => Mode::Voprf,
 			ClientBatch::Poprf(_) => Mode::Poprf,
 		}
@@ -280,11 +291,13 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 
 	fn len(&self) -> usize {
 		match &self.clients {
+			ClientBatch::Oprf(clients) => clients.len(),
 			ClientBatch::Voprf(clients) => clients.len(),
 			ClientBatch::Poprf(clients) => clients.len(),
 		}
 	}
 
+	#[cfg(feature = "alloc")]
 	pub fn finalize(&self, server: &HelperServerFinishBatch<CS>) -> Vec<Output<CS::Hash>> {
 		self.finalize_with(
 			..,
@@ -296,6 +309,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		.unwrap()
 	}
 
+	#[cfg(feature = "alloc")]
 	pub fn finalize_with<'inputs, 'evaluation_elements, CI, II, IEE>(
 		&self,
 		index: CI,
@@ -305,7 +319,8 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		info: &[u8],
 	) -> Result<Vec<Output<CS::Hash>>>
 	where
-		CI: SliceIndex<[VoprfClient<CS>], Output = [VoprfClient<CS>]>
+		CI: SliceIndex<[OprfClient<CS>], Output = [OprfClient<CS>]>
+			+ SliceIndex<[VoprfClient<CS>], Output = [VoprfClient<CS>]>
 			+ SliceIndex<[PoprfClient<CS>], Output = [PoprfClient<CS>]>,
 		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 		IEE: ?Sized,
@@ -315,29 +330,84 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 			>,
 	{
 		match &self.clients {
-			ClientBatch::Voprf(clients) => {
-				let outputs = VoprfClient::batch_finalize::<[_], _, _>(
-					&clients[index],
-					server.public_key(),
-					inputs,
-					evaluation_elements,
-					&server.proof,
-				)?;
+			ClientBatch::Oprf(clients) => OprfClient::batch_finalize(
+				clients[index].iter(),
+				inputs,
+				evaluation_elements.into_iter(),
+			),
+			ClientBatch::Voprf(clients) => VoprfClient::batch_finalize::<[_], _, _>(
+				&clients[index],
+				server.public_key().unwrap(),
+				inputs,
+				evaluation_elements,
+				server.proof().unwrap(),
+			),
+			ClientBatch::Poprf(clients) => PoprfClient::batch_finalize::<[_], _, _>(
+				&clients[index],
+				server.public_key().unwrap(),
+				inputs,
+				evaluation_elements,
+				server.proof().unwrap(),
+				info,
+			),
+		}
+	}
 
-				outputs.collect()
-			}
-			ClientBatch::Poprf(clients) => {
-				let outputs = PoprfClient::batch_finalize::<[_], _, _>(
-					&clients[index],
-					server.public_key(),
-					inputs,
-					evaluation_elements,
-					&server.proof,
-					info,
-				)?;
+	pub fn finalize_fixed<const N: usize>(
+		&self,
+		server: &HelperServerFinishBatch<CS>,
+	) -> [Output<CS::Hash>; N]
+	where
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	{
+		self.finalize_fixed_with::<N, _, _>(
+			server,
+			iter::repeat_n(INPUT, self.len()),
+			server.evaluation_elements(),
+			INFO,
+		)
+		.unwrap()
+	}
 
-				outputs.collect()
-			}
+	pub fn finalize_fixed_with<'inputs, 'evaluation_elements, const N: usize, II, IEE>(
+		&self,
+		server: &HelperServerFinishBatch<CS>,
+		inputs: II,
+		evaluation_elements: &'evaluation_elements IEE,
+		info: &[u8],
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ?Sized,
+		&'evaluation_elements IEE: IntoIterator<
+				Item = &'evaluation_elements EvaluationElement<CS>,
+				IntoIter: ExactSizeIterator,
+			>,
+	{
+		match &self.clients {
+			ClientBatch::Oprf(clients) => OprfClient::batch_finalize_fixed::<N, _, _>(
+				clients[..N].try_into().unwrap(),
+				inputs,
+				evaluation_elements.into_iter(),
+			),
+			ClientBatch::Voprf(clients) => VoprfClient::batch_finalize_fixed::<N, _, _>(
+				clients[..N].try_into().unwrap(),
+				server.public_key().unwrap(),
+				inputs,
+				evaluation_elements,
+				server.proof().unwrap(),
+			),
+			ClientBatch::Poprf(clients) => PoprfClient::batch_finalize_fixed::<N, _, _>(
+				clients[..N].try_into().unwrap(),
+				server.public_key().unwrap(),
+				inputs,
+				evaluation_elements,
+				server.proof().unwrap(),
+				info,
+			),
 		}
 	}
 }
@@ -438,14 +508,22 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
 		match mode {
-			Mode::Oprf => panic!("OPRF doesn't have batching functionality"),
+			Mode::Oprf => {
+				let server = OprfServer::new(&mut OsRng).unwrap();
+
+				Ok(HelperServerPrepareBatch {
+					server: ServerPrepare::Oprf(server),
+				})
+			}
 			Mode::Voprf => {
 				let server = VoprfServer::new(&mut OsRng).unwrap();
 				let prepared_elements = server.prepare_batch_blind_evaluate(blinded_elements)?;
 
 				Ok(HelperServerPrepareBatch {
-					server: ServerPrepare::Voprf(server),
-					prepared_elements: prepared_elements.collect(),
+					server: ServerPrepare::Voprf {
+						server,
+						prepared_elements: prepared_elements.collect(),
+					},
 				})
 			}
 			Mode::Poprf => {
@@ -456,8 +534,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				} = server.prepare_batch_blind_evaluate(blinded_elements, info)?;
 
 				Ok(HelperServerPrepareBatch {
-					server: ServerPrepare::Poprf { server, state },
-					prepared_elements: prepared_elements.collect(),
+					server: ServerPrepare::Poprf {
+						server,
+						state,
+						prepared_elements: prepared_elements.collect(),
+					},
 				})
 			}
 		}
@@ -483,35 +564,52 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 impl<CS: CipherSuite> HelperServerPrepareBatch<CS> {
 	#[must_use]
-	pub fn public_key(&self) -> &PublicKey<CS::Group> {
+	pub fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
 		match &self.server {
-			ServerPrepare::Voprf(server) => server.public_key(),
-			ServerPrepare::Poprf { server, .. } => server.public_key(),
+			ServerPrepare::Oprf(_) => None,
+			ServerPrepare::Voprf { server, .. } => Some(server.public_key()),
+			ServerPrepare::Poprf { server, .. } => Some(server.public_key()),
 		}
 	}
 
 	#[must_use]
 	pub fn state(&self) -> Option<&PoprfBatchBlindEvaluateState<CS>> {
 		match &self.server {
-			ServerPrepare::Voprf(_) => None,
+			ServerPrepare::Oprf(_) | ServerPrepare::Voprf { .. } => None,
 			ServerPrepare::Poprf { state, .. } => Some(state),
 		}
 	}
 
 	#[must_use]
 	pub fn prepared_elements(&self) -> &[PreparedElement<CS>] {
-		&self.prepared_elements
+		match &self.server {
+			ServerPrepare::Oprf(_) => &[],
+			ServerPrepare::Voprf {
+				prepared_elements, ..
+			}
+			| ServerPrepare::Poprf {
+				prepared_elements, ..
+			} => prepared_elements,
+		}
 	}
 
 	pub fn push(&mut self, prepared_element: PreparedElement<CS>) {
-		self.prepared_elements.push(prepared_element);
+		match &mut self.server {
+			ServerPrepare::Oprf(_) => {}
+			ServerPrepare::Voprf {
+				prepared_elements, ..
+			}
+			| ServerPrepare::Poprf {
+				prepared_elements, ..
+			} => prepared_elements.push(prepared_element),
+		}
 	}
 
 	#[cfg(feature = "alloc")]
 	pub fn batch<'blinded_elements, I>(
 		&self,
 		blinded_elements: &'blinded_elements I,
-	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<(), Error<<OsRng as TryRngCore>::Error>>
 	where
 		I: ?Sized,
 		&'blinded_elements I:
@@ -525,39 +623,29 @@ impl<CS: CipherSuite> HelperServerPrepareBatch<CS> {
 		&self,
 		blinded_elements: &'blinded_elements I,
 		info: &[u8],
-	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<(), Error<<OsRng as TryRngCore>::Error>>
 	where
 		I: ?Sized,
 		&'blinded_elements I:
 			IntoIterator<Item = &'blinded_elements BlindedElement<CS>, IntoIter: ExactSizeIterator>,
 	{
 		match &self.server {
-			ServerPrepare::Voprf(server) => {
-				use oprf::voprf::VoprfBatchBlindEvaluateResult;
+			ServerPrepare::Oprf(server) => {
+				for blinded_element in blinded_elements {
+					server.blind_evaluate(blinded_element);
+				}
 
-				let VoprfBatchBlindEvaluateResult {
-					evaluation_elements,
-					proof,
-				} = server.batch_blind_evaluate(&mut OsRng, blinded_elements)?;
+				Ok(())
+			}
+			ServerPrepare::Voprf { server, .. } => {
+				server.batch_blind_evaluate(&mut OsRng, blinded_elements)?;
 
-				Ok(HelperServerBatch {
-					evaluation_elements,
-					proof,
-				})
+				Ok(())
 			}
 			ServerPrepare::Poprf { server, .. } => {
-				use oprf::poprf::PoprfBatchBlindEvaluateResult;
+				server.batch_blind_evaluate(&mut OsRng, blinded_elements, info)?;
 
-				let PoprfBatchBlindEvaluateResult {
-					evaluation_elements,
-					proof,
-					..
-				} = server.batch_blind_evaluate(&mut OsRng, blinded_elements, info)?;
-
-				Ok(HelperServerBatch {
-					evaluation_elements,
-					proof,
-				})
+				Ok(())
 			}
 		}
 	}
@@ -587,7 +675,16 @@ impl<CS: CipherSuite> HelperServerPrepareBatch<CS> {
 			>,
 	{
 		match &self.server {
-			ServerPrepare::Voprf(server) => {
+			ServerPrepare::Oprf(server) => {
+				let evaluation_elements =
+					blinded_elements.map(|blinded_element| server.blind_evaluate(blinded_element));
+
+				Ok(HelperServerFinishBatch {
+					server: ServerFinish::Oprf(server.clone()),
+					evaluation_elements: evaluation_elements.collect(),
+				})
+			}
+			ServerPrepare::Voprf { server, .. } => {
 				let VoprfFinishBatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
@@ -598,9 +695,11 @@ impl<CS: CipherSuite> HelperServerPrepareBatch<CS> {
 				)?;
 
 				Ok(HelperServerFinishBatch {
-					server: ServerFinish::Voprf(server.clone()),
+					server: ServerFinish::Voprf {
+						server: server.clone(),
+						proof,
+					},
 					evaluation_elements: evaluation_elements.collect(),
-					proof,
 				})
 			}
 			ServerPrepare::Poprf { server, .. } => {
@@ -618,10 +717,10 @@ impl<CS: CipherSuite> HelperServerPrepareBatch<CS> {
 				Ok(HelperServerFinishBatch {
 					server: ServerFinish::Poprf {
 						server: server.clone(),
+						proof,
 						state,
 					},
 					evaluation_elements: evaluation_elements.collect(),
-					proof,
 				})
 			}
 		}
@@ -630,17 +729,18 @@ impl<CS: CipherSuite> HelperServerPrepareBatch<CS> {
 
 impl<CS: CipherSuite> HelperServerFinishBatch<CS> {
 	#[must_use]
-	fn public_key(&self) -> &PublicKey<CS::Group> {
+	fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
 		match &self.server {
-			ServerFinish::Voprf(server) => server.public_key(),
-			ServerFinish::Poprf { server, .. } => server.public_key(),
+			ServerFinish::Oprf(_) => None,
+			ServerFinish::Voprf { server, .. } => Some(server.public_key()),
+			ServerFinish::Poprf { server, .. } => Some(server.public_key()),
 		}
 	}
 
 	#[must_use]
 	pub fn state(&self) -> Option<&PoprfEvaluateState<CS>> {
 		match &self.server {
-			ServerFinish::Voprf { .. } => None,
+			ServerFinish::Oprf(_) | ServerFinish::Voprf { .. } => None,
 			ServerFinish::Poprf { state, .. } => Some(state),
 		}
 	}
@@ -648,6 +748,14 @@ impl<CS: CipherSuite> HelperServerFinishBatch<CS> {
 	#[must_use]
 	pub fn evaluation_elements(&self) -> &[EvaluationElement<CS>] {
 		&self.evaluation_elements
+	}
+
+	#[must_use]
+	fn proof(&self) -> Option<&Proof<CS>> {
+		match &self.server {
+			ServerFinish::Oprf(_) => None,
+			ServerFinish::Voprf { proof, .. } | ServerFinish::Poprf { proof, .. } => Some(proof),
+		}
 	}
 
 	pub fn push(&mut self, evaluation_element: EvaluationElement<CS>) {
@@ -665,7 +773,8 @@ impl<CS: CipherSuite> HelperServerFinishBatch<CS> {
 		info: &[u8],
 	) -> Result<Output<CS::Hash>> {
 		match &self.server {
-			ServerFinish::Voprf(server) => server.evaluate(input),
+			ServerFinish::Oprf(server) => server.evaluate(input),
+			ServerFinish::Voprf { server, .. } => server.evaluate(input),
 			ServerFinish::Poprf { server, .. } => server.evaluate(state.unwrap(), input, info),
 		}
 	}
@@ -701,7 +810,21 @@ impl<CS: CipherSuite> FromIterator<(Client<CS>, BlindedElement<CS>)> for HelperC
 		};
 
 		match client {
-			Client::Oprf(_) => panic!("OPRF doesn't have batching functionality"),
+			Client::Oprf(_) => {
+				let (clients, blinded_elements) = items
+					.map(|(client, blinded_element)| {
+						let Client::Oprf(client) = client else {
+							panic!("attempting to create `ClientBatch` from non-uniform clients")
+						};
+						(client, blinded_element)
+					})
+					.unzip();
+
+				Self {
+					clients: ClientBatch::Oprf(clients),
+					blinded_elements,
+				}
+			}
 			Client::Voprf(_) => {
 				let (clients, blinded_elements) = items
 					.map(|(client, blinded_element)| {

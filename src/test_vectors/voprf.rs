@@ -90,6 +90,7 @@ fn voprf<CS: CipherSuite>() {
 }
 
 /// Tests batched VOPRF test vectors.
+#[expect(clippy::too_many_lines, reason = "test")]
 fn voprf_batch<CS: CipherSuite>() {
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
 		test_vector.identifier.as_bytes() == CS::ID.deref()
@@ -129,6 +130,7 @@ fn voprf_batch<CS: CipherSuite>() {
 					(client, blinded_element)
 				})
 				.unzip();
+			let clients: [_; 2] = clients.try_into().unwrap();
 
 			// Blind evaluate.
 			let rng = &mut CycleRng::new(&vector_proof.r);
@@ -180,22 +182,39 @@ fn voprf_batch<CS: CipherSuite>() {
 
 			// Finalize.
 			let inputs = vector.inputs.each_ref().map(Vec::as_slice);
-			VoprfClient::batch_finalize(
+			let inputs = inputs.each_ref().map(slice::from_ref);
+			VoprfClient::batch_finalize_fixed(
 				&clients,
 				server.public_key(),
-				inputs.each_ref().map(slice::from_ref).into_iter(),
+				inputs.into_iter(),
 				&evaluation_elements,
 				&proof,
 			)
 			.unwrap()
+			.into_iter()
 			.zip(&vector.outputs)
 			.for_each(|(output, vector_output)| {
-				assert_eq!(vector_output, output.unwrap().as_slice());
+				assert_eq!(vector_output, output.as_slice());
+			});
+
+			#[cfg(feature = "alloc")]
+			VoprfClient::batch_finalize(
+				&clients,
+				server.public_key(),
+				inputs.into_iter(),
+				&evaluation_elements,
+				&proof,
+			)
+			.unwrap()
+			.into_iter()
+			.zip(&vector.outputs)
+			.for_each(|(output, vector_output)| {
+				assert_eq!(vector_output, output.as_slice());
 			});
 
 			// Evaluate.
 			for (input, output) in inputs.into_iter().zip(&vector.outputs) {
-				assert_eq!(output, server.evaluate(&[input]).unwrap().as_slice(),);
+				assert_eq!(output, server.evaluate(input).unwrap().as_slice(),);
 			}
 		}
 	}

@@ -56,8 +56,7 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on wrong input during `Finalize` and `Evaluate`.
 	let wrong_client_output = clients
-		.finalize_with(
-			..,
+		.finalize_fixed_with::<1, _, _>(
 			&server,
 			iter::once::<&[&[u8]]>(&[b"wrong"]),
 			server.evaluation_elements(),
@@ -74,7 +73,7 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 	assert_ne!(wrong_client_output, [server_output]);
 
 	// Failure on wrong input during `Evaluate`.
-	let client_output = clients.finalize(&server);
+	let client_output = clients.finalize_fixed::<1>(&server);
 	assert_ne!(client_output, [wrong_server_output]);
 }
 
@@ -102,7 +101,7 @@ fn info_batch<CS: CipherSuite>(_: Mode) {
 	let prepared = HelperServer::prepare(&clients);
 	let server = prepared.finish(&clients);
 
-	let client_output = clients.finalize(&server);
+	let client_output = clients.finalize_fixed::<1>(&server);
 
 	let server_output = server
 		.evaluate_with(server.state(), INPUT, b"wrong")
@@ -138,7 +137,7 @@ fn state_batch<CS: CipherSuite>(_: Mode) {
 	let wrong_prepared = HelperServer::prepare(&clients);
 	let wrong_server = wrong_prepared.finish(&clients);
 
-	let client_output = clients.finalize(&server);
+	let client_output = clients.finalize_fixed::<1>(&server);
 
 	let server_output = server
 		.evaluate_with(wrong_server.state(), INPUT, b"wrong")

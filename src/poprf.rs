@@ -1,18 +1,18 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
-use core::iter::{Map, Repeat, RepeatN, Zip};
-use core::{array, iter};
+use core::iter;
+use core::iter::{Map, Repeat, Zip};
 
 use digest::Output;
-use hybrid_array::ArrayN;
+use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
-use crate::internal::{self, BlindResult, Info};
+use crate::internal::{self, Blind, BlindResult, Info};
 #[cfg(test)]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -53,39 +53,30 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		proof: &Proof<CS>,
 		info: &[u8],
 	) -> Result<Output<CS::Hash>> {
-		let outputs: ArrayN<_, 1> = Self::batch_finalize(
-			array::from_ref(self),
+		let info = Self::internal_batch_finalize(
+			iter::once(self),
 			public_key,
-			iter::once(input),
-			array::from_ref(evaluation_element),
+			&iter::once(input),
+			iter::once(evaluation_element),
 			proof,
 			info,
-		)?
-		.collect();
-		let [output] = outputs.into();
+		)?;
 
-		output
+		internal::finalize(input, &self.blind, evaluation_element, Some(info))
 	}
 
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
-	pub fn batch_finalize<'clients, 'inputs, 'evaluation_elements, 'info, IC, II, IEE>(
+	#[cfg(feature = "alloc")]
+	pub fn batch_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: &'clients IC,
 		public_key: &PublicKey<CS::Group>,
 		inputs: II,
 		evaluation_elements: &'evaluation_elements IEE,
 		proof: &Proof<CS>,
-		info: &'info [u8],
-	) -> Result<
-		PoprfBatchFinalizeResult<
-			'info,
-			CS,
-			II,
-			<&'clients IC as IntoIterator>::IntoIter,
-			<&'evaluation_elements IEE as IntoIterator>::IntoIter,
-		>,
-	>
+		info: &[u8],
+	) -> Result<Vec<Output<CS::Hash>>>
 	where
 		IC: ?Sized,
 		&'clients IC: IntoIterator<Item = &'clients Self, IntoIter: ExactSizeIterator>,
@@ -96,8 +87,73 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 				IntoIter: ExactSizeIterator,
 			>,
 	{
-		let clients_iter = clients.into_iter();
-		let clients_length = clients_iter.len();
+		let info = Self::internal_batch_finalize(
+			clients.into_iter(),
+			public_key,
+			&inputs,
+			evaluation_elements.into_iter(),
+			proof,
+			info,
+		)?;
+
+		internal::batch_finalize(
+			inputs,
+			clients.into_iter(),
+			evaluation_elements.into_iter(),
+			Some(info),
+		)
+	}
+
+	// `Finalize`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
+	pub fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, II, IEE>(
+		clients: &[Self; N],
+		public_key: &PublicKey<CS::Group>,
+		inputs: II,
+		evaluation_elements: &'evaluation_elements IEE,
+		proof: &Proof<CS>,
+		info: &[u8],
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ?Sized,
+		&'evaluation_elements IEE: IntoIterator<
+				Item = &'evaluation_elements EvaluationElement<CS>,
+				IntoIter: ExactSizeIterator,
+			>,
+	{
+		let info = Self::internal_batch_finalize(
+			clients.iter(),
+			public_key,
+			&inputs,
+			evaluation_elements.into_iter(),
+			proof,
+			info,
+		)?;
+
+		internal::batch_finalize_fixed(inputs, clients, evaluation_elements.into_iter(), Some(info))
+	}
+
+	// `Finalize`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
+	fn internal_batch_finalize<'clients, 'inputs, 'evaluation_elements, 'info, IC, II, IEE>(
+		clients: IC,
+		public_key: &PublicKey<CS::Group>,
+		inputs: &II,
+		evaluation_elements: IEE,
+		proof: &Proof<CS>,
+		info: &'info [u8],
+	) -> Result<Info<'info>>
+	where
+		IC: ExactSizeIterator<Item = &'clients Self>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+	{
+		let clients_length = clients.len();
 
 		if clients_length != inputs.len() {
 			return Err(Error::Batch);
@@ -115,20 +171,18 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		internal::verify_proof(
 			Mode::Poprf,
 			tweaked_key,
-			evaluation_elements
-				.into_iter()
-				.map(|evaluation_element| &evaluation_element.0),
-			clients_iter.map(|client| &client.blinded_element.0),
+			evaluation_elements.map(|evaluation_element| &evaluation_element.0),
+			clients.map(|client| &client.blinded_element.0),
 			proof,
 		)?;
 
-		Ok(inputs
-			.zip(iter::repeat_n(info, clients_length))
-			.zip(clients)
-			.zip(evaluation_elements)
-			.map(|(((input, info), client), evaluation_element)| {
-				internal::finalize(input, &client.blind, evaluation_element, Some(info))
-			}))
+		Ok(info)
+	}
+}
+
+impl<CS: CipherSuite> Blind<CS> for PoprfClient<CS> {
+	fn get_blind(&self) -> NonZeroScalar<CS> {
+		self.blind
 	}
 }
 
@@ -345,16 +399,6 @@ pub struct PoprfBlindResult<CS: CipherSuite> {
 	pub client: PoprfClient<CS>,
 	pub blinded_element: BlindedElement<CS>,
 }
-
-pub type PoprfBatchFinalizeResult<'info, CS, II, IC, IEE> = Map<
-	Zip<Zip<Zip<II, RepeatN<Info<'info>>>, IC>, IEE>,
-	fn(
-		(
-			((&[&[u8]], Info<'_>), &PoprfClient<CS>),
-			&EvaluationElement<CS>,
-		),
-	) -> Result<Output<<CS as CipherSuite>::Hash>>,
->;
 
 pub struct PoprfEvaluateState<CS: CipherSuite> {
 	t_inverted: NonZeroScalar<CS>,

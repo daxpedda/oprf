@@ -17,7 +17,7 @@ pub trait CipherSuite: 'static {
 
 	type Group: Group;
 	type Hash: Default + FixedOutput<OutputSize: IsLess<U65536, Output = True>> + Update;
-	type ExpandMsg: for<'dst> ExpandMsg<'dst>;
+	type ExpandMsg: ExpandMsg<<Self::Group as Group>::K>;
 }
 
 type CsGroup<CS> = <CS as CipherSuite>::Group;

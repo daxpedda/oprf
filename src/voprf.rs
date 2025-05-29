@@ -1,17 +1,17 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
+use core::iter;
 use core::iter::{Map, Repeat, Zip};
-use core::{array, iter};
 
 use digest::Output;
-use hybrid_array::ArrayN;
+use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
 use crate::error::{Error, Result};
-use crate::internal::{self, BlindResult};
+use crate::internal::{self, Blind, BlindResult};
 #[cfg(test)]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -51,36 +51,28 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		evaluation_element: &EvaluationElement<CS>,
 		proof: &Proof<CS>,
 	) -> Result<Output<CS::Hash>> {
-		let outputs: ArrayN<_, 1> = Self::batch_finalize(
-			array::from_ref(self),
+		Self::internal_batch_finalize(
+			iter::once(self),
 			public_key,
-			iter::once(input),
-			array::from_ref(evaluation_element),
+			&iter::once(input),
+			iter::once(evaluation_element),
 			proof,
-		)?
-		.collect();
-		let [output] = outputs.into();
+		)?;
 
-		output
+		internal::finalize(input, &self.blind, evaluation_element, None)
 	}
 
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
+	#[cfg(feature = "alloc")]
 	pub fn batch_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: &'clients IC,
 		public_key: &PublicKey<CS::Group>,
 		inputs: II,
 		evaluation_elements: &'evaluation_elements IEE,
 		proof: &Proof<CS>,
-	) -> Result<
-		VoprfBatchFinalizeResult<
-			CS,
-			II,
-			<&'clients IC as IntoIterator>::IntoIter,
-			<&'evaluation_elements IEE as IntoIterator>::IntoIter,
-		>,
-	>
+	) -> Result<Vec<Output<CS::Hash>>>
 	where
 		IC: ?Sized,
 		&'clients IC: IntoIterator<Item = &'clients Self, IntoIter: ExactSizeIterator>,
@@ -90,6 +82,68 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 				Item = &'evaluation_elements EvaluationElement<CS>,
 				IntoIter: ExactSizeIterator,
 			>,
+	{
+		Self::internal_batch_finalize(
+			clients.into_iter(),
+			public_key,
+			&inputs,
+			evaluation_elements.into_iter(),
+			proof,
+		)?;
+
+		internal::batch_finalize(
+			inputs,
+			clients.into_iter(),
+			evaluation_elements.into_iter(),
+			None,
+		)
+	}
+
+	// `Finalize`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
+	pub fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, II, IEE>(
+		clients: &[Self; N],
+		public_key: &PublicKey<CS::Group>,
+		inputs: II,
+		evaluation_elements: &'evaluation_elements IEE,
+		proof: &Proof<CS>,
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ?Sized,
+		&'evaluation_elements IEE: IntoIterator<
+				Item = &'evaluation_elements EvaluationElement<CS>,
+				IntoIter: ExactSizeIterator,
+			>,
+	{
+		Self::internal_batch_finalize(
+			clients.iter(),
+			public_key,
+			&inputs,
+			evaluation_elements.into_iter(),
+			proof,
+		)?;
+
+		internal::batch_finalize_fixed(inputs, clients, evaluation_elements.into_iter(), None)
+	}
+
+	// `Finalize`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
+	fn internal_batch_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
+		clients: IC,
+		public_key: &PublicKey<CS::Group>,
+		inputs: &II,
+		evaluation_elements: IEE,
+		proof: &Proof<CS>,
+	) -> Result<()>
+	where
+		IC: ExactSizeIterator<Item = &'clients Self>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
 	{
 		let clients_iter = clients.into_iter();
 
@@ -101,17 +155,15 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			Mode::Voprf,
 			public_key.to_point(),
 			clients_iter.map(|client| &client.blinded_element.0),
-			evaluation_elements
-				.into_iter()
-				.map(|evaluation_element| &evaluation_element.0),
+			evaluation_elements.map(|evaluation_element| &evaluation_element.0),
 			proof,
-		)?;
+		)
+	}
+}
 
-		Ok(inputs.zip(clients).zip(evaluation_elements).map(
-			|((input, client), evaluation_element)| {
-				internal::finalize(input, &client.blind, evaluation_element, None)
-			},
-		))
+impl<CS: CipherSuite> Blind<CS> for VoprfClient<CS> {
+	fn get_blind(&self) -> NonZeroScalar<CS> {
+		self.blind
 	}
 }
 
@@ -287,13 +339,6 @@ pub struct VoprfBlindResult<CS: CipherSuite> {
 	pub client: VoprfClient<CS>,
 	pub blinded_element: BlindedElement<CS>,
 }
-
-pub type VoprfBatchFinalizeResult<CS, II, IC, IEE> = Map<
-	Zip<Zip<II, IC>, IEE>,
-	fn(
-		((&[&[u8]], &VoprfClient<CS>), &EvaluationElement<CS>),
-	) -> Result<Output<<CS as CipherSuite>::Hash>>,
->;
 
 pub struct VoprfBlindEvaluateResult<CS: CipherSuite> {
 	pub evaluation_element: EvaluationElement<CS>,

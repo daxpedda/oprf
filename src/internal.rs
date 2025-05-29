@@ -1,8 +1,12 @@
 #![expect(non_snake_case, reason = "following the specification exactly")]
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::ops::Deref;
+use core::{array, iter};
 
 use digest::{FixedOutput, Output, OutputSizeUser, Update};
+use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use typenum::Unsigned;
 
@@ -18,12 +22,12 @@ pub(crate) struct BlindResult<CS: CipherSuite> {
 	pub(crate) blinded_element: BlindedElement<CS>,
 }
 
+pub(crate) trait Blind<CS: CipherSuite> {
+	fn get_blind(&self) -> NonZeroScalar<CS>;
+}
+
 #[derive(Clone, Copy, Debug)]
-#[expect(
-	unnameable_types,
-	reason = "exposed to make the type alias work in public"
-)]
-pub struct Info<'info> {
+pub(crate) struct Info<'info> {
 	i2osp: [u8; 2],
 	info: &'info [u8],
 }
@@ -245,23 +249,135 @@ pub(crate) fn finalize<CS: CipherSuite>(
 	evaluation_element: &EvaluationElement<CS>,
 	info: Option<Info<'_>>,
 ) -> Result<Output<CS::Hash>> {
-	let n = CS::Group::scalar_invert(blind) * &evaluation_element.0;
-	let unblinded_element = CS::Group::serialize_element(&n);
+	let output: ArrayN<_, 1> = internal_finalize(
+		iter::once(input),
+		iter::once(CS::Group::scalar_invert(blind).into()),
+		iter::once(evaluation_element),
+		info,
+	)
+	.collect();
+	let [output] = output.into();
 
-	let mut hash = CS::Hash::default()
-		.chain(input.i2osp_length().ok_or(Error::InputLength)?)
-		.chain_iter(input.iter().copied());
+	output
+}
 
-	if let Some(info) = info {
-		hash.update(&info.i2osp);
-		hash.update(info.info);
+// `Finalize`
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+#[expect(single_use_lifetimes, reason = "false-positive")]
+#[cfg(feature = "alloc")]
+pub(crate) fn batch_finalize<'inputs, 'blinds, 'evaluation_elements, CS, T>(
+	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+	blinds: impl ExactSizeIterator<Item = &'blinds T>,
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+	info: Option<Info<'_>>,
+) -> Result<Vec<Output<CS::Hash>>>
+where
+	CS: CipherSuite,
+	T: 'static + Blind<CS>,
+{
+	let input_length = inputs.len();
+
+	if input_length == 0
+		|| input_length != blinds.len()
+		|| input_length != evaluation_elements.len()
+	{
+		return Err(Error::Batch);
 	}
 
-	Ok(hash
-		.chain(CS::I2OSP_ELEMENT_LEN)
-		.chain(unblinded_element)
-		.chain(b"Finalize")
-		.finalize_fixed())
+	let scalars: Vec<_> = blinds.map(|blind| blind.get_blind().into()).collect();
+	let inverted_scalars = CS::Group::scalar_batch_invert(scalars).unwrap();
+
+	internal_finalize(
+		inputs,
+		inverted_scalars.into_iter(),
+		evaluation_elements,
+		info,
+	)
+	.collect()
+}
+
+// `Finalize`
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+#[expect(single_use_lifetimes, reason = "false-positive")]
+pub(crate) fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, CS, T>(
+	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+	blinds: &[T; N],
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+	info: Option<Info<'_>>,
+) -> Result<[Output<CS::Hash>; N]>
+where
+	[Output<CS::Hash>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	CS: CipherSuite,
+	T: Blind<CS>,
+{
+	if N == 0 || N != inputs.len() || N != evaluation_elements.len() {
+		return Err(Error::Batch);
+	}
+
+	let scalars: [_; N] = array::from_fn(|index| {
+		blinds
+			.get(index)
+			.expect("arrays should be the same length")
+			.get_blind()
+			.into()
+	});
+	let inverted_scalars = CS::Group::scalar_batch_invert_fixed(scalars).unwrap();
+
+	let mut outputs = internal_finalize(
+		inputs,
+		inverted_scalars.into_iter(),
+		evaluation_elements,
+		info,
+	);
+	// Using `Iterator::collect()` can panic!
+	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
+		outputs
+			.next()
+			.expect("should have the same number of items")
+	})?;
+
+	Ok(outputs.0)
+}
+
+// `Finalize`
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+#[expect(single_use_lifetimes, reason = "false-positive")]
+fn internal_finalize<'inputs, 'evaluation_elements, CS: CipherSuite>(
+	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+	inverted_blinds: impl ExactSizeIterator<Item = Scalar<CS>>,
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+	info: Option<Info<'_>>,
+) -> impl Iterator<Item = Result<Output<CS::Hash>>> {
+	debug_assert!(
+		inputs.len() != 0
+			&& inputs.len() == inverted_blinds.len()
+			&& inputs.len() == evaluation_elements.len(),
+		"found unequal item length"
+	);
+
+	inputs.zip(inverted_blinds).zip(evaluation_elements).map(
+		move |((input, inverted_blind), evaluation_element)| {
+			// Scalar inversion is done beforehand.
+			let n = inverted_blind * evaluation_element.0.deref();
+			let unblinded_element = CS::Group::serialize_element(&n);
+
+			let mut hash = CS::Hash::default()
+				.chain(input.i2osp_length().ok_or(Error::InputLength)?)
+				.chain_iter(input.iter().copied());
+
+			if let Some(info) = info {
+				hash.update(&info.i2osp);
+				hash.update(info.info);
+			}
+
+			Ok(hash
+				.chain(CS::I2OSP_ELEMENT_LEN)
+				.chain(unblinded_element)
+				.chain(b"Finalize")
+				.finalize_fixed())
+		},
+	)
 }
 
 // `Evaluate`

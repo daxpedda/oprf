@@ -1,12 +1,15 @@
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 use digest::Output;
+use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
-use crate::internal::{self, BlindResult};
+use crate::internal::{self, Blind, BlindResult};
 use crate::key::SecretKey;
 
 pub struct OprfClient<CS: CipherSuite> {
@@ -43,12 +46,40 @@ impl<CS: CipherSuite> OprfClient<CS> {
 
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
-	pub fn batch_finalize_fixed(
-		&self,
-		input: &[&[u8]],
-		evaluation_element: &EvaluationElement<CS>,
-	) -> Result<Output<CS::Hash>> {
-		internal::finalize(input, &self.blind, evaluation_element, None)
+	#[cfg(feature = "alloc")]
+	pub fn batch_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
+		clients: IC,
+		inputs: II,
+		evaluation_elements: IEE,
+	) -> Result<Vec<Output<CS::Hash>>>
+	where
+		IC: ExactSizeIterator<Item = &'clients Self>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+	{
+		internal::batch_finalize(inputs, clients, evaluation_elements, None)
+	}
+
+	// `Finalize`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+	pub fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, II, IEE>(
+		clients: &[Self; N],
+		inputs: II,
+		evaluation_elements: IEE,
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+	{
+		internal::batch_finalize_fixed(inputs, clients, evaluation_elements, None)
+	}
+}
+
+impl<CS: CipherSuite> Blind<CS> for OprfClient<CS> {
+	fn get_blind(&self) -> NonZeroScalar<CS> {
+		self.blind
 	}
 }
 
@@ -104,6 +135,15 @@ impl<CS: CipherSuite> Debug for OprfClient<CS> {
 		f.debug_struct("OprfClient")
 			.field("blind", &self.blind)
 			.finish()
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Clone for OprfServer<CS> {
+	fn clone(&self) -> Self {
+		Self {
+			secret_key: self.secret_key.clone(),
+		}
 	}
 }
 

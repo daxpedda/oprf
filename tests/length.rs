@@ -118,12 +118,12 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	#[cfg(feature = "alloc")]
 	if let Mode::Poprf = mode {
-		// Failure on too large info.
+		// Failure on too large info with `alloc`.
 		let result = prepared.batch_with(clients.blinded_elements(), &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 
-		// Success on maximum length of info.
-		let _ = prepared
+		// Success on maximum length of info with `alloc`.
+		prepared
 			.batch_with(clients.blinded_elements(), &TEST[..u16::MAX.into()])
 			.unwrap();
 	}
@@ -131,8 +131,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	let server = prepared.finish(&clients);
 
 	// Failure on too large input.
-	let result = clients.finalize_with(
-		..,
+	let result = clients.finalize_fixed_with::<1, _, _>(
 		&server,
 		iter::once::<&[&[u8]]>(&[&TEST]),
 		server.evaluation_elements(),
@@ -142,8 +141,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = clients.finalize_with(
-			..,
+		let result = clients.finalize_fixed_with::<1, _, _>(
 			&server,
 			iter::once::<&[&[u8]]>(&[&TEST]),
 			server.evaluation_elements(),
@@ -154,14 +152,49 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Success on maximum length of input and info.
 	let _ = clients
-		.finalize_with(
-			..,
+		.finalize_fixed_with::<1, _, _>(
 			&server,
 			iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
 			server.evaluation_elements(),
 			&TEST[..u16::MAX.into()],
 		)
 		.unwrap();
+
+	#[cfg(feature = "alloc")]
+	{
+		// Failure on too large input with `alloc`.
+		let result = clients.finalize_with(
+			..,
+			&server,
+			iter::once::<&[&[u8]]>(&[&TEST]),
+			server.evaluation_elements(),
+			&TEST[..u16::MAX.into()],
+		);
+		assert_eq!(result.unwrap_err(), Error::InputLength);
+
+		// Failure on too large info with `alloc`.
+		if let Mode::Poprf = mode {
+			let result = clients.finalize_with(
+				..,
+				&server,
+				iter::once::<&[&[u8]]>(&[&TEST]),
+				server.evaluation_elements(),
+				&TEST,
+			);
+			assert_eq!(result, Err(Error::InfoLength));
+		}
+
+		// Success on maximum length of input and info with `alloc`.
+		let _ = clients
+			.finalize_with(
+				..,
+				&server,
+				iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
+				server.evaluation_elements(),
+				&TEST[..u16::MAX.into()],
+			)
+			.unwrap();
+	}
 
 	// Failure on too large input.
 	let result = server.evaluate_with(server.state(), &[&TEST], &TEST[..u16::MAX.into()]);

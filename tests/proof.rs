@@ -80,8 +80,7 @@ fn state<CS: CipherSuite>(_: Mode) {
 		)
 		.unwrap();
 
-	let result = clients.finalize_with(
-		..,
+	let result = clients.finalize_fixed_with::<1, _, _>(
 		&server,
 		iter::once(INPUT),
 		server.evaluation_elements(),

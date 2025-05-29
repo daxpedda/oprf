@@ -6,10 +6,13 @@
 
 mod elliptic_curve;
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::ops::{Add, Deref, Mul, Sub};
 
 use ::elliptic_curve::hash2curve::ExpandMsg;
+use ::elliptic_curve::subtle::CtOption;
 use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;
 use typenum::{IsLess, True, U65536, Unsigned};
@@ -21,6 +24,8 @@ use crate::internal;
 use crate::util::Concat;
 
 pub trait Group {
+	type K: Unsigned;
+
 	type NonZeroScalar: Copy
 		+ Debug
 		+ Deref<Target = Self::Scalar>
@@ -52,7 +57,9 @@ pub trait Group {
 
 	fn random_scalar<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>;
 
-	fn hash_to_scalar<E: for<'dst> ExpandMsg<'dst>>(input: &[&[u8]], dst: Dst) -> Self::Scalar;
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Self::Scalar
+	where
+		E: ExpandMsg<Self::K>;
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement;
 
@@ -60,13 +67,22 @@ pub trait Group {
 
 	fn scalar_invert(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar;
 
+	#[cfg(feature = "alloc")]
+	fn scalar_batch_invert(scalars: Vec<Self::Scalar>) -> CtOption<Vec<Self::Scalar>>;
+
+	fn scalar_batch_invert_fixed<const N: usize>(
+		scalars: [Self::Scalar; N],
+	) -> CtOption<[Self::Scalar; N]>;
+
 	fn serialize_scalar(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
 	fn identity_element() -> Self::Element;
 
 	fn generator_element() -> Self::Element;
 
-	fn hash_to_group<E: for<'dst> ExpandMsg<'dst>>(input: &[&[u8]], dst: Dst) -> Self::Element;
+	fn hash_to_group<E>(input: &[&[u8]], dst: Dst) -> Self::Element
+	where
+		E: ExpandMsg<Self::K>;
 
 	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
 		let [(x1, k1), (x2, k2)] = points_and_scalars;
