@@ -92,7 +92,7 @@ pub trait Group {
 	fn serialize_element(element: &Self::Element) -> Array<u8, Self::ElementLength>;
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Dst([&'static [u8]; 5]);
 
 impl Dst {
@@ -111,8 +111,10 @@ impl Dst {
 	}
 }
 
-impl AsRef<[&'static [u8]]> for Dst {
-	fn as_ref(&self) -> &[&'static [u8]] {
+impl Deref for Dst {
+	type Target = [&'static [u8]];
+
+	fn deref(&self) -> &[&'static [u8]] {
 		&self.0
 	}
 }

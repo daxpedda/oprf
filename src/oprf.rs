@@ -5,6 +5,7 @@ use core::fmt::{self, Debug, Formatter};
 use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
@@ -130,6 +131,13 @@ pub struct OprfBlindResult<CS: CipherSuite> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Clone for OprfClient<CS> {
+	fn clone(&self) -> Self {
+		Self { blind: self.blind }
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for OprfClient<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OprfClient")
@@ -137,6 +145,24 @@ impl<CS: CipherSuite> Debug for OprfClient<CS> {
 			.finish()
 	}
 }
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for OprfClient<CS> {
+	fn drop(&mut self) {
+		self.blind.zeroize();
+	}
+}
+
+impl<CS: CipherSuite> Eq for OprfClient<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for OprfClient<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.blind.eq(&other.blind)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for OprfClient<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for OprfServer<CS> {
@@ -156,6 +182,17 @@ impl<CS: CipherSuite> Debug for OprfServer<CS> {
 	}
 }
 
+impl<CS: CipherSuite> Eq for OprfServer<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for OprfServer<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.secret_key.eq(&other.secret_key)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for OprfServer<CS> {}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for OprfBlindResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -165,3 +202,5 @@ impl<CS: CipherSuite> Debug for OprfBlindResult<CS> {
 			.finish()
 	}
 }
+
+impl<CS: CipherSuite> ZeroizeOnDrop for OprfBlindResult<CS> {}

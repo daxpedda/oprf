@@ -3,6 +3,7 @@ use core::slice;
 
 use hybrid_array::Array;
 use rand_core::TryCryptoRng;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ciphersuite::CipherSuite;
 use crate::common::Mode;
@@ -49,7 +50,7 @@ impl<G: Group> KeyPair<G> {
 		&self.public_key
 	}
 
-	pub const fn into_keys(self) -> (SecretKey<G>, PublicKey<G>) {
+	pub fn into_keys(self) -> (SecretKey<G>, PublicKey<G>) {
 		(self.secret_key, self.public_key)
 	}
 }
@@ -99,7 +100,7 @@ impl<G: Group> SecretKey<G> {
 		self.0
 	}
 
-	pub const fn into_scalar(self) -> G::NonZeroScalar {
+	pub fn into_scalar(self) -> G::NonZeroScalar {
 		self.0
 	}
 
@@ -119,7 +120,7 @@ impl<G: Group> PublicKey<G> {
 		self.0
 	}
 
-	pub const fn into_point(self) -> G::NonIdentityElement {
+	pub fn into_point(self) -> G::NonIdentityElement {
 		self.0
 	}
 
@@ -148,6 +149,17 @@ impl<G: Group> Debug for KeyPair<G> {
 	}
 }
 
+impl<G: Group> Eq for KeyPair<G> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> PartialEq for KeyPair<G> {
+	fn eq(&self, other: &Self) -> bool {
+		self.secret_key.eq(&other.secret_key) && self.public_key.eq(&other.public_key)
+	}
+}
+
+impl<G: Group> ZeroizeOnDrop for KeyPair<G> {}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Clone for SecretKey<G> {
 	fn clone(&self) -> Self {
@@ -163,6 +175,24 @@ impl<G: Group> Debug for SecretKey<G> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> Drop for SecretKey<G> {
+	fn drop(&mut self) {
+		self.0.zeroize();
+	}
+}
+
+impl<G: Group> Eq for SecretKey<G> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> PartialEq for SecretKey<G> {
+	fn eq(&self, other: &Self) -> bool {
+		self.0.eq(&other.0)
+	}
+}
+
+impl<G: Group> ZeroizeOnDrop for SecretKey<G> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Clone for PublicKey<G> {
 	fn clone(&self) -> Self {
 		Self(self.0)
@@ -175,3 +205,21 @@ impl<G: Group> Debug for PublicKey<G> {
 		f.debug_tuple("PublicKey").field(&self.0).finish()
 	}
 }
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> Drop for PublicKey<G> {
+	fn drop(&mut self) {
+		self.0.zeroize();
+	}
+}
+
+impl<G: Group> Eq for PublicKey<G> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> PartialEq for PublicKey<G> {
+	fn eq(&self, other: &Self) -> bool {
+		self.0.eq(&other.0)
+	}
+}
+
+impl<G: Group> ZeroizeOnDrop for PublicKey<G> {}

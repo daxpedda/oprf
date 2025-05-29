@@ -7,6 +7,7 @@ use core::iter::{Map, Repeat, Zip};
 use digest::Output;
 use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
@@ -470,6 +471,24 @@ impl<CS: CipherSuite> Debug for PoprfClient<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for PoprfClient<CS> {
+	fn drop(&mut self) {
+		self.blind.zeroize();
+	}
+}
+
+impl<CS: CipherSuite> Eq for PoprfClient<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for PoprfClient<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.blind.eq(&other.blind) && self.blinded_element.eq(&other.blinded_element)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfClient<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for PoprfServer<CS> {
 	fn clone(&self) -> Self {
 		Self {
@@ -487,6 +506,17 @@ impl<CS: CipherSuite> Debug for PoprfServer<CS> {
 	}
 }
 
+impl<CS: CipherSuite> Eq for PoprfServer<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for PoprfServer<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.key_pair.eq(&other.key_pair)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfServer<CS> {}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -497,14 +527,43 @@ impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
 	}
 }
 
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindResult<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Clone for PoprfEvaluateState<CS> {
+	fn clone(&self) -> Self {
+		Self {
+			t_inverted: self.t_inverted,
+		}
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfEvaluateState<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfEvaluateState")
-			.field("t", &self.t_inverted)
+			.field("t_inverted", &self.t_inverted)
 			.finish()
 	}
 }
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for PoprfEvaluateState<CS> {
+	fn drop(&mut self) {
+		self.t_inverted.zeroize();
+	}
+}
+
+impl<CS: CipherSuite> Eq for PoprfEvaluateState<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for PoprfEvaluateState<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.t_inverted.eq(&other.t_inverted)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfEvaluateState<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {
@@ -517,6 +576,8 @@ impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {
 	}
 }
 
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindEvaluateResult<CS> {}
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateResult<CS> {
@@ -528,6 +589,9 @@ impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateResult<CS> {
 			.finish()
 	}
 }
+
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindEvaluateResult<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<
@@ -545,6 +609,16 @@ impl<
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Clone for PoprfBatchBlindEvaluateState<CS> {
+	fn clone(&self) -> Self {
+		Self {
+			t: self.t,
+			t_inverted: self.t_inverted,
+		}
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateState<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBatchBlindEvaluateState")
@@ -553,6 +627,25 @@ impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateState<CS> {
 			.finish()
 	}
 }
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for PoprfBatchBlindEvaluateState<CS> {
+	fn drop(&mut self) {
+		self.t.zeroize();
+		self.t_inverted.zeroize();
+	}
+}
+
+impl<CS: CipherSuite> Eq for PoprfBatchBlindEvaluateState<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for PoprfBatchBlindEvaluateState<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.t.eq(&other.t) && self.t_inverted.eq(&other.t_inverted)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindEvaluateState<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<

@@ -2,6 +2,7 @@ use core::fmt::{self, Debug, Formatter};
 
 use hybrid_array::Array;
 use typenum::Sum;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
 use crate::group::Group;
@@ -72,6 +73,13 @@ impl<CS: CipherSuite> Debug for BlindedElement<CS> {
 	}
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for BlindedElement<CS> {
+	fn drop(&mut self) {
+		self.0.zeroize();
+	}
+}
+
 impl<CS: CipherSuite> Eq for BlindedElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -80,6 +88,8 @@ impl<CS: CipherSuite> PartialEq for BlindedElement<CS> {
 		self.0.eq(&other.0)
 	}
 }
+
+impl<CS: CipherSuite> ZeroizeOnDrop for BlindedElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for EvaluationElement<CS> {
@@ -95,6 +105,13 @@ impl<CS: CipherSuite> Debug for EvaluationElement<CS> {
 	}
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for EvaluationElement<CS> {
+	fn drop(&mut self) {
+		self.0.zeroize();
+	}
+}
+
 impl<CS: CipherSuite> Eq for EvaluationElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -103,6 +120,8 @@ impl<CS: CipherSuite> PartialEq for EvaluationElement<CS> {
 		self.0.eq(&other.0)
 	}
 }
+
+impl<CS: CipherSuite> ZeroizeOnDrop for EvaluationElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for PreparedElement<CS> {
@@ -118,6 +137,13 @@ impl<CS: CipherSuite> Debug for PreparedElement<CS> {
 	}
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for PreparedElement<CS> {
+	fn drop(&mut self) {
+		self.0.zeroize();
+	}
+}
+
 impl<CS: CipherSuite> Eq for PreparedElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -126,6 +152,8 @@ impl<CS: CipherSuite> PartialEq for PreparedElement<CS> {
 		self.0.eq(&other.0)
 	}
 }
+
+impl<CS: CipherSuite> ZeroizeOnDrop for PreparedElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for Proof<CS> {
@@ -148,6 +176,14 @@ impl<CS: CipherSuite> Debug for Proof<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for Proof<CS> {
+	fn drop(&mut self) {
+		self.c.zeroize();
+		self.s.zeroize();
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Eq for Proof<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -156,3 +192,5 @@ impl<CS: CipherSuite> PartialEq for Proof<CS> {
 		self.c.eq(&other.c) && self.s.eq(&other.s)
 	}
 }
+
+impl<CS: CipherSuite> ZeroizeOnDrop for Proof<CS> {}

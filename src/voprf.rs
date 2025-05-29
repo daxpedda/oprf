@@ -7,6 +7,7 @@ use core::iter::{Map, Repeat, Zip};
 use digest::Output;
 use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
@@ -389,6 +390,24 @@ impl<CS: CipherSuite> Debug for VoprfClient<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Drop for VoprfClient<CS> {
+	fn drop(&mut self) {
+		self.blind.zeroize();
+	}
+}
+
+impl<CS: CipherSuite> Eq for VoprfClient<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for VoprfClient<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.blind.eq(&other.blind) && self.blinded_element.eq(&other.blinded_element)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for VoprfClient<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for VoprfServer<CS> {
 	fn clone(&self) -> Self {
 		Self {
@@ -406,6 +425,17 @@ impl<CS: CipherSuite> Debug for VoprfServer<CS> {
 	}
 }
 
+impl<CS: CipherSuite> Eq for VoprfServer<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> PartialEq for VoprfServer<CS> {
+	fn eq(&self, other: &Self) -> bool {
+		self.key_pair.eq(&other.key_pair)
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for VoprfServer<CS> {}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for VoprfBlindResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -415,6 +445,8 @@ impl<CS: CipherSuite> Debug for VoprfBlindResult<CS> {
 			.finish()
 	}
 }
+
+impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBlindResult<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite + Debug> Debug for VoprfBlindEvaluateResult<CS> {
@@ -426,6 +458,8 @@ impl<CS: CipherSuite + Debug> Debug for VoprfBlindEvaluateResult<CS> {
 	}
 }
 
+impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBlindEvaluateResult<CS> {}
+
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for VoprfBatchBlindEvaluateResult<CS> {
@@ -436,6 +470,9 @@ impl<CS: CipherSuite> Debug for VoprfBatchBlindEvaluateResult<CS> {
 			.finish()
 	}
 }
+
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBatchBlindEvaluateResult<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<

@@ -37,7 +37,7 @@ impl Error {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl Display for Error {
+impl<E: Display> Display for Error<E> {
 	fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
 		formatter.write_str(match self {
 			Self::Batch => "number of items don't match, are 0 or larger than 0xFFFF",
@@ -56,4 +56,4 @@ impl Display for Error {
 	}
 }
 
-impl error::Error for Error {}
+impl<E: error::Error> error::Error for Error<E> {}
