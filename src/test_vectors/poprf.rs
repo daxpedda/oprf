@@ -7,7 +7,8 @@ use std::vec::Vec;
 use super::parse::{TEST_VECTORS, TestVector, Vector};
 use super::{INFO, KEY_INFO, SEED};
 use crate::ciphersuite::CipherSuite;
-use crate::common::Mode;
+use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use crate::key::PublicKey;
 #[cfg(feature = "alloc")]
 use crate::poprf::PoprfBatchBlindEvaluateResult;
 use crate::poprf::{
@@ -51,6 +52,10 @@ fn poprf<CS: CipherSuite>() {
 				vector.blinded_element,
 				blinded_element.serialize().as_slice(),
 			);
+			assert_eq!(
+				BlindedElement::deserialize(&vector.blinded_element).unwrap(),
+				blinded_element,
+			);
 
 			// Blind evaluate.
 			let PoprfBlindEvaluateResult {
@@ -65,7 +70,12 @@ fn poprf<CS: CipherSuite>() {
 				vector.evaluation_element,
 				evaluation_element.serialize().as_slice(),
 			);
+			assert_eq!(
+				EvaluationElement::deserialize(&vector.evaluation_element).unwrap(),
+				evaluation_element,
+			);
 			assert_eq!(vector_proof.proof, proof.serialize().as_slice());
+			assert_eq!(Proof::deserialize(&vector_proof.proof).unwrap(), proof);
 
 			// Finalize.
 			assert_eq!(
@@ -131,6 +141,10 @@ fn poprf_batch<CS: CipherSuite>() {
 						vector_blinded_element,
 						blinded_element.serialize().as_slice(),
 					);
+					assert_eq!(
+						BlindedElement::deserialize(vector_blinded_element).unwrap(),
+						blinded_element,
+					);
 
 					(client, blinded_element)
 				})
@@ -171,9 +185,14 @@ fn poprf_batch<CS: CipherSuite>() {
 					vector_evaluation_element,
 					evaluation_element.serialize().as_slice(),
 				);
+				assert_eq!(
+					&EvaluationElement::deserialize(vector_evaluation_element).unwrap(),
+					evaluation_element,
+				);
 			}
 
 			assert_eq!(vector_proof.proof, proof.serialize().as_slice());
+			assert_eq!(Proof::deserialize(&vector_proof.proof).unwrap(), proof);
 
 			#[cfg(feature = "alloc")]
 			{
@@ -193,9 +212,14 @@ fn poprf_batch<CS: CipherSuite>() {
 						vector_evaluation_element,
 						evaluation_element.serialize().as_slice(),
 					);
+					assert_eq!(
+						EvaluationElement::deserialize(vector_evaluation_element).unwrap(),
+						evaluation_element,
+					);
 				}
 
 				assert_eq!(vector_proof.proof, proof.serialize().as_slice());
+				assert_eq!(Proof::deserialize(&vector_proof.proof).unwrap(), proof);
 			}
 
 			// Finalize.
@@ -258,12 +282,17 @@ fn server<CS: CipherSuite>(test_vector: &TestVector) -> PoprfServer<CS> {
 		server.secret_key().serialize().as_slice(),
 	);
 
+	let vector_public_key = test_vector
+		.public_key
+		.as_ref()
+		.expect("unexpected missing public key for VOPRF");
 	assert_eq!(
-		test_vector
-			.public_key
-			.as_ref()
-			.expect("unexpected missing public key for POPRF"),
+		vector_public_key,
 		server.public_key().serialize().as_slice(),
+	);
+	assert_eq!(
+		&PublicKey::deserialize(vector_public_key).unwrap(),
+		server.public_key(),
 	);
 
 	server

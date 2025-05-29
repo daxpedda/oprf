@@ -6,8 +6,8 @@ use core::ops::{Add, Deref, Mul, Sub};
 use elliptic_curve::hash2curve::ExpandMsg;
 use elliptic_curve::subtle::{Choice, CtOption};
 use hybrid_array::Array;
+use hybrid_array::typenum::U0;
 use oprf::group::{Dst, Group};
-use typenum::U0;
 use zeroize::Zeroize;
 
 /// A mock [`Group`] for testing purposes. It is zero-sized and does no checks
@@ -68,6 +68,10 @@ impl Group for MockCurve {
 		Array::default()
 	}
 
+	fn deserialize_scalar(_: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
+		Some(Scalar)
+	}
+
 	fn identity_element() -> Self::Element {
 		Element
 	}
@@ -96,6 +100,12 @@ impl Group for MockCurve {
 
 	fn serialize_element(_: &Self::Element) -> Array<u8, Self::ElementLength> {
 		Array::default()
+	}
+
+	fn deserialize_non_identity_element(
+		_: &Array<u8, Self::ElementLength>,
+	) -> Option<Self::NonIdentityElement> {
+		Some(NonIdentityElement)
 	}
 }
 

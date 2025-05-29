@@ -2,17 +2,18 @@
 use alloc::vec::Vec;
 use core::ops::Add;
 
+use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::hash2curve::{ExpandMsg, GroupDigest};
 use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
 use elliptic_curve::point::NonIdentity;
-use elliptic_curve::sec1::{CompressedPointSize, ModulusSize, Tag, ToEncodedPoint};
+use elliptic_curve::sec1::{CompressedPointSize, ModulusSize};
 use elliptic_curve::subtle::CtOption;
 use elliptic_curve::{
 	FieldBytesSize, Group as _, NonZeroScalar, OprfParameters, PrimeField, ProjectivePoint, Scalar,
 };
+use hybrid_array::typenum::{IsLess, True, U65536};
 use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;
-use typenum::{IsLess, True, U65536};
 
 use super::{Dst, Group};
 use crate::ciphersuite::{CipherSuite, Id};
@@ -22,7 +23,7 @@ where
 	C: GroupDigest,
 	FieldBytesSize<C>: Add<FieldBytesSize<C>, Output: ArraySize> + ModulusSize,
 	CompressedPointSize<C>: IsLess<U65536, Output = True>,
-	ProjectivePoint<C>: ToEncodedPoint<C>,
+	ProjectivePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 {
 	type K = C::K;
 
@@ -72,6 +73,10 @@ where
 		scalar.to_repr()
 	}
 
+	fn deserialize_scalar(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
+		Scalar::<C>::from_repr(bytes).into_option()
+	}
+
 	fn identity_element() -> Self::Element {
 		ProjectivePoint::<C>::identity()
 	}
@@ -92,19 +97,13 @@ where
 	}
 
 	fn serialize_element(element: &Self::Element) -> Array<u8, Self::ElementLength> {
-		#[expect(clippy::indexing_slicing, reason = "otherwise invalid SEC1 encoding")]
-		#[expect(clippy::as_conversions, reason = "no other way to convert enums")]
-		if element.is_identity().into() {
-			let mut output = Array::default();
-			output[0] = Tag::Identity as u8;
-			output
-		} else {
-			element
-				.to_encoded_point(true)
-				.as_bytes()
-				.try_into()
-				.expect("found invalid compressed SEC1 encoding")
-		}
+		element.to_bytes()
+	}
+
+	fn deserialize_non_identity_element(
+		bytes: &Array<u8, Self::ElementLength>,
+	) -> Option<Self::NonIdentityElement> {
+		NonIdentity::<ProjectivePoint<Self>>::from_repr(bytes).into_option()
 	}
 }
 

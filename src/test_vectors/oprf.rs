@@ -6,7 +6,7 @@ use core::{array, iter};
 use super::parse::{TEST_VECTORS, Vector};
 use super::{KEY_INFO, SEED};
 use crate::ciphersuite::CipherSuite;
-use crate::common::Mode;
+use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::oprf::{OprfBlindResult, OprfClient, OprfServer};
 use crate::test_vectors::cycle_rng::CycleRng;
 use crate::util::Concat;
@@ -53,12 +53,20 @@ fn oprf<CS: CipherSuite>() {
 				vector.blinded_element,
 				blinded_element.serialize().as_slice(),
 			);
+			assert_eq!(
+				BlindedElement::deserialize(&vector.blinded_element).unwrap(),
+				blinded_element,
+			);
 
 			// Blind evaluate.
 			let evaluation_element = server.blind_evaluate(&blinded_element);
 			assert_eq!(
 				vector.evaluation_element,
 				evaluation_element.serialize().as_slice(),
+			);
+			assert_eq!(
+				EvaluationElement::deserialize(&vector.evaluation_element).unwrap(),
+				evaluation_element,
 			);
 
 			// Finalize.

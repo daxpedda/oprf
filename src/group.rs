@@ -13,13 +13,14 @@ use core::ops::{Add, Deref, Mul, Sub};
 
 use ::elliptic_curve::hash2curve::ExpandMsg;
 use ::elliptic_curve::subtle::CtOption;
+use hybrid_array::typenum::{IsLess, True, U65536, Unsigned};
 use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;
-use typenum::{IsLess, True, U65536, Unsigned};
 use zeroize::Zeroize;
 
 use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar};
 use crate::common::Mode;
+use crate::error::{Error, Result};
 use crate::internal;
 use crate::util::Concat;
 
@@ -76,6 +77,8 @@ pub trait Group {
 
 	fn serialize_scalar(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
+	fn deserialize_scalar(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar>;
+
 	fn identity_element() -> Self::Element;
 
 	fn generator_element() -> Self::Element;
@@ -90,6 +93,10 @@ pub trait Group {
 	}
 
 	fn serialize_element(element: &Self::Element) -> Array<u8, Self::ElementLength>;
+
+	fn deserialize_non_identity_element(
+		bytes: &Array<u8, Self::ElementLength>,
+	) -> Option<Self::NonIdentityElement>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -150,6 +157,24 @@ impl<CS: CipherSuite> InternalGroup for CS {
 			.try_into()
 			.ok()
 	}
+}
+
+pub(crate) fn deserialize_scalar<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
+	bytes
+		.try_into()
+		.ok()
+		.and_then(G::deserialize_scalar)
+		.ok_or(Error::Deserialize)
+}
+
+pub(crate) fn deserialize_non_identity_element<G: Group>(
+	bytes: &[u8],
+) -> Result<G::NonIdentityElement> {
+	bytes
+		.try_into()
+		.ok()
+		.and_then(G::deserialize_non_identity_element)
+		.ok_or(Error::Deserialize)
 }
 
 #[cfg(test)]

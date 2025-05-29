@@ -1,5 +1,5 @@
 use digest::{FixedOutput, Output, OutputSizeUser, Update};
-use typenum::U0;
+use hybrid_array::typenum::U0;
 
 /// A mock [`Digest`](digest::Digest) for testing purposes. It is zero-sized.
 #[derive(Default)]

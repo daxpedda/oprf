@@ -8,7 +8,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::ciphersuite::CipherSuite;
 use crate::common::Mode;
 use crate::error::{Error, Result};
-use crate::group::{Group, InternalGroup};
+use crate::group::{self, Group, InternalGroup};
 use crate::util::{Concat, I2ospLength};
 
 pub struct KeyPair<G: Group> {
@@ -104,7 +104,8 @@ impl<G: Group> SecretKey<G> {
 		self.0
 	}
 
-	pub fn serialize(&self) -> Array<u8, G::ScalarLength> {
+	#[cfg(test)]
+	pub(crate) fn serialize(&self) -> Array<u8, G::ScalarLength> {
 		G::serialize_scalar(&self.0)
 	}
 }
@@ -126,6 +127,10 @@ impl<G: Group> PublicKey<G> {
 
 	pub fn serialize(&self) -> Array<u8, G::ElementLength> {
 		G::serialize_element(&self.0)
+	}
+
+	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+		group::deserialize_non_identity_element::<G>(bytes).map(Self)
 	}
 }
 

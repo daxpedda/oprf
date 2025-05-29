@@ -17,6 +17,7 @@ pub enum Error<E = Infallible> {
 	InvalidInput,
 	InvalidInfo,
 	InvalidInfoDanger,
+	Deserialize,
 	Random(E),
 }
 
@@ -32,6 +33,7 @@ impl Error {
 			Self::InvalidInput => Error::InvalidInput,
 			Self::InvalidInfo => Error::InvalidInfo,
 			Self::InvalidInfoDanger => Error::InvalidInfoDanger,
+			Self::Deserialize => Error::Deserialize,
 		}
 	}
 }
@@ -51,6 +53,7 @@ impl<E: Display> Display for Error<E> {
 				"the given `info` maps to the secret key of the server, the client can be assumed \
 				 to know it and it should be replaced"
 			}
+			Self::Deserialize => "the given bytes can't be de-serialized into the output type",
 			Self::Random(error) => return error.fmt(formatter),
 		})
 	}

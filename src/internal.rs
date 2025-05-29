@@ -6,9 +6,9 @@ use core::ops::Deref;
 use core::{array, iter};
 
 use digest::{FixedOutput, Output, OutputSizeUser, Update};
+use hybrid_array::typenum::Unsigned;
 use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
-use typenum::Unsigned;
 
 use crate::EvaluationElement;
 use crate::ciphersuite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar, Scalar};

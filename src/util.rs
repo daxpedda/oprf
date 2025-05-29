@@ -1,8 +1,8 @@
 use core::ops::Add;
 
 use digest::Update;
+use hybrid_array::typenum::{Const, Sum, ToUInt, U};
 use hybrid_array::{Array, ArrayN, ArraySize, AssocArraySize};
-use typenum::{Const, Sum, ToUInt, U};
 
 pub(crate) trait Concat<const L1: usize, T>
 where

@@ -1,11 +1,12 @@
 use core::fmt::{self, Debug, Formatter};
 
 use hybrid_array::Array;
-use typenum::Sum;
+use hybrid_array::typenum::{Sum, Unsigned};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
-use crate::group::Group;
+use crate::error::{Error, Result};
+use crate::group::{self, Group};
 
 // https://www.rfc-editor.org/rfc/rfc9497.html#name-identifiers-for-protocol-va
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -45,17 +46,35 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 	pub fn serialize(&self) -> Array<u8, ElementLength<CS>> {
 		CS::Group::serialize_element(&self.0)
 	}
+
+	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+		group::deserialize_non_identity_element::<CS::Group>(bytes).map(Self)
+	}
 }
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
 	pub fn serialize(&self) -> Array<u8, ElementLength<CS>> {
 		CS::Group::serialize_element(&self.0)
 	}
+
+	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+		group::deserialize_non_identity_element::<CS::Group>(bytes).map(Self)
+	}
 }
 
 impl<CS: CipherSuite> Proof<CS> {
 	pub fn serialize(&self) -> Array<u8, Sum<ScalarLength<CS>, ScalarLength<CS>>> {
 		CS::Group::serialize_scalar(&self.c).concat(CS::Group::serialize_scalar(&self.s))
+	}
+
+	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+		let (c_bytes, s_bytes) = bytes
+			.split_at_checked(ScalarLength::<CS>::USIZE)
+			.ok_or(Error::Deserialize)?;
+		let c = group::deserialize_scalar::<CS::Group>(c_bytes)?;
+		let s = group::deserialize_scalar::<CS::Group>(s_bytes)?;
+
+		Ok(Self { c, s })
 	}
 }
 

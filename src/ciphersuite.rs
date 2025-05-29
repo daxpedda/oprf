@@ -8,7 +8,7 @@ use core::ops::Deref;
 
 use digest::{FixedOutput, Update};
 use elliptic_curve::hash2curve::ExpandMsg;
-use typenum::{IsLess, True, U65536};
+use hybrid_array::typenum::{IsLess, True, U65536};
 
 use crate::group::Group;
 
