@@ -1,8 +1,8 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
-use core::iter;
 use core::iter::{Map, Repeat, Zip};
+use core::{array, iter};
 
 #[cfg(feature = "serde")]
 use ::serde::ser::SerializeStruct;
@@ -60,15 +60,14 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		evaluation_element: &EvaluationElement<CS>,
 		proof: &Proof<CS>,
 	) -> Result<Output<CS::Hash>> {
-		Self::internal_batch_finalize(
-			iter::once(self),
+		let [output] = Self::batch_finalize_fixed(
+			array::from_ref(self),
 			public_key,
-			&iter::once(input),
-			iter::once(evaluation_element),
+			iter::once(input),
+			array::from_ref(evaluation_element),
 			proof,
 		)?;
-
-		internal::finalize(input, &self.blind, evaluation_element, None)
+		Ok(output)
 	}
 
 	// `Finalize`

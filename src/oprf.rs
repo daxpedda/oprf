@@ -1,6 +1,7 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
+use core::{array, iter};
 
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -46,7 +47,12 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		input: &[&[u8]],
 		evaluation_element: &EvaluationElement<CS>,
 	) -> Result<Output<CS::Hash>> {
-		internal::finalize(input, &self.blind, evaluation_element, None)
+		let [output] = Self::batch_finalize_fixed(
+			array::from_ref(self),
+			iter::once(input),
+			iter::once(evaluation_element),
+		)?;
+		Ok(output)
 	}
 
 	// `Finalize`

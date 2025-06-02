@@ -2,8 +2,8 @@
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::array;
 use core::ops::Deref;
-use core::{array, iter};
 
 use digest::{FixedOutput, Output, OutputSizeUser, Update};
 use hybrid_array::typenum::Unsigned;
@@ -239,26 +239,6 @@ pub(crate) fn blind<CS: CipherSuite, R: TryCryptoRng>(
 		blind,
 		blinded_element: BlindedElement(blinded_element),
 	})
-}
-
-// `Finalize`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
-pub(crate) fn finalize<CS: CipherSuite>(
-	input: &[&[u8]],
-	blind: &NonZeroScalar<CS>,
-	evaluation_element: &EvaluationElement<CS>,
-	info: Option<Info<'_>>,
-) -> Result<Output<CS::Hash>> {
-	let output: ArrayN<_, 1> = internal_finalize(
-		iter::once(input),
-		iter::once(CS::Group::scalar_invert(blind).into()),
-		iter::once(evaluation_element),
-		info,
-	)
-	.collect();
-	let [output] = output.into();
-
-	output
 }
 
 // `Finalize`
