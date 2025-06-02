@@ -75,22 +75,18 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 		.unwrap();
 
 	// Failure on too large input.
-	let result = server.evaluate_with(server.state(), &[&TEST], &TEST[..u16::MAX.into()]);
+	let result = server.evaluate_with(&[&TEST], &TEST[..u16::MAX.into()]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = server.evaluate_with(server.state(), &[&TEST], &TEST);
+		let result = server.evaluate_with(&[&TEST], &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of input and info.
 	let _ = server
-		.evaluate_with(
-			server.state(),
-			&[&TEST[..u16::MAX.into()]],
-			&TEST[..u16::MAX.into()],
-		)
+		.evaluate_with(&[&TEST[..u16::MAX.into()]], &TEST[..u16::MAX.into()])
 		.unwrap();
 }
 
@@ -115,18 +111,6 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 		&TEST[..u16::MAX.into()],
 	)
 	.unwrap();
-
-	#[cfg(feature = "alloc")]
-	if let Mode::Poprf = mode {
-		// Failure on too large info with `alloc`.
-		let result = prepared.batch_with(clients.blinded_elements(), &TEST);
-		assert_eq!(result.unwrap_err(), Error::InfoLength);
-
-		// Success on maximum length of info with `alloc`.
-		prepared
-			.batch_with(clients.blinded_elements(), &TEST[..u16::MAX.into()])
-			.unwrap();
-	}
 
 	let server = prepared.finish(&clients);
 
@@ -197,21 +181,17 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	}
 
 	// Failure on too large input.
-	let result = server.evaluate_with(server.state(), &[&TEST], &TEST[..u16::MAX.into()]);
+	let result = server.evaluate_with(&[&TEST], &TEST[..u16::MAX.into()]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = server.evaluate_with(server.state(), &[&TEST], &TEST);
+		let result = server.evaluate_with(&[&TEST], &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of input and info.
 	let _ = server
-		.evaluate_with(
-			server.state(),
-			&[&TEST[..u16::MAX.into()]],
-			&TEST[..u16::MAX.into()],
-		)
+		.evaluate_with(&[&TEST[..u16::MAX.into()]], &TEST[..u16::MAX.into()])
 		.unwrap();
 }

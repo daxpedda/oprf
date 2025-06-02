@@ -145,7 +145,8 @@ where
 	PoprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
 	PoprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
 {
-	let scalar = scalar::<CS>();
+	let scalar1 = scalar::<CS>();
+	let scalar2 = scalar::<CS>();
 	let wrong_scalar = wrong_scalar::<CS>();
 
 	let element = element::<CS>();
@@ -153,7 +154,7 @@ where
 
 	let client = Compact::<PoprfClient<CS>>::deserialize(&mut Deserializer::new(&[
 		Token::Seq { len: Some(2) },
-		Token::Bytes(scalar),
+		Token::Bytes(scalar1),
 		Token::Bytes(element),
 		Token::SeqEnd,
 	]))
@@ -163,16 +164,31 @@ where
 		client,
 		"PoprfClient",
 		"blind",
-		scalar,
+		scalar1,
 		wrong_scalar,
 		"blinded_element",
 		element,
 		wrong_element,
 	);
 
-	let secret_key = KeyPair::from_repr(scalar).unwrap();
-	let server = PoprfServer::<CS>::from_key_pair(secret_key);
-	newtype_struct(server, "PoprfServer", scalar, wrong_scalar);
+	let server = Compact::<PoprfServer<CS>>::deserialize(&mut Deserializer::new(&[
+		Token::Seq { len: Some(2) },
+		Token::Bytes(scalar1),
+		Token::Bytes(scalar2),
+		Token::SeqEnd,
+	]))
+	.unwrap()
+	.0;
+	struct_2(
+		server,
+		"PoprfServer",
+		"secret_key",
+		scalar1,
+		wrong_scalar,
+		"t",
+		scalar2,
+		wrong_scalar,
+	);
 }
 
 fn scalar<CS: CipherSuite>() -> &'static [u8] {

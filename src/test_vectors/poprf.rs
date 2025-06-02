@@ -13,7 +13,7 @@ use crate::key::{PublicKey, SecretKey};
 use crate::poprf::PoprfBatchBlindEvaluateResult;
 use crate::poprf::{
 	PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient, PoprfFinishBatchBlindEvaluateResult,
-	PoprfPrepareBatchBlindEvaluateResult, PoprfServer,
+	PoprfServer,
 };
 use crate::test_vectors::cycle_rng::CycleRng;
 use crate::util::Concat;
@@ -56,11 +56,10 @@ fn poprf<CS: CipherSuite>() {
 
 			// Blind evaluate.
 			let PoprfBlindEvaluateResult {
-				state,
 				evaluation_element,
 				proof,
 			} = server
-				.blind_evaluate(&mut CycleRng::new(&vector_proof.r), &blinded_element, &INFO)
+				.blind_evaluate(&mut CycleRng::new(&vector_proof.r), &blinded_element)
 				.unwrap();
 
 			assert_eq!(
@@ -92,10 +91,7 @@ fn poprf<CS: CipherSuite>() {
 			// Evaluate.
 			assert_eq!(
 				vector.output,
-				server
-					.evaluate(&state, &[&vector.input], &INFO)
-					.unwrap()
-					.as_slice(),
+				server.evaluate(&[&vector.input], &INFO).unwrap().as_slice(),
 			);
 		}
 	}
@@ -148,26 +144,16 @@ fn poprf_batch<CS: CipherSuite>() {
 			// Blind evaluate.
 			let rng = &mut CycleRng::new(&vector_proof.r);
 
-			let PoprfPrepareBatchBlindEvaluateResult {
-				state,
-				prepared_elements,
-			} = server
-				.prepare_batch_blind_evaluate(blinded_elements.iter(), &INFO)
-				.unwrap();
-
-			let prepared_elements: Vec<_> = prepared_elements.collect();
+			let prepared_elements: Vec<_> = server
+				.prepare_batch_blind_evaluate(blinded_elements.iter())
+				.unwrap()
+				.collect();
 
 			let PoprfFinishBatchBlindEvaluateResult {
-				state,
 				evaluation_elements,
 				proof,
 			} = server
-				.finish_batch_blind_evaluate(
-					&state,
-					rng,
-					blinded_elements.iter(),
-					&prepared_elements,
-				)
+				.finish_batch_blind_evaluate(rng, blinded_elements.iter(), &prepared_elements)
 				.unwrap();
 
 			let evaluation_elements: Vec<_> = evaluation_elements.collect();
@@ -193,10 +179,7 @@ fn poprf_batch<CS: CipherSuite>() {
 				let PoprfBatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
-					..
-				} = server
-					.batch_blind_evaluate(rng, &blinded_elements, &INFO)
-					.unwrap();
+				} = server.batch_blind_evaluate(rng, &blinded_elements).unwrap();
 
 				for (evaluation_element, vector_evaluation_element) in evaluation_elements
 					.into_iter()
@@ -252,10 +235,7 @@ fn poprf_batch<CS: CipherSuite>() {
 
 			// Evaluate.
 			for (input, output) in inputs.into_iter().zip(&vector.outputs) {
-				assert_eq!(
-					output,
-					server.evaluate(&state, input, &INFO).unwrap().as_slice(),
-				);
+				assert_eq!(output, server.evaluate(input, &INFO).unwrap().as_slice(),);
 			}
 		}
 	}
@@ -269,7 +249,7 @@ fn server<CS: CipherSuite>(test_vector: &TestVector) -> PoprfServer<CS> {
 		.concat();
 	assert_eq!(test_vector.group_dst, group_dst);
 
-	let server = PoprfServer::<CS>::from_seed(&SEED, KEY_INFO).unwrap();
+	let server = PoprfServer::<CS>::from_seed(&SEED, KEY_INFO, &INFO).unwrap();
 
 	assert_eq!(
 		test_vector.secret_key,

@@ -196,23 +196,36 @@ impl<CS: CipherSuite> Blind<CS> for PoprfClient<CS> {
 
 pub struct PoprfServer<CS: CipherSuite> {
 	key_pair: KeyPair<CS::Group>,
+	t: NonZeroScalar<CS>,
+	t_inverted: NonZeroScalar<CS>,
 }
 
 impl<CS: CipherSuite> PoprfServer<CS> {
-	pub fn new<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
-		Ok(Self {
-			key_pair: KeyPair::generate(rng)?,
-		})
+	pub fn new<R: TryCryptoRng>(rng: &mut R, info: &[u8]) -> Result<Self, Error<R::Error>> {
+		let key_pair = KeyPair::generate(rng).map_err(Error::Random)?;
+		Self::from_key_pair(key_pair, info).map_err(Error::into_random::<R>)
 	}
 
-	pub fn from_seed(seed: &[u8; 32], info: &[u8]) -> Result<Self> {
-		Ok(Self {
-			key_pair: KeyPair::derive::<CS>(Mode::Poprf, seed, info)?,
-		})
+	pub fn from_seed(seed: &[u8; 32], key_info: &[u8], info: &[u8]) -> Result<Self> {
+		let key_pair = KeyPair::derive::<CS>(Mode::Poprf, seed, key_info)?;
+		Self::from_key_pair(key_pair, info)
 	}
 
-	pub const fn from_key_pair(key_pair: KeyPair<CS::Group>) -> Self {
-		Self { key_pair }
+	pub fn from_key_pair(key_pair: KeyPair<CS::Group>, info: &[u8]) -> Result<Self> {
+		let info = Info::new(info)?;
+		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
+		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None);
+		// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-6
+		let t = (key_pair.secret_key().to_scalar().into() + &m)
+			.try_into()
+			.map_err(|_| Error::InvalidInfoDanger)?;
+		let t_inverted = CS::Group::scalar_invert(&t);
+
+		Ok(Self {
+			key_pair,
+			t,
+			t_inverted,
+		})
 	}
 
 	pub const fn public_key(&self) -> &PublicKey<CS::Group> {
@@ -230,33 +243,22 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_element: &BlindedElement<CS>,
-		info: &[u8],
 	) -> Result<PoprfBlindEvaluateResult<CS>, Error<R::Error>> {
-		let PoprfPrepareBatchBlindEvaluateResult {
-			state,
-			prepared_elements,
-		} = self
-			.prepare_batch_blind_evaluate(iter::once(blinded_element), info)
+		let prepared_elements = self
+			.prepare_batch_blind_evaluate(iter::once(blinded_element))
 			.map_err(Error::into_random::<R>)?;
 		let prepared_element: ArrayN<_, 1> = prepared_elements.collect();
 		let prepared_element: [_; 1] = prepared_element.into();
 
 		let PoprfFinishBatchBlindEvaluateResult {
-			state,
 			evaluation_elements,
 			proof,
-		} = self.finish_batch_blind_evaluate(
-			&state,
-			rng,
-			iter::once(blinded_element),
-			&prepared_element,
-		)?;
+		} = self.finish_batch_blind_evaluate(rng, iter::once(blinded_element), &prepared_element)?;
 
 		let evaluation_element: ArrayN<_, 1> = evaluation_elements.collect();
 		let [evaluation_element] = evaluation_element.into();
 
 		Ok(PoprfBlindEvaluateResult {
-			state,
 			evaluation_element,
 			proof,
 		})
@@ -270,7 +272,6 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: &'blinded_elements I,
-		info: &[u8],
 	) -> Result<PoprfBatchBlindEvaluateResult<CS>, Error<R::Error>>
 	where
 		R: TryCryptoRng,
@@ -278,26 +279,20 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&'blinded_elements I:
 			IntoIterator<Item = &'blinded_elements BlindedElement<CS>, IntoIter: ExactSizeIterator>,
 	{
-		let PoprfPrepareBatchBlindEvaluateResult {
-			state,
-			prepared_elements,
-		} = self
-			.prepare_batch_blind_evaluate(blinded_elements.into_iter(), info)
+		let prepared_elements = self
+			.prepare_batch_blind_evaluate(blinded_elements.into_iter())
 			.map_err(Error::into_random::<R>)?;
 		let prepared_elements: Vec<_> = prepared_elements.collect();
 		let PoprfFinishBatchBlindEvaluateResult {
-			state,
 			evaluation_elements,
 			proof,
 		} = self.finish_batch_blind_evaluate::<_, _, Vec<_>>(
-			&state,
 			rng,
 			blinded_elements.into_iter(),
 			&prepared_elements,
 		)?;
 
 		Ok(PoprfBatchBlindEvaluateResult {
-			state,
 			evaluation_elements: evaluation_elements.collect(),
 			proof,
 		})
@@ -309,8 +304,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	pub fn prepare_batch_blind_evaluate<'blinded_elements, I>(
 		&self,
 		blinded_elements: I,
-		info: &[u8],
-	) -> Result<PoprfPrepareBatchBlindEvaluateResult<'blinded_elements, CS, I>>
+	) -> Result<PoprfPrepareBatchBlindEvaluateResult<CS, I>>
 	where
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
@@ -320,25 +314,13 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let info = Info::new(info)?;
-		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
-		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None);
-		// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-6
-		let t = (self.key_pair.secret_key().to_scalar().into() + &m)
-			.try_into()
-			.map_err(|_| Error::InvalidInfoDanger)?;
-		let t_inverted = CS::Group::scalar_invert(&t);
-
 		let prepared_elements = blinded_elements
-			.zip(iter::repeat(t_inverted))
+			.zip(iter::repeat(self.t_inverted))
 			.map::<_, fn((&_, _)) -> _>(|(blinded_element, t)| {
 				PreparedElement(t * &blinded_element.0)
 			});
 
-		Ok(PoprfPrepareBatchBlindEvaluateResult {
-			state: PoprfBatchBlindEvaluateState { t, t_inverted },
-			prepared_elements,
-		})
+		Ok(prepared_elements)
 	}
 
 	// `BlindEvaluate` batched
@@ -346,7 +328,6 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5
 	pub fn finish_batch_blind_evaluate<'blinded_elements, 'prepared_elements, R, IBE, IPE>(
 		&self,
-		state: &PoprfBatchBlindEvaluateState<CS>,
 		rng: &mut R,
 		blinded_elements: IBE,
 		prepared_elements: &'prepared_elements IPE,
@@ -367,12 +348,12 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 				IntoIter: ExactSizeIterator,
 			>,
 	{
-		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&state.t);
+		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&self.t);
 
 		let proof = internal::generate_proof(
 			Mode::Poprf,
 			rng,
-			state.t,
+			self.t,
 			&tweaked_key,
 			prepared_elements
 				.into_iter()
@@ -381,9 +362,6 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		)?;
 
 		Ok(PoprfFinishBatchBlindEvaluateResult {
-			state: PoprfEvaluateState {
-				t_inverted: state.t_inverted,
-			},
 			evaluation_elements: prepared_elements
 				.into_iter()
 				.map(|prepared_element| EvaluationElement(prepared_element.0)),
@@ -393,13 +371,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-11
-	pub fn evaluate(
-		&self,
-		state: &PoprfEvaluateState<CS>,
-		input: &[&[u8]],
-		info: &[u8],
-	) -> Result<Output<CS::Hash>> {
-		internal::evaluate::<CS>(Mode::Poprf, state.t_inverted, input, Some(Info::new(info)?))
+	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
+		internal::evaluate::<CS>(Mode::Poprf, self.t_inverted, input, Some(Info::new(info)?))
 	}
 }
 
@@ -408,48 +381,27 @@ pub struct PoprfBlindResult<CS: CipherSuite> {
 	pub blinded_element: BlindedElement<CS>,
 }
 
-pub struct PoprfEvaluateState<CS: CipherSuite> {
-	t_inverted: NonZeroScalar<CS>,
-}
-
 pub struct PoprfBlindEvaluateResult<CS: CipherSuite> {
-	pub state: PoprfEvaluateState<CS>,
 	pub evaluation_element: EvaluationElement<CS>,
 	pub proof: Proof<CS>,
 }
 
 #[cfg(feature = "alloc")]
 pub struct PoprfBatchBlindEvaluateResult<CS: CipherSuite> {
-	pub state: PoprfEvaluateState<CS>,
 	pub evaluation_elements: Vec<EvaluationElement<CS>>,
 	pub proof: Proof<CS>,
 }
 
-pub struct PoprfPrepareBatchBlindEvaluateResult<
-	'blinded_elements,
-	CS: CipherSuite,
-	I: Iterator<Item = &'blinded_elements BlindedElement<CS>>,
-> {
-	pub state: PoprfBatchBlindEvaluateState<CS>,
-	pub prepared_elements: PoprfPrepareBatchBlindEvaluatePreparedElements<CS, I>,
-}
-
-pub type PoprfPrepareBatchBlindEvaluatePreparedElements<CS, I> = Map<
+pub type PoprfPrepareBatchBlindEvaluateResult<CS, I> = Map<
 	Zip<I, Repeat<NonZeroScalar<CS>>>,
 	fn((&BlindedElement<CS>, NonZeroScalar<CS>)) -> PreparedElement<CS>,
 >;
-
-pub struct PoprfBatchBlindEvaluateState<CS: CipherSuite> {
-	t: NonZeroScalar<CS>,
-	t_inverted: NonZeroScalar<CS>,
-}
 
 pub struct PoprfFinishBatchBlindEvaluateResult<
 	'prepared_elements,
 	CS: CipherSuite,
 	I: Iterator<Item = &'prepared_elements PreparedElement<CS>>,
 > {
-	pub state: PoprfEvaluateState<CS>,
 	pub evaluation_elements: PoprfFinishBatchBlindEvaluateEvaluationElements<CS, I>,
 	pub proof: Proof<CS>,
 }
@@ -536,6 +488,8 @@ impl<CS: CipherSuite> Clone for PoprfServer<CS> {
 	fn clone(&self) -> Self {
 		Self {
 			key_pair: self.key_pair.clone(),
+			t: self.t,
+			t_inverted: self.t_inverted,
 		}
 	}
 }
@@ -545,6 +499,8 @@ impl<CS: CipherSuite> Debug for PoprfServer<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfServer")
 			.field("key_pair", &self.key_pair)
+			.field("t", &self.t)
+			.field("t_inverted", &self.t_inverted)
 			.finish()
 	}
 }
@@ -556,10 +512,14 @@ where
 	NonZeroScalar<CS>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		serde::newtype_struct(deserializer, "PoprfServer")
-			.map(SecretKey::from_scalar)
-			.map(KeyPair::from_secret_key)
-			.map(|key_pair| Self { key_pair })
+		let (scalar, t) = serde::struct_2(deserializer, "PoprfServer", &["secret_key", "t"])?;
+		let secret_key = SecretKey::from_scalar(scalar);
+
+		Ok(Self {
+			key_pair: KeyPair::from_secret_key(secret_key),
+			t,
+			t_inverted: CS::Group::scalar_invert(&t),
+		})
 	}
 }
 
@@ -582,7 +542,10 @@ where
 	where
 		S: Serializer,
 	{
-		serializer.serialize_newtype_struct("PoprfServer", self.key_pair.secret_key().as_scalar())
+		let mut state = serializer.serialize_struct("PoprfServer", 2)?;
+		state.serialize_field("secret_key", &self.key_pair.secret_key().as_scalar())?;
+		state.serialize_field("t", &self.t)?;
+		state.end()
 	}
 }
 
@@ -601,46 +564,9 @@ impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
 impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindResult<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for PoprfEvaluateState<CS> {
-	fn clone(&self) -> Self {
-		Self {
-			t_inverted: self.t_inverted,
-		}
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfEvaluateState<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfEvaluateState")
-			.field("t_inverted", &self.t_inverted)
-			.finish()
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for PoprfEvaluateState<CS> {
-	fn drop(&mut self) {
-		self.t_inverted.zeroize();
-	}
-}
-
-impl<CS: CipherSuite> Eq for PoprfEvaluateState<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for PoprfEvaluateState<CS> {
-	fn eq(&self, other: &Self) -> bool {
-		self.t_inverted.eq(&other.t_inverted)
-	}
-}
-
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfEvaluateState<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBlindEvaluateResult")
-			.field("state", &self.state)
 			.field("evaluation_element", &self.evaluation_element)
 			.field("proof", &self.proof)
 			.finish()
@@ -654,7 +580,6 @@ impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindEvaluateResult<CS> {}
 impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBatchBlindEvaluateResult")
-			.field("state", &self.state)
 			.field("evaluation_elements", &self.evaluation_elements)
 			.field("proof", &self.proof)
 			.finish()
@@ -666,60 +591,6 @@ impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindEvaluateResult<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<
-	'blinded_elements,
-	CS: CipherSuite,
-	I: Iterator<Item = &'blinded_elements BlindedElement<CS>> + Debug,
-> Debug for PoprfPrepareBatchBlindEvaluateResult<'blinded_elements, CS, I>
-{
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfPrepareBatchBlindEvaluateResult")
-			.field("state", &self.state)
-			.field("prepared_elements", &self.prepared_elements)
-			.finish()
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for PoprfBatchBlindEvaluateState<CS> {
-	fn clone(&self) -> Self {
-		Self {
-			t: self.t,
-			t_inverted: self.t_inverted,
-		}
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateState<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfBatchBlindEvaluateState")
-			.field("t", &self.t)
-			.field("t_inverted", &self.t_inverted)
-			.finish()
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for PoprfBatchBlindEvaluateState<CS> {
-	fn drop(&mut self) {
-		self.t.zeroize();
-		self.t_inverted.zeroize();
-	}
-}
-
-impl<CS: CipherSuite> Eq for PoprfBatchBlindEvaluateState<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for PoprfBatchBlindEvaluateState<CS> {
-	fn eq(&self, other: &Self) -> bool {
-		self.t.eq(&other.t) && self.t_inverted.eq(&other.t_inverted)
-	}
-}
-
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindEvaluateState<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<
 	'prepared_elements,
 	CS: CipherSuite,
 	I: Iterator<Item = &'prepared_elements PreparedElement<CS>> + Debug,
@@ -727,7 +598,6 @@ impl<
 {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfFinishBatchBlindEvaluateResult")
-			.field("state", &self.state)
 			.field("evaluation_elements", &self.evaluation_elements)
 			.field("proof", &self.proof)
 			.finish()

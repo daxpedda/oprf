@@ -72,9 +72,8 @@ fn state<CS: CipherSuite>(_: Mode) {
 	let prepared = HelperServer::prepare(&clients);
 	let wrong_prepared = HelperServer::prepare(&clients);
 
-	let server = prepared
+	let server = wrong_prepared
 		.finish_with(
-			wrong_prepared.state(),
 			clients.blinded_elements().iter(),
 			prepared.prepared_elements(),
 		)

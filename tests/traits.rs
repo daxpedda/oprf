@@ -22,8 +22,7 @@ use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
 use oprf::poprf::PoprfBatchBlindEvaluateResult;
 use oprf::poprf::{
-	PoprfBatchBlindEvaluateState, PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient,
-	PoprfEvaluateState, PoprfFinishBatchBlindEvaluateResult, PoprfPrepareBatchBlindEvaluateResult,
+	PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient, PoprfFinishBatchBlindEvaluateResult,
 	PoprfServer,
 };
 #[cfg(feature = "alloc")]
@@ -71,11 +70,8 @@ macro_rules! test_ciphersuite {
 				api!(PoprfServer<$cs>);
 				result!(PoprfBlindResult<$cs>);
 				result!(PoprfBlindEvaluateResult<$cs>);
-				api!(PoprfEvaluateState<$cs>);
 				#[cfg(feature = "alloc")]
 				result!(PoprfBatchBlindEvaluateResult<$cs>);
-				assert_impl_all!(PoprfPrepareBatchBlindEvaluateResult<'_, $cs, Once<&BlindedElement<$cs>>>: Debug);
-				api!(PoprfBatchBlindEvaluateState<$cs>);
 				assert_impl_all!(PoprfFinishBatchBlindEvaluateResult<'_, $cs, Once<&PreparedElement<$cs>>>: Debug);
 			}
 		}

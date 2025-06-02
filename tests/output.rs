@@ -31,9 +31,7 @@ fn input<CS: CipherSuite>(mode: Mode) {
 			INFO,
 		)
 		.unwrap();
-	let wrong_server_output = server
-		.evaluate_with(server.state(), &[b"wrong"], INFO)
-		.unwrap();
+	let wrong_server_output = server.evaluate_with(&[b"wrong"], INFO).unwrap();
 	assert_ne!(wrong_client_output, wrong_server_output);
 
 	// Failure on wrong input during `Finalize`.
@@ -63,9 +61,7 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 			INFO,
 		)
 		.unwrap();
-	let wrong_server_output = server
-		.evaluate_with(server.state(), &[b"wrong"], INFO)
-		.unwrap();
+	let wrong_server_output = server.evaluate_with(&[b"wrong"], INFO).unwrap();
 	assert_ne!(wrong_client_output, slice::from_ref(&wrong_server_output));
 
 	// Failure on wrong input during `Finalize`.
@@ -85,11 +81,7 @@ fn info<CS: CipherSuite>(mode: Mode) {
 	let server = HelperServer::blind_evaluate(&client);
 
 	let client_output = client.finalize(&server);
-
-	let server_output = server
-		.evaluate_with(server.state(), INPUT, b"wrong")
-		.unwrap();
-
+	let server_output = server.evaluate_with(INPUT, b"wrong").unwrap();
 	assert_ne!(client_output, server_output);
 }
 
@@ -102,11 +94,7 @@ fn info_batch<CS: CipherSuite>(_: Mode) {
 	let server = prepared.finish(&clients);
 
 	let client_output = clients.finalize_fixed::<1>(&server);
-
-	let server_output = server
-		.evaluate_with(server.state(), INPUT, b"wrong")
-		.unwrap();
-
+	let server_output = server.evaluate_with(INPUT, b"wrong").unwrap();
 	assert_ne!(client_output, [server_output]);
 }
 
@@ -119,11 +107,7 @@ fn state<CS: CipherSuite>(_: Mode) {
 	let wrong_server = HelperServer::blind_evaluate(&client);
 
 	let client_output = client.finalize(&server);
-
-	let server_output = server
-		.evaluate_with(wrong_server.state(), INPUT, INFO)
-		.unwrap();
-
+	let server_output = wrong_server.evaluate();
 	assert_ne!(client_output, server_output);
 }
 
@@ -138,10 +122,6 @@ fn state_batch<CS: CipherSuite>(_: Mode) {
 	let wrong_server = wrong_prepared.finish(&clients);
 
 	let client_output = clients.finalize_fixed::<1>(&server);
-
-	let server_output = server
-		.evaluate_with(wrong_server.state(), INPUT, b"wrong")
-		.unwrap();
-
+	let server_output = wrong_server.evaluate_with(INPUT, b"wrong").unwrap();
 	assert_ne!(client_output, [server_output]);
 }

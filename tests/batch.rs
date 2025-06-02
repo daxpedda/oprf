@@ -34,19 +34,15 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 
 	if let Mode::Voprf | Mode::Poprf = mode {
 		// Failure on zero blinded elements.
-		let result = prepared.finish_with(
-			prepared.state(),
-			iter::empty(),
-			prepared.prepared_elements(),
-		);
+		let result = prepared.finish_with(iter::empty(), prepared.prepared_elements());
 		assert_eq!(result.unwrap_err(), Error::Batch);
 
 		// Failure on zero prepared elements.
-		let result = prepared.finish_with(prepared.state(), clients.blinded_elements().iter(), &[]);
+		let result = prepared.finish_with(clients.blinded_elements().iter(), &[]);
 		assert_eq!(result.unwrap_err(), Error::Batch);
 
 		// Failure on equal but zero elements for all parameters.
-		let result = prepared.finish_with(prepared.state(), iter::empty(), &[]);
+		let result = prepared.finish_with(iter::empty(), &[]);
 		assert_eq!(result.unwrap_err(), Error::Batch);
 
 		// Failure on zero blinded elements with `alloc`.
@@ -127,7 +123,6 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 	if let Mode::Voprf | Mode::Poprf = mode {
 		// Failure on unequal blinded elements.
 		let result = prepared.finish_with(
-			prepared.state(),
 			iter::once(&clients.blinded_elements()[0]),
 			prepared.prepared_elements(),
 		);
@@ -135,7 +130,6 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 
 		// Failure on unequal prepared elements.
 		let result = prepared.finish_with(
-			prepared.state(),
 			clients.blinded_elements().iter(),
 			array::from_ref(&prepared.prepared_elements()[0]),
 		);
@@ -234,7 +228,6 @@ fn max(mode: Mode) {
 
 	// Failure on overflowing blinded elements.
 	let result = prepared.finish_with(
-		prepared.state(),
 		clients.blinded_elements().iter(),
 		&prepared.prepared_elements()[..u16::MAX.into()],
 	);
@@ -242,7 +235,6 @@ fn max(mode: Mode) {
 
 	// Failure on overflowing prepared elements.
 	let result = prepared.finish_with(
-		prepared.state(),
 		clients.blinded_elements()[..u16::MAX.into()].iter(),
 		prepared.prepared_elements(),
 	);
@@ -250,7 +242,6 @@ fn max(mode: Mode) {
 
 	// Failure on overflowing elements for all parameters.
 	let result = prepared.finish_with(
-		prepared.state(),
 		clients.blinded_elements().iter(),
 		prepared.prepared_elements(),
 	);
@@ -265,7 +256,6 @@ fn max(mode: Mode) {
 
 		let mut server = prepared
 			.finish_with(
-				prepared.state(),
 				clients.blinded_elements()[..u16::MAX.into()].iter(),
 				&prepared.prepared_elements()[..u16::MAX.into()],
 			)
