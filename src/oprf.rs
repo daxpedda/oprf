@@ -2,6 +2,8 @@
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
@@ -12,6 +14,8 @@ use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
 use crate::internal::{self, Blind, BlindResult};
 use crate::key::SecretKey;
+#[cfg(feature = "serde")]
+use crate::serde;
 
 pub struct OprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
@@ -146,6 +150,17 @@ impl<CS: CipherSuite> Debug for OprfClient<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for OprfClient<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "OprfClient").map(|blind| Self { blind })
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for OprfClient<CS> {
 	fn drop(&mut self) {
@@ -159,6 +174,20 @@ impl<CS: CipherSuite> Eq for OprfClient<CS> {}
 impl<CS: CipherSuite> PartialEq for OprfClient<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.blind.eq(&other.blind)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for OprfClient<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("OprfClient", &self.blind)
 	}
 }
 
@@ -182,12 +211,39 @@ impl<CS: CipherSuite> Debug for OprfServer<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for OprfServer<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "OprfServer")
+			.map(SecretKey::from_scalar)
+			.map(|secret_key| Self { secret_key })
+	}
+}
+
 impl<CS: CipherSuite> Eq for OprfServer<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for OprfServer<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.secret_key.eq(&other.secret_key)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for OprfServer<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("OprfServer", self.secret_key.as_scalar())
 	}
 }
 

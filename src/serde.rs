@@ -137,7 +137,7 @@ where
 		type Value = (T1, T2);
 
 		fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-			formatter.write_str("struct Proof")
+			write!(formatter, "struct {}", self.name)
 		}
 
 		fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {

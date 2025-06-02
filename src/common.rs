@@ -1,6 +1,8 @@
 use core::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
+use ::serde::ser::SerializeStruct;
+#[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use hybrid_array::Array;
 use hybrid_array::typenum::{Sum, Unsigned};
@@ -290,8 +292,6 @@ where
 	where
 		S: Serializer,
 	{
-		use ::serde::ser::SerializeStruct;
-
 		let mut state = serializer.serialize_struct("Proof", 2)?;
 		state.serialize_field("c", &self.c)?;
 		state.serialize_field("s", &self.s)?;

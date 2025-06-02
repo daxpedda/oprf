@@ -104,6 +104,11 @@ impl<G: Group> SecretKey<G> {
 		Err(Error::DeriveKeyPair)
 	}
 
+	#[cfg(feature = "serde")]
+	pub(crate) const fn from_scalar(scalar: G::NonZeroScalar) -> Self {
+		Self(scalar)
+	}
+
 	pub const fn as_scalar(&self) -> &G::NonZeroScalar {
 		&self.0
 	}

@@ -4,19 +4,27 @@ use core::fmt::{self, Debug, Formatter};
 use core::iter;
 use core::iter::{Map, Repeat, Zip};
 
+#[cfg(feature = "serde")]
+use ::serde::ser::SerializeStruct;
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use digest::Output;
 use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+#[cfg(feature = "serde")]
+use crate::ciphersuite::NonIdentityElement;
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 use crate::internal::{self, Blind, BlindResult, Info};
-#[cfg(test)]
+#[cfg(any(feature = "serde", test))]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
+#[cfg(feature = "serde")]
+use crate::serde;
 
 pub struct PoprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
@@ -470,6 +478,24 @@ impl<CS: CipherSuite> Debug for PoprfClient<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for PoprfClient<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Deserialize<'de>,
+	NonIdentityElement<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		let (blind, blinded_element) =
+			serde::struct_2(deserializer, "PoprfClient", &["blind", "blinded_element"])?;
+
+		Ok(Self {
+			blind,
+			blinded_element: BlindedElement(blinded_element),
+		})
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for PoprfClient<CS> {
 	fn drop(&mut self) {
@@ -483,6 +509,24 @@ impl<CS: CipherSuite> Eq for PoprfClient<CS> {}
 impl<CS: CipherSuite> PartialEq for PoprfClient<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.blind.eq(&other.blind) && self.blinded_element.eq(&other.blinded_element)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for PoprfClient<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Serialize,
+	NonIdentityElement<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let mut state = serializer.serialize_struct("PoprfClient", 2)?;
+		state.serialize_field("blind", &self.blind)?;
+		state.serialize_field("blinded_element", &self.blinded_element.0)?;
+		state.end()
 	}
 }
 
@@ -506,12 +550,40 @@ impl<CS: CipherSuite> Debug for PoprfServer<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for PoprfServer<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "PoprfServer")
+			.map(SecretKey::from_scalar)
+			.map(KeyPair::from_secret_key)
+			.map(|key_pair| Self { key_pair })
+	}
+}
+
 impl<CS: CipherSuite> Eq for PoprfServer<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for PoprfServer<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.key_pair.eq(&other.key_pair)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for PoprfServer<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("PoprfServer", self.key_pair.secret_key().as_scalar())
 	}
 }
 

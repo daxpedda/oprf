@@ -4,18 +4,26 @@ use core::fmt::{self, Debug, Formatter};
 use core::iter;
 use core::iter::{Map, Repeat, Zip};
 
+#[cfg(feature = "serde")]
+use ::serde::ser::SerializeStruct;
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use digest::Output;
 use hybrid_array::{ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+#[cfg(feature = "serde")]
+use crate::ciphersuite::NonIdentityElement;
 use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
 use crate::error::{Error, Result};
 use crate::internal::{self, Blind, BlindResult};
-#[cfg(test)]
+#[cfg(any(feature = "serde", test))]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
+#[cfg(feature = "serde")]
+use crate::serde;
 
 pub struct VoprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
@@ -200,6 +208,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2
+	#[expect(clippy::missing_panics_doc, reason = "must never panic")]
 	pub fn blind_evaluate<R: TryCryptoRng>(
 		&self,
 		rng: &mut R,
@@ -207,7 +216,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	) -> Result<VoprfBlindEvaluateResult<CS>, Error<R::Error>> {
 		let prepared_elements = self
 			.prepare_batch_blind_evaluate(iter::once(blinded_element))
-			.map_err(Error::into_random::<R>)?;
+			.expect("one element should not error");
 		let prepared_element: ArrayN<_, 1> = prepared_elements.collect();
 		let prepared_element: [_; 1] = prepared_element.into();
 
@@ -389,6 +398,24 @@ impl<CS: CipherSuite> Debug for VoprfClient<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for VoprfClient<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Deserialize<'de>,
+	NonIdentityElement<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		let (blind, blinded_element) =
+			serde::struct_2(deserializer, "VoprfClient", &["blind", "blinded_element"])?;
+
+		Ok(Self {
+			blind,
+			blinded_element: BlindedElement(blinded_element),
+		})
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for VoprfClient<CS> {
 	fn drop(&mut self) {
@@ -402,6 +429,24 @@ impl<CS: CipherSuite> Eq for VoprfClient<CS> {}
 impl<CS: CipherSuite> PartialEq for VoprfClient<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.blind.eq(&other.blind) && self.blinded_element.eq(&other.blinded_element)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for VoprfClient<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Serialize,
+	NonIdentityElement<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let mut state = serializer.serialize_struct("VoprfClient", 2)?;
+		state.serialize_field("blind", &self.blind)?;
+		state.serialize_field("blinded_element", &self.blinded_element.0)?;
+		state.end()
 	}
 }
 
@@ -425,12 +470,40 @@ impl<CS: CipherSuite> Debug for VoprfServer<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for VoprfServer<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "VoprfServer")
+			.map(SecretKey::from_scalar)
+			.map(KeyPair::from_secret_key)
+			.map(|key_pair| Self { key_pair })
+	}
+}
+
 impl<CS: CipherSuite> Eq for VoprfServer<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for VoprfServer<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.key_pair.eq(&other.key_pair)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for VoprfServer<CS>
+where
+	CS: CipherSuite,
+	NonZeroScalar<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("VoprfServer", self.key_pair.secret_key().as_scalar())
 	}
 }
 
