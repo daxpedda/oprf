@@ -1,5 +1,7 @@
 use core::fmt::{self, Debug, Formatter};
 
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use hybrid_array::Array;
 use hybrid_array::typenum::{Sum, Unsigned};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -7,6 +9,8 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
 use crate::error::{Error, Result};
 use crate::group::{self, Group};
+#[cfg(feature = "serde")]
+use crate::serde;
 
 // https://www.rfc-editor.org/rfc/rfc9497.html#name-identifiers-for-protocol-va
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -43,36 +47,36 @@ pub struct Proof<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> BlindedElement<CS> {
-	pub fn serialize(&self) -> Array<u8, ElementLength<CS>> {
-		CS::Group::serialize_element(&self.0)
+	pub fn to_repr(&self) -> Array<u8, ElementLength<CS>> {
+		CS::Group::element_to_repr(&self.0)
 	}
 
-	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
-		group::deserialize_non_identity_element::<CS::Group>(bytes).map(Self)
+	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
+		group::non_identity_element_from_repr::<CS::Group>(bytes).map(Self)
 	}
 }
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
-	pub fn serialize(&self) -> Array<u8, ElementLength<CS>> {
-		CS::Group::serialize_element(&self.0)
+	pub fn to_repr(&self) -> Array<u8, ElementLength<CS>> {
+		CS::Group::element_to_repr(&self.0)
 	}
 
-	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
-		group::deserialize_non_identity_element::<CS::Group>(bytes).map(Self)
+	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
+		group::non_identity_element_from_repr::<CS::Group>(bytes).map(Self)
 	}
 }
 
 impl<CS: CipherSuite> Proof<CS> {
-	pub fn serialize(&self) -> Array<u8, Sum<ScalarLength<CS>, ScalarLength<CS>>> {
-		CS::Group::serialize_scalar(&self.c).concat(CS::Group::serialize_scalar(&self.s))
+	pub fn to_repr(&self) -> Array<u8, Sum<ScalarLength<CS>, ScalarLength<CS>>> {
+		CS::Group::scalar_to_repr(&self.c).concat(CS::Group::scalar_to_repr(&self.s))
 	}
 
-	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
+	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		let (c_bytes, s_bytes) = bytes
 			.split_at_checked(ScalarLength::<CS>::USIZE)
-			.ok_or(Error::Deserialize)?;
-		let c = group::deserialize_scalar::<CS::Group>(c_bytes)?;
-		let s = group::deserialize_scalar::<CS::Group>(s_bytes)?;
+			.ok_or(Error::FromRepr)?;
+		let c = group::scalar_from_repr::<CS::Group>(c_bytes)?;
+		let s = group::scalar_from_repr::<CS::Group>(s_bytes)?;
 
 		Ok(Self { c, s })
 	}
@@ -92,6 +96,17 @@ impl<CS: CipherSuite> Debug for BlindedElement<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for BlindedElement<CS>
+where
+	CS: CipherSuite,
+	NonIdentityElement<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "BlindedElement").map(Self)
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for BlindedElement<CS> {
 	fn drop(&mut self) {
@@ -105,6 +120,20 @@ impl<CS: CipherSuite> Eq for BlindedElement<CS> {}
 impl<CS: CipherSuite> PartialEq for BlindedElement<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for BlindedElement<CS>
+where
+	CS: CipherSuite,
+	NonIdentityElement<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("BlindedElement", &self.0)
 	}
 }
 
@@ -124,6 +153,17 @@ impl<CS: CipherSuite> Debug for EvaluationElement<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for EvaluationElement<CS>
+where
+	CS: CipherSuite,
+	NonIdentityElement<CS>: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "EvaluationElement").map(Self)
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for EvaluationElement<CS> {
 	fn drop(&mut self) {
@@ -137,6 +177,20 @@ impl<CS: CipherSuite> Eq for EvaluationElement<CS> {}
 impl<CS: CipherSuite> PartialEq for EvaluationElement<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for EvaluationElement<CS>
+where
+	CS: CipherSuite,
+	NonIdentityElement<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("EvaluationElement", &self.0)
 	}
 }
 
@@ -194,6 +248,20 @@ impl<CS: CipherSuite> Debug for Proof<CS> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, CS> Deserialize<'de> for Proof<CS>
+where
+	CS: CipherSuite,
+	Scalar<CS>: Deserialize<'de>,
+{
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		serde::struct_2(deserializer, "Proof", &["c", "s"]).map(|(c, s)| Self { c, s })
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for Proof<CS> {
 	fn drop(&mut self) {
@@ -209,6 +277,25 @@ impl<CS: CipherSuite> Eq for Proof<CS> {}
 impl<CS: CipherSuite> PartialEq for Proof<CS> {
 	fn eq(&self, other: &Self) -> bool {
 		self.c.eq(&other.c) && self.s.eq(&other.s)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<CS> Serialize for Proof<CS>
+where
+	CS: CipherSuite,
+	Scalar<CS>: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		use ::serde::ser::SerializeStruct;
+
+		let mut state = serializer.serialize_struct("Proof", 2)?;
+		state.serialize_field("c", &self.c)?;
+		state.serialize_field("s", &self.s)?;
+		state.end()
 	}
 }
 

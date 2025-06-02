@@ -35,7 +35,7 @@ where
 	type Element = ProjectivePoint<C>;
 	type ElementLength = CompressedPointSize<C>;
 
-	fn random_scalar<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
+	fn scalar_random<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
 		NonZeroScalar::try_from_rng(rng)
 	}
 
@@ -69,41 +69,47 @@ where
 		Scalar::<C>::batch_invert(scalars)
 	}
 
-	fn serialize_scalar(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
+	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
 		scalar.to_repr()
 	}
 
-	fn deserialize_scalar(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
-		Scalar::<C>::from_repr(bytes).into_option()
+	fn non_zero_scalar_from_repr(
+		bytes: &Array<u8, Self::ScalarLength>,
+	) -> Option<Self::NonZeroScalar> {
+		NonZeroScalar::<C>::from_repr(bytes.clone()).into_option()
 	}
 
-	fn identity_element() -> Self::Element {
+	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
+		Scalar::<C>::from_repr(bytes.clone()).into_option()
+	}
+
+	fn element_identity() -> Self::Element {
 		ProjectivePoint::<C>::identity()
 	}
 
-	fn generator_element() -> Self::Element {
+	fn element_generator() -> Self::Element {
 		ProjectivePoint::<C>::generator()
 	}
 
-	fn hash_to_group<E>(input: &[&[u8]], dst: Dst) -> Self::Element
+	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Self::Element
 	where
 		E: ExpandMsg<Self::K>,
 	{
 		C::hash_from_bytes::<E>(input, dst.as_ref()).expect("invalid cipher suite")
 	}
 
-	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		ProjectivePoint::<C>::lincomb(&points_and_scalars)
-	}
-
-	fn serialize_element(element: &Self::Element) -> Array<u8, Self::ElementLength> {
+	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
 		element.to_bytes()
 	}
 
-	fn deserialize_non_identity_element(
+	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {
 		NonIdentity::<ProjectivePoint<Self>>::from_repr(bytes).into_option()
+	}
+
+	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
+		ProjectivePoint::<C>::lincomb(&points_and_scalars)
 	}
 }
 

@@ -5,38 +5,34 @@ version = "0.0.0"
 
 [features]
 alloc = ["elliptic-curve/alloc"]
+serde = ["dep:serde", "elliptic-curve/serde"]
 
 [dependencies]
-digest = { version = "=0.11.0-pre.10", default-features = false }
-elliptic-curve = { version = "=0.14.0-rc.1", features = ["hash2curve", "oprf", "sec1"] }
+digest = { version = "=0.11.0-rc.0", default-features = false }
+elliptic-curve = { version = "=0.14.0-rc.3", features = ["hash2curve", "oprf", "sec1"] }
 hybrid-array = "0.3"
 rand_core = { version = "0.9", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 zeroize = "1.5"
 
 [dev-dependencies]
 derive-where = "1"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
-p256 = { version = "=0.14.0-pre.2", default-features = false, features = ["oprf"] }
-p384 = { version = "=0.14.0-pre.2", default-features = false, features = ["oprf"] }
-p521 = { version = "=0.14.0-pre.2", default-features = false, features = ["oprf"] }
+p256 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
+p384 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
+p521 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
 paste = "1"
 rand = { version = "0.9", default-features = false, features = ["os_rng"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_test = { git = "https://github.com/daxpedda/test" }
 static_assertions = "1"
 zeroize = { version = "1", features = ["derive"] }
 
 [patch.crates-io]
-digest = { git = "https://github.com/RustCrypto/traits", rev = "e728ece19cb5df8d8a7f575c4676a323d449a885" }
-# https://github.com/zkcrypto/ff/pull/137
-elliptic-curve = { git = "https://github.com/RustCrypto/traits", rev = "238fa0841040acb8a8b0a7c50a66adcaa847d28a" }
-ff = { git = "https://github.com/zkcrypto/ff", rev = "8e139e2fb25ab61a5d362394af0a34b10c03d59b" }
-# https://github.com/RustCrypto/elliptic-curves/pull/1209
-p256 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "62b9eaf840ea3c15893ee59dfd0412c48e8ba696" }
-p384 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "62b9eaf840ea3c15893ee59dfd0412c48e8ba696" }
-p521 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "62b9eaf840ea3c15893ee59dfd0412c48e8ba696" }
-sha2 = { git = "https://github.com/RustCrypto/hashes", rev = "d9ad085ed12dba58d2a6d75d76a17a1b2706c4c7" }
+# https://github.com/RustCrypto/elliptic-curves/pull/1214
+primeorder = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "0c503ceb5a3ccb9dfe5acdfc8efceba8683dddcf" }
 
 [lints.rust]
 # Rust groups.

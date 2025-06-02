@@ -8,7 +8,7 @@ use super::parse::{TEST_VECTORS, TestVector, Vector};
 use super::{INFO, KEY_INFO, SEED};
 use crate::ciphersuite::CipherSuite;
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
-use crate::key::PublicKey;
+use crate::key::{PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
 use crate::poprf::PoprfBatchBlindEvaluateResult;
 use crate::poprf::{
@@ -48,12 +48,9 @@ fn poprf<CS: CipherSuite>() {
 				blinded_element,
 			} = PoprfClient::<CS>::blind(&mut CycleRng::new(&vector.blind), &[&vector.input]).unwrap();
 
+			assert_eq!(vector.blinded_element, blinded_element.to_repr().as_slice(),);
 			assert_eq!(
-				vector.blinded_element,
-				blinded_element.serialize().as_slice(),
-			);
-			assert_eq!(
-				BlindedElement::deserialize(&vector.blinded_element).unwrap(),
+				BlindedElement::from_repr(&vector.blinded_element).unwrap(),
 				blinded_element,
 			);
 
@@ -68,14 +65,14 @@ fn poprf<CS: CipherSuite>() {
 
 			assert_eq!(
 				vector.evaluation_element,
-				evaluation_element.serialize().as_slice(),
+				evaluation_element.to_repr().as_slice(),
 			);
 			assert_eq!(
-				EvaluationElement::deserialize(&vector.evaluation_element).unwrap(),
+				EvaluationElement::from_repr(&vector.evaluation_element).unwrap(),
 				evaluation_element,
 			);
-			assert_eq!(vector_proof.proof, proof.serialize().as_slice());
-			assert_eq!(Proof::deserialize(&vector_proof.proof).unwrap(), proof);
+			assert_eq!(vector_proof.proof, proof.to_repr().as_slice());
+			assert_eq!(Proof::from_repr(&vector_proof.proof).unwrap(), proof);
 
 			// Finalize.
 			assert_eq!(
@@ -137,12 +134,9 @@ fn poprf_batch<CS: CipherSuite>() {
 					} = PoprfClient::<CS>::blind(&mut CycleRng::new(blind), &[input.as_slice()])
 						.unwrap();
 
+					assert_eq!(vector_blinded_element, blinded_element.to_repr().as_slice(),);
 					assert_eq!(
-						vector_blinded_element,
-						blinded_element.serialize().as_slice(),
-					);
-					assert_eq!(
-						BlindedElement::deserialize(vector_blinded_element).unwrap(),
+						BlindedElement::from_repr(vector_blinded_element).unwrap(),
 						blinded_element,
 					);
 
@@ -183,16 +177,16 @@ fn poprf_batch<CS: CipherSuite>() {
 			{
 				assert_eq!(
 					vector_evaluation_element,
-					evaluation_element.serialize().as_slice(),
+					evaluation_element.to_repr().as_slice(),
 				);
 				assert_eq!(
-					&EvaluationElement::deserialize(vector_evaluation_element).unwrap(),
+					&EvaluationElement::from_repr(vector_evaluation_element).unwrap(),
 					evaluation_element,
 				);
 			}
 
-			assert_eq!(vector_proof.proof, proof.serialize().as_slice());
-			assert_eq!(Proof::deserialize(&vector_proof.proof).unwrap(), proof);
+			assert_eq!(vector_proof.proof, proof.to_repr().as_slice());
+			assert_eq!(Proof::from_repr(&vector_proof.proof).unwrap(), proof);
 
 			#[cfg(feature = "alloc")]
 			{
@@ -210,16 +204,16 @@ fn poprf_batch<CS: CipherSuite>() {
 				{
 					assert_eq!(
 						vector_evaluation_element,
-						evaluation_element.serialize().as_slice(),
+						evaluation_element.to_repr().as_slice(),
 					);
 					assert_eq!(
-						EvaluationElement::deserialize(vector_evaluation_element).unwrap(),
+						EvaluationElement::from_repr(vector_evaluation_element).unwrap(),
 						evaluation_element,
 					);
 				}
 
-				assert_eq!(vector_proof.proof, proof.serialize().as_slice());
-				assert_eq!(Proof::deserialize(&vector_proof.proof).unwrap(), proof);
+				assert_eq!(vector_proof.proof, proof.to_repr().as_slice());
+				assert_eq!(Proof::from_repr(&vector_proof.proof).unwrap(), proof);
 			}
 
 			// Finalize.
@@ -279,19 +273,20 @@ fn server<CS: CipherSuite>(test_vector: &TestVector) -> PoprfServer<CS> {
 
 	assert_eq!(
 		test_vector.secret_key,
-		server.secret_key().serialize().as_slice(),
+		server.secret_key().to_repr().as_slice(),
+	);
+	assert_eq!(
+		&SecretKey::from_repr(&test_vector.secret_key).unwrap(),
+		server.secret_key(),
 	);
 
 	let vector_public_key = test_vector
 		.public_key
 		.as_ref()
 		.expect("unexpected missing public key for VOPRF");
+	assert_eq!(vector_public_key, server.public_key().to_repr().as_slice(),);
 	assert_eq!(
-		vector_public_key,
-		server.public_key().serialize().as_slice(),
-	);
-	assert_eq!(
-		&PublicKey::deserialize(vector_public_key).unwrap(),
+		&PublicKey::from_repr(vector_public_key).unwrap(),
 		server.public_key(),
 	);
 

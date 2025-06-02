@@ -41,7 +41,7 @@ impl Group for MockCurve {
 	type Element = Element;
 	type ElementLength = U0;
 
-	fn random_scalar<R: rand::TryCryptoRng>(_: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
+	fn scalar_random<R: rand::TryCryptoRng>(_: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
 		Ok(NonZeroScalar)
 	}
 
@@ -64,23 +64,27 @@ impl Group for MockCurve {
 		NonZeroScalar
 	}
 
-	fn serialize_scalar(_: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
+	fn scalar_to_repr(_: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
 		Array::default()
 	}
 
-	fn deserialize_scalar(_: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
+	fn non_zero_scalar_from_repr(_: &Array<u8, Self::ScalarLength>) -> Option<Self::NonZeroScalar> {
+		Some(NonZeroScalar)
+	}
+
+	fn scalar_from_repr(_: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
 		Some(Scalar)
 	}
 
-	fn identity_element() -> Self::Element {
+	fn element_identity() -> Self::Element {
 		Element
 	}
 
-	fn generator_element() -> Self::Element {
+	fn element_generator() -> Self::Element {
 		Element
 	}
 
-	fn hash_to_group<E>(_: &[&[u8]], _: Dst) -> Self::Element
+	fn hash_to_curve<E>(_: &[&[u8]], _: Dst) -> Self::Element
 	where
 		E: ExpandMsg<Self::K>,
 	{
@@ -98,11 +102,11 @@ impl Group for MockCurve {
 		CtOption::new(scalars, Choice::from(1))
 	}
 
-	fn serialize_element(_: &Self::Element) -> Array<u8, Self::ElementLength> {
+	fn element_to_repr(_: &Self::Element) -> Array<u8, Self::ElementLength> {
 		Array::default()
 	}
 
-	fn deserialize_non_identity_element(
+	fn non_identity_element_from_repr(
 		_: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {
 		Some(NonIdentityElement)

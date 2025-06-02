@@ -7,6 +7,7 @@ use super::parse::{TEST_VECTORS, Vector};
 use super::{KEY_INFO, SEED};
 use crate::ciphersuite::CipherSuite;
 use crate::common::{BlindedElement, EvaluationElement, Mode};
+use crate::key::SecretKey;
 use crate::oprf::{OprfBlindResult, OprfClient, OprfServer};
 use crate::test_vectors::cycle_rng::CycleRng;
 use crate::util::Concat;
@@ -31,7 +32,11 @@ fn oprf<CS: CipherSuite>() {
 
 		assert_eq!(
 			test_vector.secret_key,
-			server.secret_key().serialize().as_slice(),
+			server.secret_key().to_repr().as_slice(),
+		);
+		assert_eq!(
+			&SecretKey::from_repr(&test_vector.secret_key).unwrap(),
+			server.secret_key(),
 		);
 
 		assert!(test_vector.public_key.is_none());
@@ -49,12 +54,9 @@ fn oprf<CS: CipherSuite>() {
 				blinded_element,
 			} = OprfClient::<CS>::blind(&mut CycleRng::new(&vector.blind), &[&vector.input]).unwrap();
 
+			assert_eq!(vector.blinded_element, blinded_element.to_repr().as_slice(),);
 			assert_eq!(
-				vector.blinded_element,
-				blinded_element.serialize().as_slice(),
-			);
-			assert_eq!(
-				BlindedElement::deserialize(&vector.blinded_element).unwrap(),
+				BlindedElement::from_repr(&vector.blinded_element).unwrap(),
 				blinded_element,
 			);
 
@@ -62,10 +64,10 @@ fn oprf<CS: CipherSuite>() {
 			let evaluation_element = server.blind_evaluate(&blinded_element);
 			assert_eq!(
 				vector.evaluation_element,
-				evaluation_element.serialize().as_slice(),
+				evaluation_element.to_repr().as_slice(),
 			);
 			assert_eq!(
-				EvaluationElement::deserialize(&vector.evaluation_element).unwrap(),
+				EvaluationElement::from_repr(&vector.evaluation_element).unwrap(),
 				evaluation_element,
 			);
 

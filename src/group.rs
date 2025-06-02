@@ -56,7 +56,7 @@ pub trait Group {
 		+ TryInto<Self::NonIdentityElement>;
 	type ElementLength: ArraySize + IsLess<U65536, Output = True>;
 
-	fn random_scalar<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>;
+	fn scalar_random<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>;
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Self::Scalar
 	where
@@ -75,28 +75,32 @@ pub trait Group {
 		scalars: [Self::Scalar; N],
 	) -> CtOption<[Self::Scalar; N]>;
 
-	fn serialize_scalar(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
+	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
-	fn deserialize_scalar(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar>;
+	fn non_zero_scalar_from_repr(
+		bytes: &Array<u8, Self::ScalarLength>,
+	) -> Option<Self::NonZeroScalar>;
 
-	fn identity_element() -> Self::Element;
+	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar>;
 
-	fn generator_element() -> Self::Element;
+	fn element_identity() -> Self::Element;
 
-	fn hash_to_group<E>(input: &[&[u8]], dst: Dst) -> Self::Element
+	fn element_generator() -> Self::Element;
+
+	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Self::Element
 	where
 		E: ExpandMsg<Self::K>;
+
+	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
+
+	fn non_identity_element_from_repr(
+		bytes: &Array<u8, Self::ElementLength>,
+	) -> Option<Self::NonIdentityElement>;
 
 	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
 		let [(x1, k1), (x2, k2)] = points_and_scalars;
 		k1 * &x1 + &(k2 * &x2)
 	}
-
-	fn serialize_element(element: &Self::Element) -> Array<u8, Self::ElementLength>;
-
-	fn deserialize_non_identity_element(
-		bytes: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -135,7 +139,7 @@ pub(crate) trait InternalGroup: CipherSuite {
 		dst_pre_concat: Option<&'static [u8]>,
 	) -> Scalar<Self>;
 
-	fn hash_to_group(mode: Mode, input: &[&[u8]]) -> Option<NonIdentityElement<Self>>;
+	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Option<NonIdentityElement<Self>>;
 }
 
 impl<CS: CipherSuite> InternalGroup for CS {
@@ -152,29 +156,37 @@ impl<CS: CipherSuite> InternalGroup for CS {
 		)
 	}
 
-	fn hash_to_group(mode: Mode, input: &[&[u8]]) -> Option<NonIdentityElement<Self>> {
-		CS::Group::hash_to_group::<CS::ExpandMsg>(input, Dst::new::<CS>(mode, b"HashToGroup-"))
+	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Option<NonIdentityElement<Self>> {
+		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, Dst::new::<CS>(mode, b"HashToGroup-"))
 			.try_into()
 			.ok()
 	}
 }
 
-pub(crate) fn deserialize_scalar<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
+pub(crate) fn non_zero_scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::NonZeroScalar> {
 	bytes
 		.try_into()
 		.ok()
-		.and_then(G::deserialize_scalar)
-		.ok_or(Error::Deserialize)
+		.and_then(G::non_zero_scalar_from_repr)
+		.ok_or(Error::FromRepr)
 }
 
-pub(crate) fn deserialize_non_identity_element<G: Group>(
+pub(crate) fn scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
+	bytes
+		.try_into()
+		.ok()
+		.and_then(G::scalar_from_repr)
+		.ok_or(Error::FromRepr)
+}
+
+pub(crate) fn non_identity_element_from_repr<G: Group>(
 	bytes: &[u8],
 ) -> Result<G::NonIdentityElement> {
 	bytes
 		.try_into()
 		.ok()
-		.and_then(G::deserialize_non_identity_element)
-		.ok_or(Error::Deserialize)
+		.and_then(G::non_identity_element_from_repr)
+		.ok_or(Error::FromRepr)
 }
 
 #[cfg(test)]
@@ -182,10 +194,13 @@ mod tests {
 	use super::*;
 	use crate::test_ciphersuites;
 
-	test_ciphersuites!(serialize_identity);
+	test_ciphersuites!(identity_from_repr);
 
-	fn serialize_identity<CS: CipherSuite>() {
-		let identity = CS::Group::identity_element();
-		let _ = CS::Group::serialize_element(&identity);
+	fn identity_from_repr<CS: CipherSuite>() {
+		let identity = CS::Group::element_identity();
+		let bytes = CS::Group::element_to_repr(&identity);
+
+		let result = CS::Group::non_identity_element_from_repr(&bytes);
+		assert_eq!(result, None);
 	}
 }

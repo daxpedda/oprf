@@ -1,6 +1,8 @@
 use core::fmt::{self, Debug, Formatter};
 use core::slice;
 
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use hybrid_array::Array;
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -9,6 +11,8 @@ use crate::ciphersuite::CipherSuite;
 use crate::common::Mode;
 use crate::error::{Error, Result};
 use crate::group::{self, Group, InternalGroup};
+#[cfg(feature = "serde")]
+use crate::serde;
 use crate::util::{Concat, I2ospLength};
 
 pub struct KeyPair<G: Group> {
@@ -19,7 +23,7 @@ pub struct KeyPair<G: Group> {
 impl<G: Group> KeyPair<G> {
 	// `GenerateKeyPair`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2
-	pub(crate) fn generate<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
+	pub fn generate<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
 		SecretKey::generate(rng).map(Self::from_secret_key)
 	}
 
@@ -53,6 +57,14 @@ impl<G: Group> KeyPair<G> {
 	pub fn into_keys(self) -> (SecretKey<G>, PublicKey<G>) {
 		(self.secret_key, self.public_key)
 	}
+
+	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
+		self.secret_key.to_repr()
+	}
+
+	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
+		SecretKey::from_repr(bytes).map(Self::from_secret_key)
+	}
 }
 
 pub struct SecretKey<G: Group>(G::NonZeroScalar);
@@ -60,8 +72,8 @@ pub struct SecretKey<G: Group>(G::NonZeroScalar);
 impl<G: Group> SecretKey<G> {
 	// `GenerateKeyPair` without public key
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2
-	pub(crate) fn generate<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
-		G::random_scalar(rng).map(Self)
+	pub fn generate<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
+		G::scalar_random(rng).map(Self)
 	}
 
 	// `DeriveKeyPair` without public key
@@ -104,9 +116,12 @@ impl<G: Group> SecretKey<G> {
 		self.0
 	}
 
-	#[cfg(test)]
-	pub(crate) fn serialize(&self) -> Array<u8, G::ScalarLength> {
-		G::serialize_scalar(&self.0)
+	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
+		G::scalar_to_repr(&self.0)
+	}
+
+	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
+		group::non_zero_scalar_from_repr::<G>(bytes).map(Self)
 	}
 }
 
@@ -125,12 +140,12 @@ impl<G: Group> PublicKey<G> {
 		self.0
 	}
 
-	pub fn serialize(&self) -> Array<u8, G::ElementLength> {
-		G::serialize_element(&self.0)
+	pub fn to_repr(&self) -> Array<u8, G::ElementLength> {
+		G::element_to_repr(&self.0)
 	}
 
-	pub fn deserialize(bytes: &[u8]) -> Result<Self> {
-		group::deserialize_non_identity_element::<G>(bytes).map(Self)
+	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
+		group::non_identity_element_from_repr::<G>(bytes).map(Self)
 	}
 }
 
@@ -154,12 +169,39 @@ impl<G: Group> Debug for KeyPair<G> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, G> Deserialize<'de> for KeyPair<G>
+where
+	G: Group,
+	G::NonZeroScalar: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "KeyPair")
+			.map(SecretKey)
+			.map(Self::from_secret_key)
+	}
+}
+
 impl<G: Group> Eq for KeyPair<G> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> PartialEq for KeyPair<G> {
 	fn eq(&self, other: &Self) -> bool {
 		self.secret_key.eq(&other.secret_key) && self.public_key.eq(&other.public_key)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<G> Serialize for KeyPair<G>
+where
+	G: Group,
+	G::NonZeroScalar: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("KeyPair", &self.secret_key.0)
 	}
 }
 
@@ -179,6 +221,17 @@ impl<G: Group> Debug for SecretKey<G> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, G> Deserialize<'de> for SecretKey<G>
+where
+	G: Group,
+	G::NonZeroScalar: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "SecretKey").map(Self)
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Drop for SecretKey<G> {
 	fn drop(&mut self) {
@@ -192,6 +245,20 @@ impl<G: Group> Eq for SecretKey<G> {}
 impl<G: Group> PartialEq for SecretKey<G> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<G> Serialize for SecretKey<G>
+where
+	G: Group,
+	G::NonZeroScalar: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("SecretKey", &self.0)
 	}
 }
 
@@ -211,6 +278,17 @@ impl<G: Group> Debug for PublicKey<G> {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de, G> Deserialize<'de> for PublicKey<G>
+where
+	G: Group,
+	G::NonIdentityElement: Deserialize<'de>,
+{
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		serde::newtype_struct(deserializer, "PublicKey").map(Self)
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Drop for PublicKey<G> {
 	fn drop(&mut self) {
@@ -224,6 +302,20 @@ impl<G: Group> Eq for PublicKey<G> {}
 impl<G: Group> PartialEq for PublicKey<G> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<G> Serialize for PublicKey<G>
+where
+	G: Group,
+	G::NonIdentityElement: Serialize,
+{
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_newtype_struct("PublicKey", &self.0)
 	}
 }
 

@@ -1,4 +1,4 @@
-//! Tests for [`Error::Deserialize`] cases.
+//! Tests for [`Error::FromRepr`] cases.
 
 #![cfg(test)]
 #![expect(
@@ -23,12 +23,12 @@ fn blinded_element<CS: CipherSuite>() {
 	bytes[0] = 1;
 
 	// Failure on identity element.
-	let result = BlindedElement::<CS>::deserialize(&bytes);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = BlindedElement::<CS>::from_repr(&bytes);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = BlindedElement::<CS>::deserialize(&[]);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = BlindedElement::<CS>::from_repr(&[]);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 }
 
 test_ciphersuites!(evaluation_element);
@@ -38,12 +38,12 @@ fn evaluation_element<CS: CipherSuite>() {
 	bytes[0] = 1;
 
 	// Failure on identity element.
-	let result = EvaluationElement::<CS>::deserialize(&bytes);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = EvaluationElement::<CS>::from_repr(&bytes);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = EvaluationElement::<CS>::deserialize(&[]);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = EvaluationElement::<CS>::from_repr(&[]);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 }
 
 test_ciphersuites!(proof);
@@ -53,16 +53,16 @@ fn proof<CS: CipherSuite>() {
 	let wrong = Array::<u8, <CS::Group as Group>::ScalarLength>::default();
 
 	// Failure on non-reduced scalar `c`.
-	let result = Proof::<CS>::deserialize(&right.clone().concat(wrong.clone()));
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = Proof::<CS>::from_repr(&right.clone().concat(wrong.clone()));
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on non-reduced scalar `s`.
-	let result = Proof::<CS>::deserialize(&wrong.concat(right));
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = Proof::<CS>::from_repr(&wrong.concat(right));
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = Proof::<CS>::deserialize(&[]);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = Proof::<CS>::from_repr(&[]);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 }
 
 test_ciphersuites!(public_key);
@@ -72,10 +72,10 @@ fn public_key<CS: CipherSuite>() {
 	bytes[0] = 1;
 
 	// Failure on identity element.
-	let result = PublicKey::<CS::Group>::deserialize(&bytes);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = PublicKey::<CS::Group>::from_repr(&bytes);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = PublicKey::<CS::Group>::deserialize(&[]);
-	assert_eq!(result.unwrap_err(), Error::Deserialize);
+	let result = PublicKey::<CS::Group>::from_repr(&[]);
+	assert_eq!(result.unwrap_err(), Error::FromRepr);
 }

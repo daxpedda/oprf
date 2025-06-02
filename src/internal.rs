@@ -74,7 +74,7 @@ where
 	let Composites::<CS> { M, Z } =
 		compute_composites(mode, Some(k), B, C, D).map_err(Error::into_random::<R>)?;
 
-	let r = CS::Group::random_scalar(rng).map_err(Error::Random)?;
+	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
 	let t3 = r.into() * &M;
 
@@ -101,7 +101,7 @@ where
 	let Composites::<CS> { M, Z } = compute_composites(mode, None, &B, C, D)?;
 	let Proof { c, s } = proof;
 
-	let t2 = CS::Group::lincomb([(CS::Group::generator_element(), *s), (B.into(), *c)]);
+	let t2 = CS::Group::lincomb([(CS::Group::element_generator(), *s), (B.into(), *c)]);
 	let t3 = CS::Group::lincomb([(M, *s), (Z, *c)]);
 
 	let expected_c = compute_c::<CS>(mode, &B, &M, &Z, &t2, &t3);
@@ -124,11 +124,11 @@ fn compute_c<CS: CipherSuite>(
 	t2: &Element<CS>,
 	t3: &Element<CS>,
 ) -> Scalar<CS> {
-	let Bm = CS::Group::serialize_element(B);
-	let a0 = CS::Group::serialize_element(M);
-	let a1 = CS::Group::serialize_element(Z);
-	let a2 = CS::Group::serialize_element(t2);
-	let a3 = CS::Group::serialize_element(t3);
+	let Bm = CS::Group::element_to_repr(B);
+	let a0 = CS::Group::element_to_repr(M);
+	let a1 = CS::Group::element_to_repr(Z);
+	let a2 = CS::Group::element_to_repr(t2);
+	let a3 = CS::Group::element_to_repr(t3);
 
 	CS::hash_to_scalar(
 		mode,
@@ -170,7 +170,7 @@ where
 		return Err(Error::Batch);
 	}
 
-	let Bm = CS::Group::serialize_element(B);
+	let Bm = CS::Group::element_to_repr(B);
 	let seed_dst = [b"Seed-".as_slice()].concat(create_context_string::<CS>(mode));
 	let seed = CS::Hash::default()
 		.chain(CS::I2OSP_ELEMENT_LEN)
@@ -179,8 +179,8 @@ where
 		.chain_iter(seed_dst.into_iter())
 		.finalize_fixed();
 
-	let mut M = CS::Group::identity_element();
-	let mut Z = CS::Group::identity_element();
+	let mut M = CS::Group::element_identity();
+	let mut Z = CS::Group::element_identity();
 
 	for (i, (Ci, Di)) in (0..=u16::MAX).zip(C.zip(D)) {
 		let di = CS::hash_to_scalar(
@@ -190,9 +190,9 @@ where
 				&seed,
 				&i.i2osp(),
 				&CS::I2OSP_ELEMENT_LEN,
-				&CS::Group::serialize_element(Ci),
+				&CS::Group::element_to_repr(Ci),
 				&CS::I2OSP_ELEMENT_LEN,
-				&CS::Group::serialize_element(Di),
+				&CS::Group::element_to_repr(Di),
 				b"Composite",
 			],
 			None,
@@ -228,10 +228,10 @@ pub(crate) fn blind<CS: CipherSuite, R: TryCryptoRng>(
 	// Fail early.
 	let _ = input.i2osp_length().ok_or(Error::InputLength)?;
 
-	let input_element = CS::hash_to_group(mode, input).ok_or(Error::InvalidInput)?;
+	let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
 
 	// Moved `blind` after to fail early.
-	let blind = CS::Group::random_scalar(rng).map_err(Error::Random)?;
+	let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 
 	let blinded_element = blind * &input_element;
 
@@ -360,7 +360,7 @@ fn internal_finalize<'inputs, 'evaluation_elements, CS: CipherSuite>(
 		move |((input, inverted_blind), evaluation_element)| {
 			// Scalar inversion is done beforehand.
 			let n = inverted_blind * evaluation_element.0.deref();
-			let unblinded_element = CS::Group::serialize_element(&n);
+			let unblinded_element = CS::Group::element_to_repr(&n);
 
 			let mut hash = CS::Hash::default()
 				.chain(input.i2osp_length().ok_or(Error::InputLength)?)
@@ -388,9 +388,9 @@ pub(crate) fn evaluate<CS: CipherSuite>(
 	input: &[&[u8]],
 	info: Option<Info<'_>>,
 ) -> Result<Output<CS::Hash>> {
-	let input_element = CS::hash_to_group(mode, input).ok_or(Error::InvalidInput)?;
+	let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
 	let evaluation_element = secret_key * &input_element;
-	let issued_element = CS::Group::serialize_element(&evaluation_element);
+	let issued_element = CS::Group::element_to_repr(&evaluation_element);
 
 	let mut hash = CS::Hash::default()
 		.chain(input.i2osp_length().ok_or(Error::InputLength)?)
