@@ -30,6 +30,11 @@ use rand_core::OsRng;
 
 use super::{INFO, INPUT};
 
+type CsGroup<CS> = <CS as CipherSuite>::Group;
+type Scalar<CS> = <CsGroup<CS> as Group>::Scalar;
+type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
+type Element<CS> = <CsGroup<CS> as Group>::Element;
+
 /// Wrapper around clients in all [`Mode`]s.
 #[derive_where(Debug)]
 enum Client<CS: CipherSuite> {
@@ -311,16 +316,9 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		server: &HelperServerBatch<CS>,
 	) -> [Output<CS::Hash>; N]
 	where
-		[<CS::Group as Group>::Element; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::Element> = [<CS::Group as Group>::Element; N],
-			>,
-		>,
-		[<CS::Group as Group>::Scalar; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::Scalar> = [<CS::Group as Group>::Scalar; N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
+		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
@@ -343,16 +341,9 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[<CS::Group as Group>::Element; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::Element> = [<CS::Group as Group>::Element; N],
-			>,
-		>,
-		[<CS::Group as Group>::Scalar; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::Scalar> = [<CS::Group as Group>::Scalar; N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
+		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -456,15 +447,10 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		[EvaluationElement<CS>; N]: AssocArraySize<
 			Size: ArraySize<ArrayType<EvaluationElement<CS>> = [EvaluationElement<CS>; N]>,
 		>,
-		[<CS::Group as Group>::Element; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::Element> = [<CS::Group as Group>::Element; N],
-			>,
-		>,
-		[<CS::Group as Group>::NonIdentityElement; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::NonIdentityElement> = [<CS::Group as Group>::NonIdentityElement; N],
-			>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
 		>,
 	{
 		Self::batch_fixed_with(clients.mode(), &clients.blinded_elements, INFO).unwrap()
@@ -479,15 +465,10 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		[EvaluationElement<CS>; N]: AssocArraySize<
 			Size: ArraySize<ArrayType<EvaluationElement<CS>> = [EvaluationElement<CS>; N]>,
 		>,
-		[<CS::Group as Group>::Element; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::Element> = [<CS::Group as Group>::Element; N],
-			>,
-		>,
-		[<CS::Group as Group>::NonIdentityElement; N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<<CS::Group as Group>::NonIdentityElement> = [<CS::Group as Group>::NonIdentityElement; N],
-			>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
 		>,
 	{
 		match mode {
