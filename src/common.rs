@@ -16,7 +16,7 @@ use crate::ciphersuite::{
 	CipherSuite, Element, ElementLength, NonIdentityElement, Scalar, ScalarLength,
 };
 use crate::error::{Error, Result};
-use crate::group::{self, Group};
+use crate::group::Group;
 #[cfg(feature = "serde")]
 use crate::serde::{self, DeserializeWrapper, SerializeWrapper};
 use crate::util::CollectArray;
@@ -153,11 +153,19 @@ impl<CS: CipherSuite> Proof<CS> {
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
+		fn scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
+			bytes
+				.try_into()
+				.ok()
+				.and_then(G::scalar_from_repr)
+				.ok_or(Error::FromRepr)
+		}
+
 		let (c_bytes, s_bytes) = bytes
 			.split_at_checked(ScalarLength::<CS>::USIZE)
 			.ok_or(Error::FromRepr)?;
-		let c = group::scalar_from_repr::<CS::Group>(c_bytes)?;
-		let s = group::scalar_from_repr::<CS::Group>(s_bytes)?;
+		let c = scalar_from_repr::<CS::Group>(c_bytes)?;
+		let s = scalar_from_repr::<CS::Group>(s_bytes)?;
 
 		Ok(Self { c, s })
 	}

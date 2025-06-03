@@ -21,7 +21,7 @@ use zeroize::Zeroize;
 
 use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar};
 use crate::common::Mode;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::internal;
 use crate::util::Concat;
 
@@ -166,32 +166,6 @@ impl<CS: CipherSuite> InternalGroup for CS {
 			.try_into()
 			.ok()
 	}
-}
-
-pub(crate) fn non_zero_scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::NonZeroScalar> {
-	bytes
-		.try_into()
-		.ok()
-		.and_then(G::non_zero_scalar_from_repr)
-		.ok_or(Error::FromRepr)
-}
-
-pub(crate) fn scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
-	bytes
-		.try_into()
-		.ok()
-		.and_then(G::scalar_from_repr)
-		.ok_or(Error::FromRepr)
-}
-
-pub(crate) fn non_identity_element_from_repr<G: Group>(
-	bytes: &[u8],
-) -> Result<G::NonIdentityElement> {
-	bytes
-		.try_into()
-		.ok()
-		.and_then(G::non_identity_element_from_repr)
-		.ok_or(Error::FromRepr)
 }
 
 #[cfg(test)]

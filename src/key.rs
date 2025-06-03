@@ -10,7 +10,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::ciphersuite::CipherSuite;
 use crate::common::Mode;
 use crate::error::{Error, Result};
-use crate::group::{self, Group, InternalGroup};
+use crate::group::{Group, InternalGroup};
 #[cfg(feature = "serde")]
 use crate::serde;
 use crate::util::{Concat, I2ospLength};
@@ -126,7 +126,12 @@ impl<G: Group> SecretKey<G> {
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		group::non_zero_scalar_from_repr::<G>(bytes).map(Self)
+		bytes
+			.try_into()
+			.ok()
+			.and_then(G::non_zero_scalar_from_repr)
+			.ok_or(Error::FromRepr)
+			.map(Self)
 	}
 }
 
@@ -150,7 +155,12 @@ impl<G: Group> PublicKey<G> {
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		group::non_identity_element_from_repr::<G>(bytes).map(Self)
+		bytes
+			.try_into()
+			.ok()
+			.and_then(G::non_identity_element_from_repr)
+			.ok_or(Error::FromRepr)
+			.map(Self)
 	}
 }
 
