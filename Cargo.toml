@@ -4,13 +4,15 @@ name = "oprf"
 version = "0.0.0"
 
 [features]
-alloc = ["elliptic-curve/alloc"]
+alloc = ["elliptic-curve/alloc", "primeorder?/alloc"]
+primeorder = ["dep:primeorder"]
 serde = ["dep:serde", "elliptic-curve/serde"]
 
 [dependencies]
 digest = { version = "=0.11.0-rc.0", default-features = false }
 elliptic-curve = { version = "=0.14.0-rc.3", features = ["hash2curve", "oprf", "sec1"] }
 hybrid-array = "0.3"
+primeorder = { version = "=0.14.0-pre.3", optional = true }
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"], optional = true }
 zeroize = "1.5"
@@ -23,6 +25,7 @@ criterion = { version = "0.6", default-features = false, features = [
 derive-where = "1"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
+oprf = { path = "", features = ["primeorder"] }
 p256 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
 p384 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
 p521 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
@@ -35,6 +38,8 @@ static_assertions = "1"
 zeroize = { version = "1", features = ["derive"] }
 
 [patch.crates-io]
+# https://github.com/RustCrypto/traits/pull/1884
+elliptic-curve = { git = "https://github.com/RustCrypto/traits", rev = "57c9e791f8df3199b4c11ab9a3dd258255a79a42" }
 # https://github.com/RustCrypto/elliptic-curves/pull/1214
 primeorder = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "0c503ceb5a3ccb9dfe5acdfc8efceba8683dddcf" }
 

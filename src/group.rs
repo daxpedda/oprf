@@ -4,7 +4,7 @@
 	expect(clippy::arbitrary_source_item_ordering, reason = "false-positive")
 )]
 
-mod elliptic_curve;
+mod primeorder;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -93,14 +93,18 @@ pub trait Group {
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
 
+	#[cfg(feature = "alloc")]
+	fn element_batch_to_repr(elements: &[Self::Element]) -> Vec<Array<u8, Self::ElementLength>>;
+
+	fn element_batch_to_repr_fixed<const N: usize>(
+		elements: &[Self::Element; N],
+	) -> [Array<u8, Self::ElementLength>; N];
+
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement>;
 
-	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		let [(x1, k1), (x2, k2)] = points_and_scalars;
-		k1 * &x1 + &(k2 * &x2)
-	}
+	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

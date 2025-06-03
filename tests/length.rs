@@ -15,7 +15,8 @@ use std::sync::LazyLock;
 use oprf::Error;
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::Mode;
-use util::{HelperClient, HelperServer};
+
+use crate::util::{HelperClient, HelperServer};
 
 static TEST: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; usize::from(u16::MAX) + 1]);
 
@@ -44,9 +45,9 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
 	let result = client.finalize_with(
 		server.public_key(),
+		&[&TEST],
 		server.evaluation_element(),
 		server.proof(),
-		&[&TEST],
 		&TEST[..u16::MAX.into()],
 	);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
@@ -55,9 +56,9 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 	if let Mode::Poprf = mode {
 		let result = client.finalize_with(
 			server.public_key(),
+			&[&TEST],
 			server.evaluation_element(),
 			server.proof(),
-			&[&TEST],
 			&TEST,
 		);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
@@ -67,9 +68,9 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 	let _ = client
 		.finalize_with(
 			server.public_key(),
+			&[&TEST[..u16::MAX.into()]],
 			server.evaluation_element(),
 			server.proof(),
-			&[&TEST[..u16::MAX.into()]],
 			&TEST[..u16::MAX.into()],
 		)
 		.unwrap();
@@ -90,6 +91,7 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 		.unwrap();
 }
 
+test_ciphersuites!(batch, Oprf);
 test_ciphersuites!(batch, Voprf);
 test_ciphersuites!(batch, Poprf);
 
@@ -100,35 +102,35 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = HelperServer::prepare_with(mode, clients.blinded_elements().iter(), &TEST);
+		let result = HelperServer::batch_fixed_with::<1>(mode, clients.blinded_elements(), &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
-	let prepared = HelperServer::prepare_with(
+	let server = HelperServer::batch_fixed_with::<1>(
 		mode,
-		clients.blinded_elements().iter(),
+		clients.blinded_elements(),
 		&TEST[..u16::MAX.into()],
 	)
 	.unwrap();
 
-	let server = prepared.finish(&clients);
-
 	// Failure on too large input.
-	let result = clients.finalize_fixed_with::<1, _, _>(
-		&server,
+	let result = clients.finalize_fixed_with::<1, _>(
+		server.public_key(),
 		iter::once::<&[&[u8]]>(&[&TEST]),
 		server.evaluation_elements(),
+		server.proof(),
 		&TEST[..u16::MAX.into()],
 	);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = clients.finalize_fixed_with::<1, _, _>(
-			&server,
+		let result = clients.finalize_fixed_with::<1, _>(
+			server.public_key(),
 			iter::once::<&[&[u8]]>(&[&TEST]),
 			server.evaluation_elements(),
+			server.proof(),
 			&TEST,
 		);
 		assert_eq!(result, Err(Error::InfoLength));
@@ -136,10 +138,11 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Success on maximum length of input and info.
 	let _ = clients
-		.finalize_fixed_with::<1, _, _>(
-			&server,
+		.finalize_fixed_with::<1, _>(
+			server.public_key(),
 			iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
 			server.evaluation_elements(),
+			server.proof(),
 			&TEST[..u16::MAX.into()],
 		)
 		.unwrap();
@@ -149,9 +152,10 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 		// Failure on too large input with `alloc`.
 		let result = clients.finalize_with(
 			..,
-			&server,
+			server.public_key(),
 			iter::once::<&[&[u8]]>(&[&TEST]),
-			server.evaluation_elements(),
+			server.evaluation_elements().iter(),
+			server.proof(),
 			&TEST[..u16::MAX.into()],
 		);
 		assert_eq!(result.unwrap_err(), Error::InputLength);
@@ -160,9 +164,10 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 		if let Mode::Poprf = mode {
 			let result = clients.finalize_with(
 				..,
-				&server,
+				server.public_key(),
 				iter::once::<&[&[u8]]>(&[&TEST]),
-				server.evaluation_elements(),
+				server.evaluation_elements().iter(),
+				server.proof(),
 				&TEST,
 			);
 			assert_eq!(result, Err(Error::InfoLength));
@@ -172,9 +177,10 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 		let _ = clients
 			.finalize_with(
 				..,
-				&server,
+				server.public_key(),
 				iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
-				server.evaluation_elements(),
+				server.evaluation_elements().iter(),
+				server.proof(),
 				&TEST[..u16::MAX.into()],
 			)
 			.unwrap();

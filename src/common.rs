@@ -41,8 +41,6 @@ pub struct BlindedElement<CS: CipherSuite>(pub(crate) NonIdentityElement<CS>);
 
 pub struct EvaluationElement<CS: CipherSuite>(pub(crate) NonIdentityElement<CS>);
 
-pub struct PreparedElement<CS: CipherSuite>(pub(crate) NonIdentityElement<CS>);
-
 pub struct Proof<CS: CipherSuite> {
 	pub(crate) c: Scalar<CS>,
 	pub(crate) s: Scalar<CS>,
@@ -197,38 +195,6 @@ where
 }
 
 impl<CS: CipherSuite> ZeroizeOnDrop for EvaluationElement<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for PreparedElement<CS> {
-	fn clone(&self) -> Self {
-		Self(self.0)
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PreparedElement<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_tuple("PreparedElement").field(&self.0).finish()
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for PreparedElement<CS> {
-	fn drop(&mut self) {
-		self.0.zeroize();
-	}
-}
-
-impl<CS: CipherSuite> Eq for PreparedElement<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for PreparedElement<CS> {
-	fn eq(&self, other: &Self) -> bool {
-		self.0.eq(&other.0)
-	}
-}
-
-impl<CS: CipherSuite> ZeroizeOnDrop for PreparedElement<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for Proof<CS> {

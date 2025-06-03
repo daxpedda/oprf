@@ -12,7 +12,7 @@ use crate::key::{PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
 use crate::poprf::PoprfBatchBlindEvaluateResult;
 use crate::poprf::{
-	PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient, PoprfFinishBatchBlindEvaluateResult,
+	PoprfBatchBlindEvaluateFixedResult, PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient,
 	PoprfServer,
 };
 use crate::test_vectors::cycle_rng::CycleRng;
@@ -140,23 +140,17 @@ fn poprf_batch<CS: CipherSuite>() {
 				})
 				.unzip();
 			let clients: [_; 2] = clients.try_into().unwrap();
+			let blinded_elements: [_; 2] = blinded_elements.try_into().unwrap();
 
 			// Blind evaluate.
 			let rng = &mut CycleRng::new(&vector_proof.r);
 
-			let prepared_elements: Vec<_> = server
-				.prepare_batch_blind_evaluate(blinded_elements.iter())
-				.unwrap()
-				.collect();
-
-			let PoprfFinishBatchBlindEvaluateResult {
+			let PoprfBatchBlindEvaluateFixedResult {
 				evaluation_elements,
 				proof,
 			} = server
-				.finish_batch_blind_evaluate(rng, blinded_elements.iter(), &prepared_elements)
+				.batch_blind_evaluate_fixed(rng, &blinded_elements)
 				.unwrap();
-
-			let evaluation_elements: Vec<_> = evaluation_elements.collect();
 
 			for (evaluation_element, vector_evaluation_element) in
 				evaluation_elements.iter().zip(&vector.evaluation_elements)
@@ -179,7 +173,9 @@ fn poprf_batch<CS: CipherSuite>() {
 				let PoprfBatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
-				} = server.batch_blind_evaluate(rng, &blinded_elements).unwrap();
+				} = server
+					.batch_blind_evaluate(rng, blinded_elements.iter())
+					.unwrap();
 
 				for (evaluation_element, vector_evaluation_element) in evaluation_elements
 					.into_iter()
@@ -219,10 +215,10 @@ fn poprf_batch<CS: CipherSuite>() {
 
 			#[cfg(feature = "alloc")]
 			PoprfClient::batch_finalize(
-				&clients,
+				clients.iter(),
 				server.public_key(),
 				inputs.into_iter(),
-				&evaluation_elements,
+				evaluation_elements.iter(),
 				&proof,
 				&INFO,
 			)

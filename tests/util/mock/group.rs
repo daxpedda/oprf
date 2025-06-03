@@ -106,10 +106,25 @@ impl Group for MockCurve {
 		Array::default()
 	}
 
+	#[cfg(feature = "alloc")]
+	fn element_batch_to_repr(elements: &[Self::Element]) -> Vec<Array<u8, Self::ElementLength>> {
+		vec![Array::default(); elements.len()]
+	}
+
+	fn element_batch_to_repr_fixed<const N: usize>(
+		_: &[Self::Element; N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		[Array::default(); N]
+	}
+
 	fn non_identity_element_from_repr(
 		_: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {
 		Some(NonIdentityElement)
+	}
+
+	fn lincomb(_: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
+		Element
 	}
 }
 

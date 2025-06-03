@@ -9,26 +9,25 @@
 
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use std::iter::Once;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::{error, io};
 
 use oprf::Error;
 use oprf::ciphersuite::{CipherSuite, Id};
-use oprf::common::{BlindedElement, EvaluationElement, Mode, PreparedElement, Proof};
+use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::group::Dst;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
 use oprf::poprf::PoprfBatchBlindEvaluateResult;
 use oprf::poprf::{
-	PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient, PoprfFinishBatchBlindEvaluateResult,
+	PoprfBatchBlindEvaluateFixedResult, PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient,
 	PoprfServer,
 };
 #[cfg(feature = "alloc")]
 use oprf::voprf::VoprfBatchBlindEvaluateResult;
 use oprf::voprf::{
-	VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient, VoprfFinishBatchBlindEvaluateResult,
+	VoprfBatchBlindEvaluateFixedResult, VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient,
 	VoprfServer,
 };
 use p256::NistP256;
@@ -47,7 +46,6 @@ macro_rules! test_ciphersuite {
 			fn [<test $prefix>]() {
 				api!(BlindedElement<$cs>);
 				api!(EvaluationElement<$cs>);
-				api!(PreparedElement<$cs>);
 				api!(Proof<$cs>);
 
 				api!(KeyPair<<$cs as CipherSuite>::Group>);
@@ -64,7 +62,7 @@ macro_rules! test_ciphersuite {
 				result!(VoprfBlindEvaluateResult<$cs>);
 				#[cfg(feature = "alloc")]
 				result!(VoprfBatchBlindEvaluateResult<$cs>);
-				assert_impl_all!(VoprfFinishBatchBlindEvaluateResult<'_, $cs, Once<&PreparedElement<$cs>>>: Debug);
+				assert_impl_all!(VoprfBatchBlindEvaluateFixedResult<$cs, 1>: Debug);
 
 				api!(PoprfClient<$cs>);
 				api!(PoprfServer<$cs>);
@@ -72,7 +70,7 @@ macro_rules! test_ciphersuite {
 				result!(PoprfBlindEvaluateResult<$cs>);
 				#[cfg(feature = "alloc")]
 				result!(PoprfBatchBlindEvaluateResult<$cs>);
-				assert_impl_all!(PoprfFinishBatchBlindEvaluateResult<'_, $cs, Once<&PreparedElement<$cs>>>: Debug);
+				assert_impl_all!(PoprfBatchBlindEvaluateFixedResult<$cs, 1>: Debug);
 			}
 		}
 	};

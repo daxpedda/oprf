@@ -10,13 +10,14 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{CipherSuite, NonZeroScalar};
+use crate::ciphersuite::{CipherSuite, Element, NonZeroScalar, Scalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
-use crate::internal::{self, Blind, BlindResult};
+use crate::internal::{self, BlindResult};
 use crate::key::SecretKey;
 #[cfg(feature = "serde")]
 use crate::serde;
+use crate::util::CollectArray;
 
 pub struct OprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
@@ -50,7 +51,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		let [output] = Self::batch_finalize_fixed(
 			array::from_ref(self),
 			iter::once(input),
-			iter::once(evaluation_element),
+			array::from_ref(evaluation_element),
 		)?;
 		Ok(output)
 	}
@@ -68,29 +69,51 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
 	{
-		internal::batch_finalize(inputs, clients, evaluation_elements, None)
+		let clients_len = clients.len();
+
+		if clients_len != inputs.len() || clients_len != evaluation_elements.len() {
+			return Err(Error::Batch);
+		}
+
+		let blinds = clients.map(|client| client.blind.into()).collect();
+
+		internal::batch_finalize::<CS>(
+			inputs,
+			blinds,
+			evaluation_elements.map(|evaluation_element| evaluation_element.0.into()),
+			None,
+		)
 	}
 
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
-	pub fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, II, IEE>(
+	pub fn batch_finalize_fixed<'inputs, const N: usize, I>(
 		clients: &[Self; N],
-		inputs: II,
-		evaluation_elements: IEE,
+		inputs: I,
+		evaluation_elements: &[EvaluationElement<CS>; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
+		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		internal::batch_finalize_fixed(inputs, clients, evaluation_elements, None)
-	}
-}
+		if N != inputs.len() {
+			return Err(Error::Batch);
+		}
 
-impl<CS: CipherSuite> Blind<CS> for OprfClient<CS> {
-	fn get_blind(&self) -> NonZeroScalar<CS> {
-		self.blind
+		let blinds = clients
+			.iter()
+			.map(|client| client.blind.into())
+			.collect_array();
+		let evaluation_elements = evaluation_elements
+			.iter()
+			.map(|evaluation_element| evaluation_element.0.into())
+			.collect_array();
+
+		internal::batch_finalize_fixed::<N, CS>(inputs, blinds, evaluation_elements, None)
 	}
 }
 

@@ -40,6 +40,20 @@ where
 	}
 }
 
+pub(crate) trait CollectArray<T, const N: usize> {
+	fn collect_array(self) -> [T; N];
+}
+
+impl<I: Iterator<Item = T>, T, const N: usize> CollectArray<T, N> for I
+where
+	[T; N]: AssocArraySize<Size: ArraySize<ArrayType<T> = [T; N]>>,
+{
+	fn collect_array(self) -> [T; N] {
+		let array: ArrayN<T, N> = self.collect();
+		array.0
+	}
+}
+
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) trait UpdateIter {
 	fn chain_iter<'slice>(self, iter: impl Iterator<Item = &'slice [u8]>) -> Self;

@@ -9,10 +9,11 @@ use elliptic_curve::point::NonIdentity;
 use elliptic_curve::sec1::{CompressedPointSize, ModulusSize};
 use elliptic_curve::subtle::CtOption;
 use elliptic_curve::{
-	FieldBytesSize, Group as _, NonZeroScalar, OprfParameters, PrimeField, ProjectivePoint, Scalar,
+	BatchNormalize, FieldBytesSize, Group as _, NonZeroScalar, OprfParameters, PrimeField, Scalar,
 };
 use hybrid_array::typenum::{IsLess, True, U65536};
 use hybrid_array::{Array, ArraySize};
+use primeorder::{AffinePoint, PrimeCurveParams, ProjectivePoint};
 use rand_core::TryCryptoRng;
 
 use super::{Dst, Group};
@@ -20,10 +21,11 @@ use crate::ciphersuite::{CipherSuite, Id};
 
 impl<C> Group for C
 where
-	C: GroupDigest,
+	C: GroupDigest<ProjectivePoint = ProjectivePoint<C>> + PrimeCurveParams,
 	FieldBytesSize<C>: Add<FieldBytesSize<C>, Output: ArraySize> + ModulusSize,
 	CompressedPointSize<C>: IsLess<U65536, Output = True>,
 	ProjectivePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
+	AffinePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 {
 	type K = C::K;
 
@@ -105,7 +107,21 @@ where
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {
-		NonIdentity::<ProjectivePoint<Self>>::from_repr(bytes).into_option()
+		NonIdentity::<ProjectivePoint<C>>::from_repr(bytes).into_option()
+	}
+
+	#[cfg(feature = "alloc")]
+	fn element_batch_to_repr(elements: &[Self::Element]) -> Vec<Array<u8, Self::ElementLength>> {
+		ProjectivePoint::<C>::batch_normalize(elements)
+			.into_iter()
+			.map(|point| point.to_bytes())
+			.collect()
+	}
+
+	fn element_batch_to_repr_fixed<const N: usize>(
+		elements: &[Self::Element; N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		ProjectivePoint::<C>::batch_normalize(elements).map(|point| point.to_bytes())
 	}
 
 	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {

@@ -83,7 +83,7 @@ fn oprf<CS: CipherSuite>() {
 			let [output] = OprfClient::batch_finalize_fixed(
 				array::from_ref(&client),
 				iter::once::<&[&[u8]]>(&[&vector.input]),
-				iter::once(&evaluation_element),
+				array::from_ref(&evaluation_element),
 			)
 			.unwrap();
 			assert_eq!(vector.output, output.as_slice());
