@@ -12,7 +12,7 @@ use rand_core::TryCryptoRng;
 use crate::ciphersuite::{
 	CipherSuite, Element, ElementLength, NonIdentityElement, NonZeroScalar, Scalar,
 };
-use crate::common::{BlindedElement, Mode, Proof};
+use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
@@ -26,6 +26,11 @@ pub(crate) struct BlindResult<CS: CipherSuite> {
 pub(crate) struct Info<'info> {
 	i2osp: [u8; 2],
 	info: &'info [u8],
+}
+
+pub(crate) struct ElementWrapper<'element, CS: CipherSuite> {
+	element: &'element NonIdentityElement<CS>,
+	repr: &'element Array<u8, ElementLength<CS>>,
 }
 
 struct Composites<CS: CipherSuite> {
@@ -50,6 +55,43 @@ impl<'info> Info<'info> {
 	}
 }
 
+impl<'element, CS: CipherSuite> ElementWrapper<'element, CS> {
+	pub(crate) const fn element(self) -> &'element NonIdentityElement<CS> {
+		self.element
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Clone for ElementWrapper<'_, CS> {
+	fn clone(&self) -> Self {
+		*self
+	}
+}
+
+impl<CS: CipherSuite> Copy for ElementWrapper<'_, CS> {}
+
+impl<'element, CS: CipherSuite> From<&'element BlindedElement<CS>>
+	for ElementWrapper<'element, CS>
+{
+	fn from(blinded_element: &'element BlindedElement<CS>) -> Self {
+		Self {
+			element: blinded_element.element(),
+			repr: blinded_element.as_repr(),
+		}
+	}
+}
+
+impl<'element, CS: CipherSuite> From<&'element EvaluationElement<CS>>
+	for ElementWrapper<'element, CS>
+{
+	fn from(evaluation_element: &'element EvaluationElement<CS>) -> Self {
+		Self {
+			element: evaluation_element.element(),
+			repr: evaluation_element.as_repr(),
+		}
+	}
+}
+
 // `A` is alway the generator element.
 // `GenerateProof`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
@@ -58,18 +100,8 @@ pub(crate) fn generate_proof<'items, CS, R>(
 	rng: &mut R,
 	k: NonZeroScalar<CS>,
 	B: NonIdentityElement<CS>,
-	C: impl ExactSizeIterator<
-		Item = (
-			&'items NonIdentityElement<CS>,
-			&'items Array<u8, ElementLength<CS>>,
-		),
-	>,
-	D: impl ExactSizeIterator<
-		Item = (
-			&'items NonIdentityElement<CS>,
-			&'items Array<u8, ElementLength<CS>>,
-		),
-	>,
+	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
+	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 ) -> Result<Proof<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
@@ -96,18 +128,8 @@ where
 pub(crate) fn verify_proof<'items, CS>(
 	mode: Mode,
 	B: NonIdentityElement<CS>,
-	C: impl ExactSizeIterator<
-		Item = (
-			&'items NonIdentityElement<CS>,
-			&'items Array<u8, ElementLength<CS>>,
-		),
-	>,
-	D: impl ExactSizeIterator<
-		Item = (
-			&'items NonIdentityElement<CS>,
-			&'items Array<u8, ElementLength<CS>>,
-		),
-	>,
+	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
+	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 	proof: &Proof<CS>,
 ) -> Result<()>
 where
@@ -171,18 +193,8 @@ fn compute_composites<'items, CS>(
 	mode: Mode,
 	k: Option<NonZeroScalar<CS>>,
 	B: &NonIdentityElement<CS>,
-	C: impl ExactSizeIterator<
-		Item = (
-			&'items NonIdentityElement<CS>,
-			&'items Array<u8, ElementLength<CS>>,
-		),
-	>,
-	D: impl ExactSizeIterator<
-		Item = (
-			&'items NonIdentityElement<CS>,
-			&'items Array<u8, ElementLength<CS>>,
-		),
-	>,
+	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
+	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 ) -> Composites<CS>
 where
 	CS: CipherSuite,
@@ -203,7 +215,7 @@ where
 	let mut M = CS::Group::element_identity();
 	let mut Z = CS::Group::element_identity();
 
-	for (i, ((Ci, Ci_bytes), (Di, Di_bytes))) in (0..=u16::MAX).zip(C.zip(D)) {
+	for (i, (Ci, Di)) in (0..=u16::MAX).zip(C.zip(D)) {
 		let di = CS::hash_to_scalar(
 			mode,
 			&[
@@ -211,18 +223,18 @@ where
 				&seed,
 				&i.i2osp(),
 				&CS::I2OSP_ELEMENT_LEN,
-				Ci_bytes,
+				Ci.repr,
 				&CS::I2OSP_ELEMENT_LEN,
-				Di_bytes,
+				Di.repr,
 				b"Composite",
 			],
 			None,
 		);
 
-		M = di * Ci.deref() + &M;
+		M = di * Ci.element.deref() + &M;
 
 		if k.is_none() {
-			Z = di * Di.deref() + &Z;
+			Z = di * Di.element.deref() + &Z;
 		}
 	}
 

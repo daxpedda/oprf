@@ -21,7 +21,7 @@ use crate::ciphersuite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
-use crate::internal::{self, BlindResult, Info};
+use crate::internal::{self, BlindResult, ElementWrapper, Info};
 #[cfg(any(feature = "serde", test))]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -106,16 +106,11 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		let info = Info::new(info)?;
 		let tweaked_key = Self::tweaked_key(public_key, info)?;
 
-		let c: Vec<_> = evaluation_elements
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()))
-			.collect();
+		let c: Vec<_> = evaluation_elements.map(ElementWrapper::from).collect();
 		let (d, blinds): (Vec<_>, _) = clients
 			.map(|client| {
 				(
-					(
-						client.blinded_element.element(),
-						client.blinded_element.as_repr(),
-					),
+					ElementWrapper::from(&client.blinded_element),
 					client.blind.into(),
 				)
 			})
@@ -129,7 +124,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			proof,
 		)?;
 
-		let evaluation_elements = c.into_iter().map(|(element, _)| element.deref());
+		let evaluation_elements = c.into_iter().map(|element| element.element().deref());
 
 		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, Some(info))
 	}
@@ -160,15 +155,10 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		let info = Info::new(info)?;
 		let tweaked_key = Self::tweaked_key(public_key, info)?;
 
-		let c = evaluation_elements
+		let c = evaluation_elements.iter().map(ElementWrapper::from);
+		let d = clients
 			.iter()
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
-		let d = clients.iter().map(|client| {
-			(
-				client.blinded_element.element(),
-				client.blinded_element.as_repr(),
-			)
-		});
+			.map(|client| ElementWrapper::from(&client.blinded_element));
 
 		internal::verify_proof(Mode::Poprf, tweaked_key, c, d, proof)?;
 
@@ -279,14 +269,11 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let d: Vec<_> = blinded_elements
-			.map(|blinded_element| (blinded_element.element(), blinded_element.as_repr()))
-			.collect();
-		let evaluation_elements =
-			EvaluationElement::new_batch(d.iter().map(|(element, _)| self.t_inverted * element));
-		let c = evaluation_elements
-			.iter()
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
+		let d: Vec<_> = blinded_elements.map(ElementWrapper::from).collect();
+		let evaluation_elements = EvaluationElement::new_batch(
+			d.iter().map(|element| self.t_inverted * element.element()),
+		);
+		let c = evaluation_elements.iter().map(ElementWrapper::from);
 
 		let proof = internal::generate_proof(
 			Mode::Poprf,
@@ -332,12 +319,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 				.map(|blinded_element| self.t_inverted * blinded_element.element())
 				.collect_array(),
 		);
-		let c = evaluation_elements
-			.iter()
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
-		let d = blinded_elements
-			.iter()
-			.map(|blinded_element| (blinded_element.element(), blinded_element.as_repr()));
+		let c = evaluation_elements.iter().map(ElementWrapper::from);
+		let d = blinded_elements.iter().map(ElementWrapper::from);
 
 		let proof = internal::generate_proof(Mode::Poprf, rng, self.t, self.tweaked_key, c, d)?;
 

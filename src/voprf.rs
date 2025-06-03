@@ -20,7 +20,7 @@ use crate::ciphersuite::ElementLength;
 use crate::ciphersuite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar, Scalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
-use crate::internal::{self, BlindResult};
+use crate::internal::{self, BlindResult, ElementWrapper};
 #[cfg(any(feature = "serde", test))]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -102,17 +102,12 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		let (c, blinds): (Vec<_>, _) = clients
 			.map(|client| {
 				(
-					(
-						client.blinded_element.element(),
-						client.blinded_element.as_repr(),
-					),
+					ElementWrapper::from(&client.blinded_element),
 					client.blind.into(),
 				)
 			})
 			.unzip();
-		let d: Vec<_> = evaluation_elements
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()))
-			.collect();
+		let d: Vec<_> = evaluation_elements.map(ElementWrapper::from).collect();
 
 		internal::verify_proof(
 			Mode::Voprf,
@@ -122,7 +117,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			proof,
 		)?;
 
-		let evaluation_elements = d.into_iter().map(|(element, _)| element.deref());
+		let evaluation_elements = d.into_iter().map(|element| element.element().deref());
 
 		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
@@ -149,15 +144,10 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			return Err(Error::Batch);
 		}
 
-		let c = clients.iter().map(|client| {
-			(
-				client.blinded_element.element(),
-				client.blinded_element.as_repr(),
-			)
-		});
-		let d = evaluation_elements
+		let c = clients
 			.iter()
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
+			.map(|client| ElementWrapper::from(&client.blinded_element));
+		let d = evaluation_elements.iter().map(ElementWrapper::from);
 
 		internal::verify_proof(Mode::Voprf, public_key.to_point(), c, d, proof)?;
 
@@ -240,16 +230,12 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let c: Vec<_> = blinded_elements
-			.map(|blinded_element| (blinded_element.element(), blinded_element.as_repr()))
-			.collect();
+		let c: Vec<_> = blinded_elements.map(ElementWrapper::from).collect();
 		let evaluation_elements = EvaluationElement::new_batch(
 			c.iter()
-				.map(|(element, _)| self.key_pair.secret_key().to_scalar() * element),
+				.map(|element| self.key_pair.secret_key().to_scalar() * element.element()),
 		);
-		let d = evaluation_elements
-			.iter()
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
+		let d = evaluation_elements.iter().map(ElementWrapper::from);
 
 		let proof = internal::generate_proof(
 			Mode::Voprf,
@@ -297,12 +283,8 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 				})
 				.collect_array(),
 		);
-		let c = blinded_elements
-			.iter()
-			.map(|blinded_element| (blinded_element.element(), blinded_element.as_repr()));
-		let d = evaluation_elements
-			.iter()
-			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
+		let c = blinded_elements.iter().map(ElementWrapper::from);
+		let d = evaluation_elements.iter().map(ElementWrapper::from);
 
 		let proof = internal::generate_proof(
 			Mode::Voprf,
