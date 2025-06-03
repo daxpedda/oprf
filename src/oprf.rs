@@ -1,6 +1,7 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
+use core::ops::Deref;
 use core::{array, iter};
 
 #[cfg(feature = "serde")]
@@ -80,7 +81,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		internal::batch_finalize::<CS>(
 			inputs,
 			blinds,
-			evaluation_elements.map(|evaluation_element| evaluation_element.0.into()),
+			evaluation_elements.map(|evaluation_element| evaluation_element.element().deref()),
 			None,
 		)
 	}
@@ -110,8 +111,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 			.collect_array();
 		let evaluation_elements = evaluation_elements
 			.iter()
-			.map(|evaluation_element| evaluation_element.0.into())
-			.collect_array();
+			.map(|evaluation_element| evaluation_element.element().deref());
 
 		internal::batch_finalize_fixed::<N, CS>(inputs, blinds, evaluation_elements, None)
 	}
@@ -146,9 +146,10 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
 	pub fn blind_evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
-		let evaluation_element = self.secret_key.to_scalar() * &blinded_element.0;
+		let element = self.secret_key.to_scalar() * blinded_element.element();
+		let [evaluation_element] = EvaluationElement::new_batch_fixed(array::from_ref(&element));
 
-		EvaluationElement(evaluation_element)
+		evaluation_element
 	}
 
 	// `Evaluate`

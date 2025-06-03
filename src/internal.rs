@@ -53,77 +53,23 @@ impl<'info> Info<'info> {
 // `A` is alway the generator element.
 // `GenerateProof`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
-#[cfg(feature = "alloc")]
-pub(crate) fn generate_proof<CS, R>(
+pub(crate) fn generate_proof<'items, CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	k: NonZeroScalar<CS>,
 	B: NonIdentityElement<CS>,
-	C: Vec<Element<CS>>,
-	D: Vec<Element<CS>>,
-) -> Result<Proof<CS>, Error<R::Error>>
-where
-	CS: CipherSuite,
-	R: TryCryptoRng,
-{
-	debug_assert_ne!(C.len(), 0, "found zero item length");
-	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
-	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
-
-	let C_bytes = CS::Group::element_batch_to_repr(&C);
-	let D_bytes = CS::Group::element_batch_to_repr(&D);
-
-	internal_generate_proof(
-		mode,
-		rng,
-		k,
-		B,
-		C.into_iter().zip(C_bytes),
-		D.into_iter().zip(D_bytes),
-	)
-}
-
-// `A` is alway the generator element.
-// `GenerateProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
-pub(crate) fn generate_proof_fixed<CS, R, const N: usize>(
-	mode: Mode,
-	rng: &mut R,
-	k: NonZeroScalar<CS>,
-	B: NonIdentityElement<CS>,
-	C: [Element<CS>; N],
-	D: [Element<CS>; N],
-) -> Result<Proof<CS>, Error<R::Error>>
-where
-	CS: CipherSuite,
-	R: TryCryptoRng,
-{
-	debug_assert_ne!(N, 0, "found zero item length");
-	debug_assert!(N <= u16::MAX.into(), "found overflowing item length");
-
-	let C_bytes = CS::Group::element_batch_to_repr_fixed(&C);
-	let D_bytes = CS::Group::element_batch_to_repr_fixed(&D);
-
-	internal_generate_proof(
-		mode,
-		rng,
-		k,
-		B,
-		C.into_iter().zip(C_bytes),
-		D.into_iter().zip(D_bytes),
-	)
-}
-
-// `A` is alway the generator element.
-// `GenerateProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
-fn internal_generate_proof<CS, R>(
-	mode: Mode,
-	rng: &mut R,
-	k: NonZeroScalar<CS>,
-	B: NonIdentityElement<CS>,
-	C: impl ExactSizeIterator<Item = (Element<CS>, Array<u8, ElementLength<CS>>)>,
-	D: impl ExactSizeIterator<Item = (Element<CS>, Array<u8, ElementLength<CS>>)>,
+	C: impl ExactSizeIterator<
+		Item = (
+			&'items NonIdentityElement<CS>,
+			&'items Array<u8, ElementLength<CS>>,
+		),
+	>,
+	D: impl ExactSizeIterator<
+		Item = (
+			&'items NonIdentityElement<CS>,
+			&'items Array<u8, ElementLength<CS>>,
+		),
+	>,
 ) -> Result<Proof<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
@@ -147,67 +93,21 @@ where
 
 // `VerifyProof`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
-#[cfg(feature = "alloc")]
-pub(crate) fn verify_proof<CS>(
+pub(crate) fn verify_proof<'items, CS>(
 	mode: Mode,
 	B: NonIdentityElement<CS>,
-	C: &[Element<CS>],
-	D: &[Element<CS>],
-	proof: &Proof<CS>,
-) -> Result<()>
-where
-	CS: CipherSuite,
-{
-	debug_assert_ne!(C.len(), 0, "found zero item length");
-	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
-	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
-
-	let C_bytes = CS::Group::element_batch_to_repr(C);
-	let D_bytes = CS::Group::element_batch_to_repr(D);
-
-	internal_verify_proof(
-		mode,
-		B,
-		C.iter().copied().zip(C_bytes),
-		D.iter().copied().zip(D_bytes),
-		proof,
-	)
-}
-
-// `VerifyProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
-pub(crate) fn verify_proof_fixed<CS, const N: usize>(
-	mode: Mode,
-	B: NonIdentityElement<CS>,
-	C: [Element<CS>; N],
-	D: [Element<CS>; N],
-	proof: &Proof<CS>,
-) -> Result<()>
-where
-	CS: CipherSuite,
-{
-	debug_assert_ne!(N, 0, "found zero item length");
-	debug_assert!(N <= u16::MAX.into(), "found overflowing item length");
-
-	let C_bytes = CS::Group::element_batch_to_repr_fixed(&C);
-	let D_bytes = CS::Group::element_batch_to_repr_fixed(&D);
-
-	internal_verify_proof(
-		mode,
-		B,
-		C.into_iter().zip(C_bytes),
-		D.into_iter().zip(D_bytes),
-		proof,
-	)
-}
-
-// `VerifyProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
-fn internal_verify_proof<CS>(
-	mode: Mode,
-	B: NonIdentityElement<CS>,
-	C: impl ExactSizeIterator<Item = (Element<CS>, Array<u8, ElementLength<CS>>)>,
-	D: impl ExactSizeIterator<Item = (Element<CS>, Array<u8, ElementLength<CS>>)>,
+	C: impl ExactSizeIterator<
+		Item = (
+			&'items NonIdentityElement<CS>,
+			&'items Array<u8, ElementLength<CS>>,
+		),
+	>,
+	D: impl ExactSizeIterator<
+		Item = (
+			&'items NonIdentityElement<CS>,
+			&'items Array<u8, ElementLength<CS>>,
+		),
+	>,
 	proof: &Proof<CS>,
 ) -> Result<()>
 where
@@ -267,12 +167,22 @@ fn compute_c<CS: CipherSuite>(
 // `ComputeComposites` and `ComputeCompositesFast`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-5
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-4
-fn compute_composites<CS>(
+fn compute_composites<'items, CS>(
 	mode: Mode,
 	k: Option<NonZeroScalar<CS>>,
 	B: &NonIdentityElement<CS>,
-	C: impl ExactSizeIterator<Item = (Element<CS>, Array<u8, ElementLength<CS>>)>,
-	D: impl ExactSizeIterator<Item = (Element<CS>, Array<u8, ElementLength<CS>>)>,
+	C: impl ExactSizeIterator<
+		Item = (
+			&'items NonIdentityElement<CS>,
+			&'items Array<u8, ElementLength<CS>>,
+		),
+	>,
+	D: impl ExactSizeIterator<
+		Item = (
+			&'items NonIdentityElement<CS>,
+			&'items Array<u8, ElementLength<CS>>,
+		),
+	>,
 ) -> Composites<CS>
 where
 	CS: CipherSuite,
@@ -301,18 +211,18 @@ where
 				&seed,
 				&i.i2osp(),
 				&CS::I2OSP_ELEMENT_LEN,
-				&Ci_bytes,
+				Ci_bytes,
 				&CS::I2OSP_ELEMENT_LEN,
-				&Di_bytes,
+				Di_bytes,
 				b"Composite",
 			],
 			None,
 		);
 
-		M = di * &Ci + &M;
+		M = di * Ci.deref() + &M;
 
 		if k.is_none() {
-			Z = di * &Di + &Z;
+			Z = di * Di.deref() + &Z;
 		}
 	}
 
@@ -344,21 +254,22 @@ pub(crate) fn blind<CS: CipherSuite, R: TryCryptoRng>(
 	// Moved `blind` after to fail early.
 	let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 
-	let blinded_element = blind * &input_element;
+	let blinded_element = BlindedElement::new(blind * &input_element);
 
 	Ok(BlindResult {
 		blind,
-		blinded_element: BlindedElement(blinded_element),
+		blinded_element,
 	})
 }
 
 // `Finalize`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 #[cfg(feature = "alloc")]
-pub(crate) fn batch_finalize<'inputs, CS>(
+#[expect(single_use_lifetimes, reason = "false-positive")]
+pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, CS>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	blinds: Vec<Scalar<CS>>,
-	evaluation_elements: impl ExactSizeIterator<Item = Element<CS>>,
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements Element<CS>>,
 	info: Option<Info<'_>>,
 ) -> Result<Vec<Output<CS::Hash>>>
 where
@@ -375,19 +286,20 @@ where
 	let n: Vec<_> = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
-		.map(|(inverted_blind, evaluation_element)| inverted_blind * &evaluation_element)
+		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
 		.collect();
 	let unblinded_elements = CS::Group::element_batch_to_repr(&n);
 
-	internal_finalize::<CS>(inputs, unblinded_elements.into_iter(), info).collect()
+	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
 }
 
 // `Finalize`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
-pub(crate) fn batch_finalize_fixed<'inputs, const N: usize, CS>(
+#[expect(single_use_lifetimes, reason = "false-positive")]
+pub(crate) fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, CS>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	blinds: [Scalar<CS>; N],
-	evaluation_elements: [Element<CS>; N],
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements Element<CS>>,
 	info: Option<Info<'_>>,
 ) -> Result<[Output<CS::Hash>; N]>
 where
@@ -397,16 +309,17 @@ where
 	CS: CipherSuite,
 {
 	debug_assert_eq!(N, inputs.len(), "found unequal item length");
+	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
 
 	let inverted_blinds = CS::Group::scalar_batch_invert_fixed(blinds).unwrap();
 	let n = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
-		.map(|(inverted_blind, evaluation_element)| inverted_blind * &evaluation_element)
+		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
 		.collect_array();
 	let unblinded_elements = CS::Group::element_batch_to_repr_fixed(&n);
 
-	let mut outputs = internal_finalize::<CS>(inputs, unblinded_elements.into_iter(), info);
+	let mut outputs = internal_finalize::<CS>(inputs, &unblinded_elements, info);
 	// Using `Iterator::collect()` can panic!
 	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
 		outputs
@@ -421,7 +334,7 @@ where
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 fn internal_finalize<'inputs, CS: CipherSuite>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	unblinded_elements: impl ExactSizeIterator<Item = Array<u8, ElementLength<CS>>>,
+	unblinded_elements: &[Array<u8, ElementLength<CS>>],
 	info: Option<Info<'_>>,
 ) -> impl Iterator<Item = Result<Output<CS::Hash>>> {
 	debug_assert_eq!(
@@ -444,7 +357,7 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 
 			Ok(hash
 				.chain(CS::I2OSP_ELEMENT_LEN)
-				.chain(&unblinded_element)
+				.chain(unblinded_element)
 				.chain(b"Finalize")
 				.finalize_fixed())
 		})

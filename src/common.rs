@@ -1,18 +1,25 @@
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
+#[cfg(feature = "serde")]
+use ::serde::de::Error as _;
 #[cfg(feature = "serde")]
 use ::serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
-use hybrid_array::Array;
 use hybrid_array::typenum::{Sum, Unsigned};
+use hybrid_array::{Array, ArraySize, AssocArraySize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
+use crate::ciphersuite::{
+	CipherSuite, Element, ElementLength, NonIdentityElement, Scalar, ScalarLength,
+};
 use crate::error::{Error, Result};
 use crate::group::{self, Group};
 #[cfg(feature = "serde")]
-use crate::serde;
+use crate::serde::{self, DeserializeWrapper, SerializeWrapper};
+use crate::util::CollectArray;
 
 // https://www.rfc-editor.org/rfc/rfc9497.html#name-identifiers-for-protocol-va
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -37,9 +44,15 @@ impl Mode {
 	}
 }
 
-pub struct BlindedElement<CS: CipherSuite>(pub(crate) NonIdentityElement<CS>);
+pub struct BlindedElement<CS: CipherSuite> {
+	element: NonIdentityElement<CS>,
+	repr: Array<u8, ElementLength<CS>>,
+}
 
-pub struct EvaluationElement<CS: CipherSuite>(pub(crate) NonIdentityElement<CS>);
+pub struct EvaluationElement<CS: CipherSuite> {
+	element: NonIdentityElement<CS>,
+	repr: Array<u8, ElementLength<CS>>,
+}
 
 pub struct Proof<CS: CipherSuite> {
 	pub(crate) c: Scalar<CS>,
@@ -47,22 +60,90 @@ pub struct Proof<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> BlindedElement<CS> {
-	pub fn to_repr(&self) -> Array<u8, ElementLength<CS>> {
-		CS::Group::element_to_repr(&self.0)
+	pub(crate) fn new(element: NonIdentityElement<CS>) -> Self {
+		Self {
+			element,
+			repr: CS::Group::element_to_repr(&element),
+		}
+	}
+
+	pub(crate) const fn element(&self) -> &NonIdentityElement<CS> {
+		&self.element
+	}
+
+	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
+		&self.repr
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		group::non_identity_element_from_repr::<CS::Group>(bytes).map(Self)
+		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
+	}
+
+	pub(crate) fn from_array(array: Array<u8, ElementLength<CS>>) -> Result<Self> {
+		let element = CS::Group::non_identity_element_from_repr(&array).ok_or(Error::FromRepr)?;
+
+		Ok(Self {
+			element,
+			repr: array,
+		})
 	}
 }
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
-	pub fn to_repr(&self) -> Array<u8, ElementLength<CS>> {
-		CS::Group::element_to_repr(&self.0)
+	#[cfg(feature = "alloc")]
+	pub(crate) fn new_batch(
+		non_identity_elements: impl Iterator<Item = NonIdentityElement<CS>>,
+	) -> Vec<Self> {
+		let non_identity_elements: Vec<_> = non_identity_elements.collect();
+		let elements: Vec<_> = non_identity_elements
+			.iter()
+			.map(|element| (*element).into())
+			.collect();
+		let repr = CS::Group::element_batch_to_repr(&elements);
+
+		non_identity_elements
+			.into_iter()
+			.zip(repr)
+			.map(|(element, repr)| Self { element, repr })
+			.collect()
+	}
+
+	pub(crate) fn new_batch_fixed<const N: usize>(
+		non_identity_elements: &[NonIdentityElement<CS>; N],
+	) -> [Self; N]
+	where
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
+		[Self; N]: AssocArraySize<Size: ArraySize<ArrayType<Self> = [Self; N]>>,
+	{
+		let elements = non_identity_elements
+			.iter()
+			.copied()
+			.map(NonIdentityElement::<CS>::into)
+			.collect_array();
+		let repr = CS::Group::element_batch_to_repr_fixed(&elements);
+
+		non_identity_elements
+			.iter()
+			.copied()
+			.zip(repr)
+			.map(|(element, repr)| Self { element, repr })
+			.collect_array()
+	}
+
+	pub(crate) const fn element(&self) -> &NonIdentityElement<CS> {
+		&self.element
+	}
+
+	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
+		&self.repr
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		group::non_identity_element_from_repr::<CS::Group>(bytes).map(Self)
+		let repr = bytes.try_into().map_err(|_| Error::FromRepr)?;
+		let element = CS::Group::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
+
+		Ok(Self { element, repr })
 	}
 }
 
@@ -85,14 +166,20 @@ impl<CS: CipherSuite> Proof<CS> {
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for BlindedElement<CS> {
 	fn clone(&self) -> Self {
-		Self(self.0)
+		Self {
+			element: self.element,
+			repr: self.repr.clone(),
+		}
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for BlindedElement<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_tuple("BlindedElement").field(&self.0).finish()
+		f.debug_struct("BlindedElement")
+			.field("element", &self.element)
+			.field("repr", &self.repr)
+			.finish()
 	}
 }
 
@@ -103,14 +190,20 @@ where
 	NonIdentityElement<CS>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		serde::newtype_struct(deserializer, "BlindedElement").map(Self)
+		let DeserializeWrapper::<ElementLength<CS>>(repr) =
+			serde::newtype_struct(deserializer, "BlindedElement")?;
+		let element = CS::Group::non_identity_element_from_repr(&repr)
+			.ok_or_else(|| D::Error::custom::<Error>(Error::FromRepr))?;
+
+		Ok(Self { element, repr })
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for BlindedElement<CS> {
 	fn drop(&mut self) {
-		self.0.zeroize();
+		self.element.zeroize();
+		self.repr.zeroize();
 	}
 }
 
@@ -119,7 +212,7 @@ impl<CS: CipherSuite> Eq for BlindedElement<CS> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for BlindedElement<CS> {
 	fn eq(&self, other: &Self) -> bool {
-		self.0.eq(&other.0)
+		self.repr.eq(&other.repr)
 	}
 }
 
@@ -133,7 +226,7 @@ where
 	where
 		S: Serializer,
 	{
-		serializer.serialize_newtype_struct("BlindedElement", &self.0)
+		serializer.serialize_newtype_struct("BlindedElement", &SerializeWrapper(&self.repr))
 	}
 }
 
@@ -142,14 +235,20 @@ impl<CS: CipherSuite> ZeroizeOnDrop for BlindedElement<CS> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for EvaluationElement<CS> {
 	fn clone(&self) -> Self {
-		Self(self.0)
+		Self {
+			element: self.element,
+			repr: self.repr.clone(),
+		}
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for EvaluationElement<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_tuple("EvaluationElement").field(&self.0).finish()
+		f.debug_struct("EvaluationElement")
+			.field("element", &self.element)
+			.field("repr", &self.repr)
+			.finish()
 	}
 }
 
@@ -160,14 +259,20 @@ where
 	NonIdentityElement<CS>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		serde::newtype_struct(deserializer, "EvaluationElement").map(Self)
+		let DeserializeWrapper::<ElementLength<CS>>(repr) =
+			serde::newtype_struct(deserializer, "EvaluationElement")?;
+		let element = CS::Group::non_identity_element_from_repr(&repr)
+			.ok_or_else(|| D::Error::custom::<Error>(Error::FromRepr))?;
+
+		Ok(Self { element, repr })
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Drop for EvaluationElement<CS> {
 	fn drop(&mut self) {
-		self.0.zeroize();
+		self.element.zeroize();
+		self.repr.zeroize();
 	}
 }
 
@@ -176,7 +281,7 @@ impl<CS: CipherSuite> Eq for EvaluationElement<CS> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for EvaluationElement<CS> {
 	fn eq(&self, other: &Self) -> bool {
-		self.0.eq(&other.0)
+		self.repr.eq(&other.repr)
 	}
 }
 
@@ -190,7 +295,7 @@ where
 	where
 		S: Serializer,
 	{
-		serializer.serialize_newtype_struct("EvaluationElement", &self.0)
+		serializer.serialize_newtype_struct("EvaluationElement", &SerializeWrapper(&self.repr))
 	}
 }
 

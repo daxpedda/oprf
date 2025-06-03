@@ -54,7 +54,7 @@ fn oprf<CS: CipherSuite>() {
 				blinded_element,
 			} = OprfClient::<CS>::blind(&mut CycleRng::new(&vector.blind), &[&vector.input]).unwrap();
 
-			assert_eq!(vector.blinded_element, blinded_element.to_repr().as_slice(),);
+			assert_eq!(vector.blinded_element, blinded_element.as_repr().as_slice(),);
 			assert_eq!(
 				BlindedElement::from_repr(&vector.blinded_element).unwrap(),
 				blinded_element,
@@ -64,7 +64,7 @@ fn oprf<CS: CipherSuite>() {
 			let evaluation_element = server.blind_evaluate(&blinded_element);
 			assert_eq!(
 				vector.evaluation_element,
-				evaluation_element.to_repr().as_slice(),
+				evaluation_element.as_repr().as_slice(),
 			);
 			assert_eq!(
 				EvaluationElement::from_repr(&vector.evaluation_element).unwrap(),

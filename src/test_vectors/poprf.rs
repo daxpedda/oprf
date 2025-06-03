@@ -48,7 +48,7 @@ fn poprf<CS: CipherSuite>() {
 				blinded_element,
 			} = PoprfClient::<CS>::blind(&mut CycleRng::new(&vector.blind), &[&vector.input]).unwrap();
 
-			assert_eq!(vector.blinded_element, blinded_element.to_repr().as_slice(),);
+			assert_eq!(vector.blinded_element, blinded_element.as_repr().as_slice(),);
 			assert_eq!(
 				BlindedElement::from_repr(&vector.blinded_element).unwrap(),
 				blinded_element,
@@ -64,7 +64,7 @@ fn poprf<CS: CipherSuite>() {
 
 			assert_eq!(
 				vector.evaluation_element,
-				evaluation_element.to_repr().as_slice(),
+				evaluation_element.as_repr().as_slice(),
 			);
 			assert_eq!(
 				EvaluationElement::from_repr(&vector.evaluation_element).unwrap(),
@@ -130,7 +130,7 @@ fn poprf_batch<CS: CipherSuite>() {
 					} = PoprfClient::<CS>::blind(&mut CycleRng::new(blind), &[input.as_slice()])
 						.unwrap();
 
-					assert_eq!(vector_blinded_element, blinded_element.to_repr().as_slice(),);
+					assert_eq!(vector_blinded_element, blinded_element.as_repr().as_slice(),);
 					assert_eq!(
 						BlindedElement::from_repr(vector_blinded_element).unwrap(),
 						blinded_element,
@@ -157,7 +157,7 @@ fn poprf_batch<CS: CipherSuite>() {
 			{
 				assert_eq!(
 					vector_evaluation_element,
-					evaluation_element.to_repr().as_slice(),
+					evaluation_element.as_repr().as_slice(),
 				);
 				assert_eq!(
 					&EvaluationElement::from_repr(vector_evaluation_element).unwrap(),
@@ -183,7 +183,7 @@ fn poprf_batch<CS: CipherSuite>() {
 				{
 					assert_eq!(
 						vector_evaluation_element,
-						evaluation_element.to_repr().as_slice(),
+						evaluation_element.as_repr().as_slice(),
 					);
 					assert_eq!(
 						EvaluationElement::from_repr(vector_evaluation_element).unwrap(),

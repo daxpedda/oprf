@@ -461,6 +461,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				ArrayType<<CS::Group as Group>::Element> = [<CS::Group as Group>::Element; N],
 			>,
 		>,
+		[<CS::Group as Group>::NonIdentityElement; N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<<CS::Group as Group>::NonIdentityElement> = [<CS::Group as Group>::NonIdentityElement; N],
+			>,
+		>,
 	{
 		Self::batch_fixed_with(clients.mode(), &clients.blinded_elements, INFO).unwrap()
 	}
@@ -477,6 +482,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		[<CS::Group as Group>::Element; N]: AssocArraySize<
 			Size: ArraySize<
 				ArrayType<<CS::Group as Group>::Element> = [<CS::Group as Group>::Element; N],
+			>,
+		>,
+		[<CS::Group as Group>::NonIdentityElement; N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<<CS::Group as Group>::NonIdentityElement> = [<CS::Group as Group>::NonIdentityElement; N],
 			>,
 		>,
 	{

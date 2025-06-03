@@ -1,8 +1,11 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
+use core::ops::Deref;
 use core::{array, iter};
 
+#[cfg(feature = "serde")]
+use ::serde::de::Error as _;
 #[cfg(feature = "serde")]
 use ::serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
@@ -13,8 +16,8 @@ use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(feature = "serde")]
-use crate::ciphersuite::NonIdentityElement;
-use crate::ciphersuite::{CipherSuite, Element, NonZeroScalar, Scalar};
+use crate::ciphersuite::ElementLength;
+use crate::ciphersuite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar, Scalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::internal::{self, BlindResult};
@@ -22,7 +25,7 @@ use crate::internal::{self, BlindResult};
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
 #[cfg(feature = "serde")]
-use crate::serde;
+use crate::serde::{self, DeserializeWrapper, SerializeWrapper};
 use crate::util::CollectArray;
 
 pub struct VoprfClient<CS: CipherSuite> {
@@ -96,23 +99,32 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			return Err(Error::Batch);
 		}
 
-		let (blinded_elements, blinds): (Vec<_>, _) = clients
-			.map(|client| (client.blinded_element.0.into(), client.blind.into()))
+		let (c, blinds): (Vec<_>, _) = clients
+			.map(|client| {
+				(
+					(
+						client.blinded_element.element(),
+						client.blinded_element.as_repr(),
+					),
+					client.blind.into(),
+				)
+			})
 			.unzip();
-		let evaluation_elements: Vec<_> = evaluation_elements
-			.into_iter()
-			.map(|evaluation_element| evaluation_element.0.into())
+		let d: Vec<_> = evaluation_elements
+			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()))
 			.collect();
 
 		internal::verify_proof(
 			Mode::Voprf,
 			public_key.to_point(),
-			&blinded_elements,
-			&evaluation_elements,
+			c.into_iter(),
+			d.iter().copied(),
 			proof,
 		)?;
 
-		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements.into_iter(), None)
+		let evaluation_elements = d.into_iter().map(|(element, _)| element.deref());
+
+		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
 
 	// `Finalize`
@@ -137,27 +149,25 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			return Err(Error::Batch);
 		}
 
-		let blinded_elements = clients
+		let c = clients.iter().map(|client| {
+			(
+				client.blinded_element.element(),
+				client.blinded_element.as_repr(),
+			)
+		});
+		let d = evaluation_elements
 			.iter()
-			.map(|client| client.blinded_element.0.into())
-			.collect_array();
-		let evaluation_elements = evaluation_elements
-			.iter()
-			.map(|evaluation_element| evaluation_element.0.into())
-			.collect_array();
+			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
 
-		internal::verify_proof_fixed(
-			Mode::Voprf,
-			public_key.to_point(),
-			blinded_elements,
-			evaluation_elements,
-			proof,
-		)?;
+		internal::verify_proof(Mode::Voprf, public_key.to_point(), c, d, proof)?;
 
 		let blinds = clients
 			.iter()
 			.map(|client| client.blind.into())
 			.collect_array();
+		let evaluation_elements = evaluation_elements
+			.iter()
+			.map(|evaluation_element| evaluation_element.element().deref());
 
 		internal::batch_finalize_fixed::<N, CS>(inputs, blinds, evaluation_elements, None)
 	}
@@ -230,29 +240,24 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let (blinded_elements, evaluation_elements): (_, Vec<EvaluationElement<CS>>) =
-			blinded_elements
-				.into_iter()
-				.map(|blinded_element| {
-					(
-						blinded_element.0.into(),
-						EvaluationElement(
-							self.key_pair.secret_key().to_scalar() * &blinded_element.0,
-						),
-					)
-				})
-				.unzip();
+		let c: Vec<_> = blinded_elements
+			.map(|blinded_element| (blinded_element.element(), blinded_element.as_repr()))
+			.collect();
+		let evaluation_elements = EvaluationElement::new_batch(
+			c.iter()
+				.map(|(element, _)| self.key_pair.secret_key().to_scalar() * element),
+		);
+		let d = evaluation_elements
+			.iter()
+			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
 
 		let proof = internal::generate_proof(
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
 			self.key_pair.public_key().to_point(),
-			blinded_elements,
-			evaluation_elements
-				.iter()
-				.map(|evaluation_element| evaluation_element.0.into())
-				.collect(),
+			c.into_iter(),
+			d,
 		)?;
 
 		Ok(VoprfBatchBlindEvaluateResult {
@@ -275,32 +280,37 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		>,
 		[Element<CS>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
 		R: TryCryptoRng,
 	{
 		if blinded_elements.is_empty() || blinded_elements.len() > u16::MAX.into() {
 			return Err(Error::Batch);
 		}
 
-		let evaluation_elements = blinded_elements
+		let evaluation_elements = EvaluationElement::new_batch_fixed(
+			&blinded_elements
+				.iter()
+				.map(|blinded_element| {
+					self.key_pair.secret_key().to_scalar() * blinded_element.element()
+				})
+				.collect_array(),
+		);
+		let c = blinded_elements
 			.iter()
-			.map(|blinded_element| {
-				EvaluationElement(self.key_pair.secret_key().to_scalar() * &blinded_element.0)
-			})
-			.collect_array();
+			.map(|blinded_element| (blinded_element.element(), blinded_element.as_repr()));
+		let d = evaluation_elements
+			.iter()
+			.map(|evaluation_element| (evaluation_element.element(), evaluation_element.as_repr()));
 
-		let proof = internal::generate_proof_fixed(
+		let proof = internal::generate_proof(
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
 			self.key_pair.public_key().to_point(),
-			blinded_elements
-				.iter()
-				.map(|blinded_element| blinded_element.0.into())
-				.collect_array(),
-			evaluation_elements
-				.iter()
-				.map(|evaluation_element| evaluation_element.0.into())
-				.collect_array(),
+			c,
+			d,
 		)?;
 
 		Ok(VoprfBatchBlindEvaluateFixedResult {
@@ -370,12 +380,14 @@ where
 	NonIdentityElement<CS>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let (blind, blinded_element) =
+		let (blind, DeserializeWrapper::<ElementLength<CS>>(blinded_element)) =
 			serde::struct_2(deserializer, "VoprfClient", &["blind", "blinded_element"])?;
+		let blinded_element =
+			BlindedElement::from_array(blinded_element).map_err(D::Error::custom)?;
 
 		Ok(Self {
 			blind,
-			blinded_element: BlindedElement(blinded_element),
+			blinded_element,
 		})
 	}
 }
@@ -409,7 +421,10 @@ where
 	{
 		let mut state = serializer.serialize_struct("VoprfClient", 2)?;
 		state.serialize_field("blind", &self.blind)?;
-		state.serialize_field("blinded_element", &self.blinded_element.0)?;
+		state.serialize_field(
+			"blinded_element",
+			&SerializeWrapper(self.blinded_element.as_repr()),
+		)?;
 		state.end()
 	}
 }
