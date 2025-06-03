@@ -55,6 +55,7 @@ impl<'info> Info<'info> {
 	}
 }
 
+#[cfg(feature = "alloc")]
 impl<'element, CS: CipherSuite> ElementWrapper<'element, CS> {
 	pub(crate) const fn element(self) -> &'element NonIdentityElement<CS> {
 		self.element
