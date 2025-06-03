@@ -142,6 +142,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
+	#[must_use]
 	pub fn blind_evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
 		let element = self.secret_key.to_scalar() * blinded_element.element();
 		let [evaluation_element] = EvaluationElement::new_batch_fixed(array::from_ref(&element));

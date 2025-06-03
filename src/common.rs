@@ -148,6 +148,7 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 }
 
 impl<CS: CipherSuite> Proof<CS> {
+	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, Sum<ScalarLength<CS>, ScalarLength<CS>>> {
 		CS::Group::scalar_to_repr(&self.c).concat(CS::Group::scalar_to_repr(&self.s))
 	}

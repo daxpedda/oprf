@@ -608,35 +608,6 @@ impl<CS: CipherSuite> HelperServerBatch<CS> {
 		self.evaluation_elements.push(evaluation_element);
 	}
 
-	#[cfg(feature = "alloc")]
-	pub fn batch<'blinded_elements, I>(
-		&self,
-		blinded_elements: I,
-	) -> Result<(), Error<<OsRng as TryRngCore>::Error>>
-	where
-		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
-	{
-		match &self.server {
-			Server::Oprf(server) => {
-				for blinded_element in blinded_elements {
-					server.blind_evaluate(blinded_element);
-				}
-
-				Ok(())
-			}
-			Server::Voprf { server, .. } => {
-				server.batch_blind_evaluate(&mut OsRng, blinded_elements)?;
-
-				Ok(())
-			}
-			Server::Poprf { server, .. } => {
-				server.batch_blind_evaluate(&mut OsRng, blinded_elements)?;
-
-				Ok(())
-			}
-		}
-	}
-
 	pub fn evaluate(&self) -> Output<CS::Hash> {
 		self.evaluate_with(INPUT, INFO).unwrap()
 	}

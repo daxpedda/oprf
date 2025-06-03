@@ -37,6 +37,7 @@ impl<G: Group> KeyPair<G> {
 		SecretKey::derive::<CS>(mode, seed, info).map(Self::from_secret_key)
 	}
 
+	#[must_use]
 	pub fn from_secret_key(secret_key: SecretKey<G>) -> Self {
 		let public_key = PublicKey(G::non_zero_scalar_mul_by_generator(secret_key.as_scalar()));
 
@@ -54,10 +55,12 @@ impl<G: Group> KeyPair<G> {
 		&self.public_key
 	}
 
+	#[must_use]
 	pub fn into_keys(self) -> (SecretKey<G>, PublicKey<G>) {
 		(self.secret_key, self.public_key)
 	}
 
+	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
 		self.secret_key.to_repr()
 	}
@@ -117,10 +120,12 @@ impl<G: Group> SecretKey<G> {
 		self.0
 	}
 
+	#[must_use]
 	pub fn into_scalar(self) -> G::NonZeroScalar {
 		self.0
 	}
 
+	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
 		G::scalar_to_repr(&self.0)
 	}
@@ -146,10 +151,12 @@ impl<G: Group> PublicKey<G> {
 		self.0
 	}
 
+	#[must_use]
 	pub fn into_point(self) -> G::NonIdentityElement {
 		self.0
 	}
 
+	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, G::ElementLength> {
 		G::element_to_repr(&self.0)
 	}
