@@ -16,6 +16,10 @@ serde = { version = "1", default-features = false, features = ["derive"], option
 zeroize = "1.5"
 
 [dev-dependencies]
+criterion = { version = "0.6", default-features = false, features = [
+	"cargo_bench_support",
+	"rayon",
+] }
 derive-where = "1"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
@@ -33,6 +37,13 @@ zeroize = { version = "1", features = ["derive"] }
 [patch.crates-io]
 # https://github.com/RustCrypto/elliptic-curves/pull/1214
 primeorder = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "0c503ceb5a3ccb9dfe5acdfc8efceba8683dddcf" }
+
+[lib]
+bench = false
+
+[[bench]]
+harness = false
+name = "bench"
 
 [lints.rust]
 # Rust groups.
