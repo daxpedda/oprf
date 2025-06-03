@@ -77,13 +77,10 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		}
 
 		let blinds = clients.map(|client| client.blind.into()).collect();
+		let evaluation_elements =
+			evaluation_elements.map(|evaluation_element| evaluation_element.element().deref());
 
-		internal::batch_finalize::<CS>(
-			inputs,
-			blinds,
-			evaluation_elements.map(|evaluation_element| evaluation_element.element().deref()),
-			None,
-		)
+		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
 
 	// `Finalize`

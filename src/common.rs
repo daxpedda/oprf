@@ -79,13 +79,10 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
 	}
 
-	pub(crate) fn from_array(array: Array<u8, ElementLength<CS>>) -> Result<Self> {
-		let element = CS::Group::non_identity_element_from_repr(&array).ok_or(Error::FromRepr)?;
+	pub(crate) fn from_array(repr: Array<u8, ElementLength<CS>>) -> Result<Self> {
+		let element = CS::Group::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
 
-		Ok(Self {
-			element,
-			repr: array,
-		})
+		Ok(Self { element, repr })
 	}
 }
 
@@ -140,7 +137,10 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		let repr = bytes.try_into().map_err(|_| Error::FromRepr)?;
+		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
+	}
+
+	pub(crate) fn from_array(repr: Array<u8, ElementLength<CS>>) -> Result<Self> {
 		let element = CS::Group::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
 
 		Ok(Self { element, repr })
@@ -192,10 +192,8 @@ where
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let DeserializeWrapper::<ElementLength<CS>>(repr) =
 			serde::newtype_struct(deserializer, "BlindedElement")?;
-		let element = CS::Group::non_identity_element_from_repr(&repr)
-			.ok_or_else(|| D::Error::custom::<Error>(Error::FromRepr))?;
 
-		Ok(Self { element, repr })
+		Self::from_array(repr).map_err(D::Error::custom)
 	}
 }
 
@@ -261,10 +259,8 @@ where
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let DeserializeWrapper::<ElementLength<CS>>(repr) =
 			serde::newtype_struct(deserializer, "EvaluationElement")?;
-		let element = CS::Group::non_identity_element_from_repr(&repr)
-			.ok_or_else(|| D::Error::custom::<Error>(Error::FromRepr))?;
 
-		Ok(Self { element, repr })
+		Self::from_array(repr).map_err(D::Error::custom)
 	}
 }
 

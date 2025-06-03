@@ -511,7 +511,7 @@ impl<CS: CipherSuite> Eq for PoprfServer<CS> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for PoprfServer<CS> {
 	fn eq(&self, other: &Self) -> bool {
-		self.key_pair.eq(&other.key_pair)
+		self.key_pair.eq(&other.key_pair) & self.t.eq(&other.t)
 	}
 }
 

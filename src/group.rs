@@ -4,6 +4,7 @@
 	expect(clippy::arbitrary_source_item_ordering, reason = "false-positive")
 )]
 
+#[cfg(feature = "primeorder")]
 mod primeorder;
 
 #[cfg(feature = "alloc")]

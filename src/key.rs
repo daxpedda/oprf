@@ -192,7 +192,7 @@ impl<G: Group> Eq for KeyPair<G> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> PartialEq for KeyPair<G> {
 	fn eq(&self, other: &Self) -> bool {
-		self.secret_key.eq(&other.secret_key) && self.public_key.eq(&other.public_key)
+		self.secret_key.eq(&other.secret_key)
 	}
 }
 
