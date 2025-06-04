@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use criterion::{Criterion, criterion_main};
 use oprf::ciphersuite::CipherSuite;
+use oprf::common::{BlindedElement, EvaluationElement, Proof};
+use oprf::key::PublicKey;
 use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 use oprf::poprf::{PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient, PoprfServer};
 use oprf::voprf::{VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient, VoprfServer};
@@ -60,12 +62,15 @@ fn oprf() {
 			client,
 			blinded_element,
 		} = OprfClient::<CS>::blind(&mut rng, INPUT)?;
+		let blinded_element = blinded_element.as_repr();
 
+		let blinded_element = BlindedElement::from_repr(blinded_element)?;
 		let server = OprfServer::<CS>::new(&mut rng).map_err(Error::Random)?;
-
 		let evaluation_element = server.blind_evaluate(&blinded_element);
+		let evaluation_element = evaluation_element.as_repr();
 		let server_output = server.evaluate(INPUT)?;
 
+		let evaluation_element = EvaluationElement::from_repr(evaluation_element)?;
 		let client_output = client.finalize(INPUT, &evaluation_element)?;
 
 		Ok((server_output, client_output))
@@ -95,17 +100,23 @@ fn voprf() {
 			client,
 			blinded_element,
 		} = VoprfClient::<CS>::blind(&mut rng, INPUT)?;
+		let blinded_element = blinded_element.as_repr();
 
+		let blinded_element = BlindedElement::from_repr(blinded_element)?;
 		let server = VoprfServer::<CS>::new(&mut rng).map_err(Error::Random)?;
-
+		let public_key = server.public_key().as_repr();
 		let VoprfBlindEvaluateResult {
 			evaluation_element,
 			proof,
 		} = server.blind_evaluate(&mut rng, &blinded_element)?;
+		let evaluation_element = evaluation_element.as_repr();
+		let proof = proof.to_repr();
 		let server_output = server.evaluate(INPUT)?;
 
-		let client_output =
-			client.finalize(server.public_key(), INPUT, &evaluation_element, &proof)?;
+		let public_key = PublicKey::from_repr(public_key)?;
+		let evaluation_element = EvaluationElement::from_repr(evaluation_element)?;
+		let proof = Proof::from_repr(&proof)?;
+		let client_output = client.finalize(&public_key, INPUT, &evaluation_element, &proof)?;
 
 		Ok((server_output, client_output))
 	}
@@ -134,22 +145,24 @@ fn poprf() {
 			client,
 			blinded_element,
 		} = PoprfClient::<CS>::blind(&mut rng, INPUT)?;
+		let blinded_element = blinded_element.as_repr();
 
+		let blinded_element = BlindedElement::from_repr(blinded_element)?;
 		let server = PoprfServer::<CS>::new(&mut rng, INFO)?;
-
+		let public_key = server.public_key().as_repr();
 		let PoprfBlindEvaluateResult {
 			evaluation_element,
 			proof,
 		} = server.blind_evaluate(&mut rng, &blinded_element)?;
+		let evaluation_element = evaluation_element.as_repr();
+		let proof = proof.to_repr();
 		let server_output = server.evaluate(INPUT, INFO)?;
 
-		let client_output = client.finalize(
-			server.public_key(),
-			INPUT,
-			&evaluation_element,
-			&proof,
-			INFO,
-		)?;
+		let public_key = PublicKey::from_repr(public_key)?;
+		let evaluation_element = EvaluationElement::from_repr(evaluation_element)?;
+		let proof = Proof::from_repr(&proof)?;
+		let client_output =
+			client.finalize(&public_key, INPUT, &evaluation_element, &proof, INFO)?;
 
 		Ok((server_output, client_output))
 	}
