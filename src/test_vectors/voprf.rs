@@ -257,7 +257,7 @@ fn server<CS: CipherSuite>(test_vector: &TestVector) -> VoprfServer<CS> {
 		.public_key
 		.as_ref()
 		.expect("unexpected missing public key for VOPRF");
-	assert_eq!(vector_public_key, server.public_key().to_repr().as_slice(),);
+	assert_eq!(vector_public_key, server.public_key().as_repr().as_slice(),);
 	assert_eq!(
 		&PublicKey::from_repr(vector_public_key).unwrap(),
 		server.public_key(),

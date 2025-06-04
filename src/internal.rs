@@ -15,6 +15,7 @@ use crate::ciphersuite::{
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
+use crate::key::PublicKey;
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
 pub(crate) struct BlindResult<CS: CipherSuite> {
@@ -93,6 +94,17 @@ impl<'element, CS: CipherSuite> From<&'element EvaluationElement<CS>>
 	}
 }
 
+impl<'element, CS: CipherSuite> From<&'element PublicKey<CS::Group>>
+	for ElementWrapper<'element, CS>
+{
+	fn from(public_key: &'element PublicKey<CS::Group>) -> Self {
+		Self {
+			element: public_key.as_point(),
+			repr: public_key.as_repr(),
+		}
+	}
+}
+
 // `A` is alway the generator element.
 // `GenerateProof`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
@@ -100,7 +112,7 @@ pub(crate) fn generate_proof<'items, CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	k: NonZeroScalar<CS>,
-	B: NonIdentityElement<CS>,
+	B: ElementWrapper<'items, CS>,
 	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 ) -> Result<Proof<CS>, Error<R::Error>>
@@ -112,13 +124,13 @@ where
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
-	let Composites::<CS> { M, Z } = compute_composites(mode, Some(k), &B, C, D);
+	let Composites::<CS> { M, Z } = compute_composites(mode, Some(k), B, C, D);
 
 	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
 	let t3 = r.into() * &M;
 
-	let c = compute_c::<CS>(mode, B.into(), M, Z, t2.into(), t3);
+	let c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2.into(), t3);
 	let s = r.into() - &(c * k.deref());
 
 	Ok(Proof { c, s })
@@ -128,7 +140,7 @@ where
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
 pub(crate) fn verify_proof<'items, CS>(
 	mode: Mode,
-	B: NonIdentityElement<CS>,
+	B: ElementWrapper<'items, CS>,
 	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 	proof: &Proof<CS>,
@@ -140,13 +152,16 @@ where
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
-	let Composites::<CS> { M, Z } = compute_composites(mode, None, &B, C, D);
+	let Composites::<CS> { M, Z } = compute_composites(mode, None, B, C, D);
 	let Proof { c, s } = proof;
 
-	let t2 = CS::Group::lincomb([(CS::Group::element_generator(), *s), (B.into(), *c)]);
+	let t2 = CS::Group::lincomb([
+		(CS::Group::element_generator(), *s),
+		((*B.element).into(), *c),
+	]);
 	let t3 = CS::Group::lincomb([(M, *s), (Z, *c)]);
 
-	let expected_c = compute_c::<CS>(mode, B.into(), M, Z, t2, t3);
+	let expected_c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2, t3);
 
 	if &expected_c == c {
 		Ok(())
@@ -193,7 +208,7 @@ fn compute_c<CS: CipherSuite>(
 fn compute_composites<'items, CS>(
 	mode: Mode,
 	k: Option<NonZeroScalar<CS>>,
-	B: &NonIdentityElement<CS>,
+	B: ElementWrapper<'_, CS>,
 	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 ) -> Composites<CS>
@@ -204,7 +219,7 @@ where
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
-	let Bm = CS::Group::element_to_repr(B);
+	let Bm = B.repr;
 	let seed_dst = [b"Seed-".as_slice()].concat(create_context_string::<CS>(mode));
 	let seed = CS::Hash::default()
 		.chain(CS::I2OSP_ELEMENT_LEN)

@@ -118,7 +118,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		internal::verify_proof(
 			Mode::Poprf,
-			tweaked_key,
+			ElementWrapper::from(&tweaked_key),
 			c.iter().copied(),
 			d.into_iter(),
 			proof,
@@ -160,7 +160,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			.iter()
 			.map(|client| ElementWrapper::from(&client.blinded_element));
 
-		internal::verify_proof(Mode::Poprf, tweaked_key, c, d, proof)?;
+		internal::verify_proof(Mode::Poprf, ElementWrapper::from(&tweaked_key), c, d, proof)?;
 
 		let blinds = clients
 			.iter()
@@ -176,13 +176,15 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	fn tweaked_key(
 		public_key: &PublicKey<CS::Group>,
 		info: Info<'_>,
-	) -> Result<NonIdentityElement<CS>> {
+	) -> Result<PublicKey<CS::Group>> {
 		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
 		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None);
 		let t = CS::Group::scalar_mul_by_generator(&m);
-		(t + public_key.as_point())
+		let element = (t + public_key.as_point())
 			.try_into()
-			.map_err(|_| Error::InvalidInfo)
+			.map_err(|_| Error::InvalidInfo)?;
+
+		Ok(PublicKey::from_point(element))
 	}
 }
 
@@ -190,7 +192,7 @@ pub struct PoprfServer<CS: CipherSuite> {
 	key_pair: KeyPair<CS::Group>,
 	t: NonZeroScalar<CS>,
 	t_inverted: NonZeroScalar<CS>,
-	tweaked_key: NonIdentityElement<CS>,
+	tweaked_key: PublicKey<CS::Group>,
 }
 
 impl<CS: CipherSuite> PoprfServer<CS> {
@@ -214,6 +216,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			.map_err(|_| Error::InvalidInfoDanger)?;
 		let t_inverted = CS::Group::scalar_invert(&t);
 		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
+		let tweaked_key = PublicKey::from_point(tweaked_key);
 
 		Ok(Self {
 			key_pair,
@@ -279,7 +282,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			Mode::Poprf,
 			rng,
 			self.t,
-			self.tweaked_key,
+			ElementWrapper::from(&self.tweaked_key),
 			c.into_iter(),
 			d.into_iter(),
 		)?;
@@ -322,7 +325,14 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		let c = evaluation_elements.iter().map(ElementWrapper::from);
 		let d = blinded_elements.iter().map(ElementWrapper::from);
 
-		let proof = internal::generate_proof(Mode::Poprf, rng, self.t, self.tweaked_key, c, d)?;
+		let proof = internal::generate_proof(
+			Mode::Poprf,
+			rng,
+			self.t,
+			ElementWrapper::from(&self.tweaked_key),
+			c,
+			d,
+		)?;
 
 		Ok(PoprfBatchBlindEvaluateFixedResult {
 			evaluation_elements,
@@ -444,7 +454,7 @@ impl<CS: CipherSuite> Clone for PoprfServer<CS> {
 			key_pair: self.key_pair.clone(),
 			t: self.t,
 			t_inverted: self.t_inverted,
-			tweaked_key: self.tweaked_key,
+			tweaked_key: self.tweaked_key.clone(),
 		}
 	}
 }
@@ -466,7 +476,6 @@ impl<CS: CipherSuite> Drop for PoprfServer<CS> {
 	fn drop(&mut self) {
 		self.t.zeroize();
 		self.t_inverted.zeroize();
-		self.tweaked_key.zeroize();
 	}
 }
 
@@ -479,12 +488,16 @@ where
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let (scalar, t) = serde::struct_2(deserializer, "PoprfServer", &["secret_key", "t"])?;
 		let secret_key = SecretKey::from_scalar(scalar);
+		let key_pair = KeyPair::from_secret_key(secret_key);
+		let t_inverted = CS::Group::scalar_invert(&t);
+		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
+		let tweaked_key = PublicKey::from_point(tweaked_key);
 
 		Ok(Self {
-			key_pair: KeyPair::from_secret_key(secret_key),
+			key_pair,
 			t,
-			t_inverted: CS::Group::scalar_invert(&t),
-			tweaked_key: CS::Group::non_zero_scalar_mul_by_generator(&t),
+			t_inverted,
+			tweaked_key,
 		})
 	}
 }

@@ -2,6 +2,8 @@ use core::fmt::{self, Debug, Formatter};
 use core::slice;
 
 #[cfg(feature = "serde")]
+use ::serde::de::Error as _;
+#[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use hybrid_array::Array;
 use rand_core::TryCryptoRng;
@@ -12,7 +14,7 @@ use crate::common::Mode;
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 #[cfg(feature = "serde")]
-use crate::serde;
+use crate::serde::{self, DeserializeWrapper, SerializeWrapper};
 use crate::util::{Concat, I2ospLength};
 
 pub struct KeyPair<G: Group> {
@@ -39,7 +41,7 @@ impl<G: Group> KeyPair<G> {
 
 	#[must_use]
 	pub fn from_secret_key(secret_key: SecretKey<G>) -> Self {
-		let public_key = PublicKey(G::non_zero_scalar_mul_by_generator(secret_key.as_scalar()));
+		let public_key = PublicKey::from_secret_key(&secret_key);
 
 		Self {
 			secret_key,
@@ -140,34 +142,45 @@ impl<G: Group> SecretKey<G> {
 	}
 }
 
-pub struct PublicKey<G: Group>(G::NonIdentityElement);
+pub struct PublicKey<G: Group> {
+	element: G::NonIdentityElement,
+	repr: Array<u8, G::ElementLength>,
+}
 
 impl<G: Group> PublicKey<G> {
 	pub const fn as_point(&self) -> &G::NonIdentityElement {
-		&self.0
-	}
-
-	pub(crate) const fn to_point(&self) -> G::NonIdentityElement {
-		self.0
+		&self.element
 	}
 
 	#[must_use]
 	pub fn into_point(self) -> G::NonIdentityElement {
-		self.0
+		self.element
 	}
 
 	#[must_use]
-	pub fn to_repr(&self) -> Array<u8, G::ElementLength> {
-		G::element_to_repr(&self.0)
+	pub const fn as_repr(&self) -> &Array<u8, G::ElementLength> {
+		&self.repr
+	}
+
+	pub(crate) fn from_point(element: G::NonIdentityElement) -> Self {
+		let repr = G::element_to_repr(&element);
+
+		Self { element, repr }
+	}
+
+	#[must_use]
+	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
+		Self::from_point(G::non_zero_scalar_mul_by_generator(&secret_key.0))
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		bytes
-			.try_into()
-			.ok()
-			.and_then(G::non_identity_element_from_repr)
-			.ok_or(Error::FromRepr)
-			.map(Self)
+		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
+	}
+
+	fn from_array(repr: Array<u8, G::ElementLength>) -> Result<Self> {
+		let element = G::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
+
+		Ok(Self { element, repr })
 	}
 }
 
@@ -289,14 +302,20 @@ impl<G: Group> ZeroizeOnDrop for SecretKey<G> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Clone for PublicKey<G> {
 	fn clone(&self) -> Self {
-		Self(self.0)
+		Self {
+			element: self.element,
+			repr: self.repr.clone(),
+		}
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Debug for PublicKey<G> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_tuple("PublicKey").field(&self.0).finish()
+		f.debug_struct("PublicKey")
+			.field("element", &self.element)
+			.field("repr", &self.repr)
+			.finish()
 	}
 }
 
@@ -307,14 +326,18 @@ where
 	G::NonIdentityElement: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		serde::newtype_struct(deserializer, "PublicKey").map(Self)
+		let DeserializeWrapper::<G::ElementLength>(repr) =
+			serde::newtype_struct(deserializer, "PublicKey")?;
+
+		Self::from_array(repr).map_err(D::Error::custom)
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> Drop for PublicKey<G> {
 	fn drop(&mut self) {
-		self.0.zeroize();
+		self.element.zeroize();
+		self.repr.zeroize();
 	}
 }
 
@@ -323,7 +346,7 @@ impl<G: Group> Eq for PublicKey<G> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<G: Group> PartialEq for PublicKey<G> {
 	fn eq(&self, other: &Self) -> bool {
-		self.0.eq(&other.0)
+		self.repr.eq(&other.repr)
 	}
 }
 
@@ -337,7 +360,7 @@ where
 	where
 		S: Serializer,
 	{
-		serializer.serialize_newtype_struct("PublicKey", &self.0)
+		serializer.serialize_newtype_struct("PublicKey", &SerializeWrapper(&self.repr))
 	}
 }
 

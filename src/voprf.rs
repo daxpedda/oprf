@@ -111,7 +111,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 
 		internal::verify_proof(
 			Mode::Voprf,
-			public_key.to_point(),
+			public_key.into(),
 			c.into_iter(),
 			d.iter().copied(),
 			proof,
@@ -149,7 +149,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			.map(|client| ElementWrapper::from(&client.blinded_element));
 		let d = evaluation_elements.iter().map(ElementWrapper::from);
 
-		internal::verify_proof(Mode::Voprf, public_key.to_point(), c, d, proof)?;
+		internal::verify_proof(Mode::Voprf, public_key.into(), c, d, proof)?;
 
 		let blinds = clients
 			.iter()
@@ -241,7 +241,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
-			self.key_pair.public_key().to_point(),
+			self.key_pair.public_key().into(),
 			c.into_iter(),
 			d,
 		)?;
@@ -290,7 +290,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
-			self.key_pair.public_key().to_point(),
+			self.key_pair.public_key().into(),
 			c,
 			d,
 		)?;
