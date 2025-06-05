@@ -84,7 +84,7 @@ fn poprf<CS: CipherSuite>() {
 						&[&vector.input],
 						&evaluation_element,
 						&proof,
-						&INFO,
+						INFO,
 					)
 					.unwrap()
 					.as_slice(),
@@ -93,7 +93,7 @@ fn poprf<CS: CipherSuite>() {
 			// Evaluate.
 			assert_eq!(
 				vector.output,
-				server.evaluate(&[&vector.input], &INFO).unwrap().as_slice(),
+				server.evaluate(&[&vector.input], INFO).unwrap().as_slice(),
 			);
 		}
 	}
@@ -206,7 +206,7 @@ fn poprf_batch<CS: CipherSuite>() {
 				inputs.into_iter(),
 				&evaluation_elements,
 				&proof,
-				&INFO,
+				INFO,
 			)
 			.unwrap()
 			.into_iter()
@@ -222,7 +222,7 @@ fn poprf_batch<CS: CipherSuite>() {
 				inputs.into_iter(),
 				evaluation_elements.iter(),
 				&proof,
-				&INFO,
+				INFO,
 			)
 			.unwrap()
 			.into_iter()
@@ -233,7 +233,7 @@ fn poprf_batch<CS: CipherSuite>() {
 
 			// Evaluate.
 			for (input, output) in inputs.into_iter().zip(&vector.outputs) {
-				assert_eq!(output, server.evaluate(input, &INFO).unwrap().as_slice(),);
+				assert_eq!(output, server.evaluate(input, INFO).unwrap().as_slice(),);
 			}
 		}
 	}
@@ -247,7 +247,7 @@ fn server<CS: CipherSuite>(test_vector: &TestVector) -> PoprfServer<CS> {
 		.concat();
 	assert_eq!(test_vector.group_dst, group_dst);
 
-	let server = PoprfServer::<CS>::from_seed(&SEED, KEY_INFO, &INFO).unwrap();
+	let server = PoprfServer::<CS>::from_seed(&SEED, KEY_INFO, INFO).unwrap();
 
 	assert_eq!(
 		test_vector.secret_key,

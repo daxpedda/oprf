@@ -15,4 +15,4 @@ const KEY_INFO: &[u8] = b"test key";
 /// Seed used in every test vector.
 const SEED: [u8; 32] = hex!("a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3");
 /// `info` used in every test vector.
-const INFO: [u8; 9] = hex!("7465737420696e666f");
+const INFO: &[u8] = b"test info";
