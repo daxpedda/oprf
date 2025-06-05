@@ -7,14 +7,13 @@
 	reason = "tests"
 )]
 
-mod util;
-
 use hybrid_array::Array;
 use oprf::Error;
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Proof};
 use oprf::group::Group;
 use oprf::key::PublicKey;
+use oprf_test::test_ciphersuites;
 
 test_ciphersuites!(blinded_element);
 

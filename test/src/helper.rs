@@ -1,6 +1,17 @@
 //! Abstracts over all [`Mode`]s to reduce the amount of duplicate code in
 //! tests.
 
+#![expect(
+	missing_docs,
+	clippy::missing_errors_doc,
+	clippy::missing_panics_doc,
+	reason = "tests"
+)]
+#![cfg_attr(
+	not(test),
+	expect(clippy::missing_docs_in_private_items, reason = "tests")
+)]
+
 use std::iter;
 use std::slice::SliceIndex;
 
@@ -9,7 +20,6 @@ use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
-use oprf::group::Group;
 use oprf::key::PublicKey;
 use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
@@ -26,14 +36,9 @@ use oprf::voprf::{
 };
 use oprf::{Error, Result};
 use rand::TryRngCore;
-use rand_core::OsRng;
+use rand::rngs::OsRng;
 
 use super::{INFO, INPUT};
-
-type CsGroup<CS> = <CS as CipherSuite>::Group;
-type Scalar<CS> = <CsGroup<CS> as Group>::Scalar;
-type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
-type Element<CS> = <CsGroup<CS> as Group>::Element;
 
 /// Wrapper around clients in all [`Mode`]s.
 #[derive_where(Debug)]
@@ -97,7 +102,7 @@ pub struct HelperServerBatch<CS: CipherSuite> {
 
 impl<CS: CipherSuite> HelperClient<CS> {
 	#[must_use]
-	pub fn blinded_element(&self) -> &BlindedElement<CS> {
+	pub const fn blinded_element(&self) -> &BlindedElement<CS> {
 		&self.blinded_element
 	}
 
@@ -236,7 +241,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 
 impl<CS: CipherSuite> HelperClientBatch<CS> {
 	#[must_use]
-	fn mode(&self) -> Mode {
+	const fn mode(&self) -> Mode {
 		match self.clients {
 			ClientBatch::Oprf(_) => Mode::Oprf,
 			ClientBatch::Voprf(_) => Mode::Voprf,
@@ -249,7 +254,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		&self.blinded_elements
 	}
 
-	fn len(&self) -> usize {
+	const fn len(&self) -> usize {
 		match &self.clients {
 			ClientBatch::Oprf(clients) => clients.len(),
 			ClientBatch::Voprf(clients) => clients.len(),
@@ -369,7 +374,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 
 impl<CS: CipherSuite> HelperServer<CS> {
 	#[must_use]
-	pub fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
+	pub const fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { server, .. } => Some(server.public_key()),
@@ -378,12 +383,12 @@ impl<CS: CipherSuite> HelperServer<CS> {
 	}
 
 	#[must_use]
-	pub fn evaluation_element(&self) -> &EvaluationElement<CS> {
+	pub const fn evaluation_element(&self) -> &EvaluationElement<CS> {
 		&self.evaluation_element
 	}
 
 	#[must_use]
-	pub fn proof(&self) -> Option<&Proof<CS>> {
+	pub const fn proof(&self) -> Option<&Proof<CS>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { proof, .. } | Server::Poprf { proof, .. } => Some(proof),
@@ -436,6 +441,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		}
 	}
 
+	#[must_use]
 	pub fn batch_fixed<const N: usize>(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
 		Self::batch_fixed_with::<N>(clients.mode(), &clients.blinded_elements, INFO).unwrap()
 	}
@@ -492,6 +498,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		}
 	}
 
+	#[must_use]
 	#[cfg(feature = "alloc")]
 	pub fn batch(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
 		Self::batch_with(clients.mode(), &clients.blinded_elements, INFO).unwrap()
@@ -559,7 +566,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 impl<CS: CipherSuite> HelperServerBatch<CS> {
 	#[must_use]
-	pub fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
+	pub const fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { server, .. } => Some(server.public_key()),
@@ -573,7 +580,7 @@ impl<CS: CipherSuite> HelperServerBatch<CS> {
 	}
 
 	#[must_use]
-	pub fn proof(&self) -> Option<&Proof<CS>> {
+	pub const fn proof(&self) -> Option<&Proof<CS>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { proof, .. } | Server::Poprf { proof, .. } => Some(proof),

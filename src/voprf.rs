@@ -15,9 +15,9 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 #[cfg(feature = "serde")]
-use crate::ciphersuite::ElementLength;
-use crate::ciphersuite::{CipherSuite, NonIdentityElement, NonZeroScalar};
+use crate::ciphersuite::{ElementLength, NonIdentityElement};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::internal::{self, BlindResult, ElementWrapper};

@@ -3,15 +3,12 @@
 #![cfg(test)]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
-mod util;
-
 use std::iter;
 
 use oprf::Error;
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::Mode;
-
-use crate::util::{HelperClient, HelperServer, INFO, INPUT};
+use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
 
 test_ciphersuites!(basic, Voprf);
 test_ciphersuites!(basic, Poprf);

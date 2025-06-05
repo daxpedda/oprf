@@ -6,6 +6,7 @@ use elliptic_curve::Error;
 use elliptic_curve::hash2curve::{ExpandMsg, Expander};
 
 /// A mock [`ExpandMsg`] for testing purposes. It is no-op.
+#[derive(Clone, Copy, Debug)]
 pub struct ExpandMsgMock;
 
 impl<K> ExpandMsg<K> for ExpandMsgMock {

@@ -1,10 +1,14 @@
 //! Test utilities.
 
-#![allow(dead_code, unused_imports, reason = "test utilities can be unused")]
-#![expect(clippy::indexing_slicing, unreachable_pub, reason = "tests")]
+#![expect(
+	clippy::cargo_common_metadata,
+	clippy::indexing_slicing,
+	clippy::unwrap_used,
+	reason = "tests"
+)]
 
-mod helper;
-mod mock;
+pub mod helper;
+pub mod mock;
 
 pub use self::helper::{HelperClient, HelperServer};
 pub use self::mock::MockCs;

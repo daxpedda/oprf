@@ -170,8 +170,9 @@ impl<CS: CipherSuite> InternalGroup for CS {
 
 #[cfg(test)]
 mod tests {
+	use oprf_test::test_ciphersuites;
+
 	use super::*;
-	use crate::test_ciphersuites;
 
 	test_ciphersuites!(identity_from_repr);
 

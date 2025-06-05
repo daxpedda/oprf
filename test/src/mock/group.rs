@@ -12,6 +12,7 @@ use zeroize::Zeroize;
 
 /// A mock [`Group`] for testing purposes. It is zero-sized and does no checks
 /// whatsoever.
+#[derive(Clone, Copy, Debug)]
 pub struct MockCurve;
 
 /// A mock [`Group::NonZeroScalar`].
@@ -27,7 +28,7 @@ pub struct Scalar;
 pub struct NonIdentityElement;
 
 /// A mock [`Group::Element`].
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Element;
 
 impl Group for MockCurve {

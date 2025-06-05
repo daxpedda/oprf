@@ -7,16 +7,13 @@
 	reason = "tests"
 )]
 
-mod util;
-
 use std::iter;
 use std::sync::LazyLock;
 
 use oprf::Error;
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::Mode;
-
-use crate::util::{HelperClient, HelperServer};
+use oprf_test::{HelperClient, HelperServer, test_ciphersuites};
 
 static TEST: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; usize::from(u16::MAX) + 1]);
 

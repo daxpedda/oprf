@@ -1,42 +1,40 @@
 [package]
-edition = "2024"
+edition = { workspace = true }
 name = "oprf"
 version = "0.0.0"
 
 [features]
-alloc = ["elliptic-curve/alloc", "primeorder?/alloc"]
+alloc = ["elliptic-curve/alloc", "primeorder?/alloc", "oprf-test/alloc"]
 primeorder = ["dep:primeorder"]
 serde = ["dep:serde", "dep:serdect", "elliptic-curve/serde"]
 
 [dependencies]
-digest = { version = "=0.11.0-rc.0", default-features = false }
-elliptic-curve = { version = "=0.14.0-rc.3", features = ["hash2curve", "oprf", "sec1"] }
-hybrid-array = "0.3"
-primeorder = { version = "=0.14.0-pre.3", optional = true }
-rand_core = { version = "0.9", default-features = false }
-serde = { version = "1", default-features = false, features = ["derive"], optional = true }
-serdect = { version = "0.3", default-features = false, optional = true }
-zeroize = "1.5"
+digest = { workspace = true }
+elliptic-curve = { workspace = true }
+hybrid-array = { workspace = true }
+primeorder = { workspace = true, optional = true }
+rand_core = { workspace = true }
+serde = { workspace = true, optional = true }
+serdect = { workspace = true, optional = true }
+zeroize = { workspace = true }
 
 [dev-dependencies]
-criterion = { version = "0.6", default-features = false, features = [
-	"cargo_bench_support",
-	"rayon",
-] }
-derive-where = "1"
-hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
-hex-literal = "1"
+criterion = { workspace = true }
+derive-where = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }
 oprf = { path = "", features = ["primeorder"] }
-p256 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
-p384 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
-p521 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
-paste = "1"
-rand = { version = "0.9", default-features = false, features = ["os_rng"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_test = { git = "https://github.com/daxpedda/test" }
-static_assertions = "1"
-zeroize = { version = "1", features = ["derive"] }
+oprf-test = { workspace = true }
+p256 = { workspace = true }
+p384 = { workspace = true }
+p521 = { workspace = true }
+paste = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_test = { workspace = true }
+static_assertions = { workspace = true }
+zeroize = { workspace = true, features = ["derive"] }
 
 [patch.crates-io]
 # https://github.com/RustCrypto/traits/pull/1884
@@ -51,7 +49,43 @@ bench = false
 harness = false
 name = "bench"
 
-[lints.rust]
+[lints]
+workspace = true
+
+[workspace]
+default-members = [""]
+members = ["", "test"]
+package.edition = "2024"
+resolver = "3"
+
+[workspace.dependencies]
+criterion = { version = "0.6", default-features = false, features = [
+	"cargo_bench_support",
+	"rayon",
+] }
+derive-where = "1"
+digest = { version = "=0.11.0-rc.0", default-features = false }
+elliptic-curve = { version = "=0.14.0-rc.3", features = ["hash2curve", "oprf", "sec1"] }
+hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
+hex-literal = "1"
+hybrid-array = "0.3"
+oprf = { path = "", features = ["primeorder"] }
+oprf-test = { path = "test" }
+p256 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
+p384 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
+p521 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
+paste = "1"
+primeorder = "=0.14.0-pre.3"
+rand = { version = "0.9", default-features = false, features = ["os_rng"] }
+rand_core = { version = "0.9", default-features = false }
+serde = { version = "1", default-features = false }
+serde_json = "1"
+serde_test = { git = "https://github.com/daxpedda/test" }
+serdect = { version = "0.3", default-features = false }
+static_assertions = "1"
+zeroize = "1.5"
+
+[workspace.lints.rust]
 # Rust groups.
 let_underscore = { level = "warn", priority = -1 }
 rust_2018_compatibility = { level = "warn", priority = -1 }
@@ -92,7 +126,7 @@ variant_size_differences = "warn"
 # Allowed lints.
 let_underscore_drop = "allow"
 
-[lints.clippy]
+[workspace.lints.clippy]
 # Clippy groups.
 cargo = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
@@ -179,5 +213,5 @@ module_name_repetitions = "allow"
 redundant_pub_crate = "allow"
 tabs_in_doc_comments = "allow"
 
-[lints.rustdoc]
+[workspace.lints.rustdoc]
 all = { level = "warn", priority = -1 }

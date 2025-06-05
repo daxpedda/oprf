@@ -4,10 +4,13 @@ use std::ops::Deref;
 use std::slice;
 use std::vec::Vec;
 
+use oprf_test::test_ciphersuites;
+
 use super::parse::{TEST_VECTORS, TestVector, Vector};
 use super::{KEY_INFO, SEED};
 use crate::ciphersuite::CipherSuite;
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use crate::internal;
 use crate::key::{PublicKey, SecretKey};
 use crate::test_vectors::cycle_rng::CycleRng;
 use crate::util::Concat;
@@ -17,7 +20,6 @@ use crate::voprf::{
 	VoprfBatchBlindEvaluateFixedResult, VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient,
 	VoprfServer,
 };
-use crate::{internal, test_ciphersuites};
 
 test_ciphersuites!(voprf);
 

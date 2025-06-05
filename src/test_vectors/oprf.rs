@@ -3,15 +3,17 @@
 use core::ops::Deref;
 use core::{array, iter};
 
+use oprf_test::test_ciphersuites;
+
 use super::parse::{TEST_VECTORS, Vector};
 use super::{KEY_INFO, SEED};
 use crate::ciphersuite::CipherSuite;
 use crate::common::{BlindedElement, EvaluationElement, Mode};
+use crate::internal;
 use crate::key::SecretKey;
 use crate::oprf::{OprfBlindResult, OprfClient, OprfServer};
 use crate::test_vectors::cycle_rng::CycleRng;
 use crate::util::Concat;
-use crate::{internal, test_ciphersuites};
 
 test_ciphersuites!(oprf);
 

@@ -1,6 +1,8 @@
-mod expand_msg;
-mod group;
-mod hash;
+//! Mock [`CipherSuite`] implementation.
+
+pub mod expand_msg;
+pub mod group;
+pub mod hash;
 
 use oprf::ciphersuite::{CipherSuite, Id};
 
@@ -10,6 +12,7 @@ use self::hash::MockHash;
 
 /// A mock [`CipherSuite`] for testing purposes. It is zero-sized, does no
 /// checks whatsoever and is no-op.
+#[derive(Clone, Copy, Debug)]
 pub struct MockCs;
 
 impl CipherSuite for MockCs {

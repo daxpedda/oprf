@@ -4,8 +4,6 @@
 #![cfg(feature = "serde")]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
-mod util;
-
 use std::fmt::Debug;
 
 use hybrid_array::Array;
@@ -16,6 +14,7 @@ use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfClient, OprfServer};
 use oprf::poprf::{PoprfClient, PoprfServer};
 use oprf::voprf::{VoprfClient, VoprfServer};
+use oprf_test::test_ciphersuites;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_test::de::Deserializer;

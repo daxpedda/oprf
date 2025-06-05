@@ -10,30 +10,6 @@ mod voprf;
 
 use hex_literal::hex;
 
-/// Generates `#[test]` functions pre-fixed with the given `name` for all
-/// available [`CipherSuite`]s.
-#[macro_export]
-macro_rules! test_ciphersuites {
-	($name:ident) => {
-		paste::paste! {
-			#[test]
-			fn [<$name _p256>]() {
-				$name::<::p256::NistP256>();
-			}
-
-			#[test]
-			fn [<$name _p384>]() {
-				$name::<::p384::NistP384>();
-			}
-
-			#[test]
-			fn [<$name _p521>]() {
-				$name::<::p521::NistP521>();
-			}
-		}
-	};
-}
-
 /// Seed `info` used in every test vector.
 const KEY_INFO: &[u8] = b"test key";
 /// Seed used in every test vector.

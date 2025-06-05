@@ -1,0 +1,20 @@
+[package]
+edition = { workspace = true }
+name = "oprf-test"
+publish = false
+version = "0.0.0"
+
+[features]
+alloc = []
+
+[dependencies]
+derive-where = { workspace = true }
+digest = { workspace = true }
+elliptic-curve = { workspace = true }
+hybrid-array = { workspace = true }
+oprf = { workspace = true }
+rand = { workspace = true }
+zeroize = { workspace = true, features = ["derive"] }
+
+[lints]
+workspace = true

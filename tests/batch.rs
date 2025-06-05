@@ -7,17 +7,14 @@
 	reason = "tests"
 )]
 
-mod util;
-
 use std::iter;
 
 use oprf::Error;
 use oprf::ciphersuite::CipherSuite;
 use oprf::common::Mode;
-
 #[cfg(feature = "alloc")]
-use crate::util::MockCs;
-use crate::util::{HelperClient, HelperServer, INFO, INPUT};
+use oprf_test::MockCs;
+use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
 
 test_ciphersuites!(empty, Voprf);
 test_ciphersuites!(empty, Poprf);
