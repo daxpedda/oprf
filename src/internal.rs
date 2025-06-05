@@ -331,7 +331,6 @@ pub(crate) fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize
 	info: Option<Info<'_>>,
 ) -> Result<[Output<CS::Hash>; N]>
 where
-	[Element<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 	[Output<CS::Hash>; N]:
 		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	CS: CipherSuite,
@@ -344,7 +343,7 @@ where
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
-		.collect_array();
+		.collect_array::<N>();
 	let unblinded_elements = CS::Group::element_batch_to_repr_fixed(&n);
 
 	let mut outputs = internal_finalize::<CS>(inputs, &unblinded_elements, info);

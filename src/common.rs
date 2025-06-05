@@ -8,13 +8,11 @@ use ::serde::de::Error as _;
 use ::serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
+use hybrid_array::Array;
 use hybrid_array::typenum::{Sum, Unsigned};
-use hybrid_array::{Array, ArraySize, AssocArraySize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{
-	CipherSuite, Element, ElementLength, NonIdentityElement, Scalar, ScalarLength,
-};
+use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
 use crate::error::{Error, Result};
 use crate::group::Group;
 #[cfg(feature = "serde")]
@@ -107,17 +105,12 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 
 	pub(crate) fn new_batch_fixed<const N: usize>(
 		non_identity_elements: &[NonIdentityElement<CS>; N],
-	) -> [Self; N]
-	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Self; N]: AssocArraySize<Size: ArraySize<ArrayType<Self> = [Self; N]>>,
-	{
+	) -> [Self; N] {
 		let elements = non_identity_elements
 			.iter()
 			.copied()
 			.map(NonIdentityElement::<CS>::into)
-			.collect_array();
+			.collect_array::<N>();
 		let repr = CS::Group::element_batch_to_repr_fixed(&elements);
 
 		non_identity_elements

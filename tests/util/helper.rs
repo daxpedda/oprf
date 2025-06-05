@@ -316,9 +316,6 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		server: &HelperServerBatch<CS>,
 	) -> [Output<CS::Hash>; N]
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
@@ -341,9 +338,6 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -442,35 +436,15 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		}
 	}
 
-	pub fn batch_fixed<const N: usize>(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS>
-	where
-		[EvaluationElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<EvaluationElement<CS>> = [EvaluationElement<CS>; N]>,
-		>,
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
-		>,
-	{
-		Self::batch_fixed_with(clients.mode(), &clients.blinded_elements, INFO).unwrap()
+	pub fn batch_fixed<const N: usize>(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
+		Self::batch_fixed_with::<N>(clients.mode(), &clients.blinded_elements, INFO).unwrap()
 	}
 
 	pub fn batch_fixed_with<const N: usize>(
 		mode: Mode,
 		blinded_elements: &[BlindedElement<CS>],
 		info: &[u8],
-	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
-	where
-		[EvaluationElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<EvaluationElement<CS>> = [EvaluationElement<CS>; N]>,
-		>,
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
-		>,
-	{
+	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
 		match mode {
 			Mode::Oprf => {
 				let server = OprfServer::new(&mut OsRng).unwrap();
@@ -505,8 +479,10 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				let PoprfBatchBlindEvaluateFixedResult {
 					evaluation_elements,
 					proof,
-				} = server
-					.batch_blind_evaluate_fixed(&mut OsRng, blinded_elements.try_into().unwrap())?;
+				} = server.batch_blind_evaluate_fixed::<_, N>(
+					&mut OsRng,
+					blinded_elements.try_into().unwrap(),
+				)?;
 
 				Ok(HelperServerBatch {
 					server: Server::Poprf { server, proof },

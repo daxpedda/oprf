@@ -17,7 +17,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(feature = "serde")]
 use crate::ciphersuite::ElementLength;
-use crate::ciphersuite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar, Scalar};
+use crate::ciphersuite::{CipherSuite, NonIdentityElement, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
@@ -141,9 +141,6 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -302,14 +299,6 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		blinded_elements: &[BlindedElement<CS>; N],
 	) -> Result<PoprfBatchBlindEvaluateFixedResult<CS, N>, Error<R::Error>>
 	where
-		[EvaluationElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<EvaluationElement<CS>> = [EvaluationElement<CS>; N]>,
-		>,
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
-		>,
 		R: TryCryptoRng,
 	{
 		if blinded_elements.is_empty() || blinded_elements.len() > u16::MAX.into() {

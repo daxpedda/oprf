@@ -11,7 +11,7 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{CipherSuite, Element, NonZeroScalar, Scalar};
+use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
 use crate::internal::{self, BlindResult};
@@ -91,9 +91,6 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		evaluation_elements: &[EvaluationElement<CS>; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[Scalar<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Scalar<CS>> = [Scalar<CS>; N]>>,
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,

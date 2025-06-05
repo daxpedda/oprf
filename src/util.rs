@@ -1,3 +1,4 @@
+use core::array;
 use core::ops::Add;
 
 use digest::Update;
@@ -40,17 +41,20 @@ where
 	}
 }
 
-pub(crate) trait CollectArray<T, const N: usize> {
-	fn collect_array(self) -> [T; N];
+pub(crate) trait CollectArray<T> {
+	fn collect_array<const N: usize>(self) -> [T; N];
 }
 
-impl<I: Iterator<Item = T>, T, const N: usize> CollectArray<T, N> for I
-where
-	[T; N]: AssocArraySize<Size: ArraySize<ArrayType<T> = [T; N]>>,
-{
-	fn collect_array(self) -> [T; N] {
-		let array: ArrayN<T, N> = self.collect();
-		array.0
+impl<I: Iterator<Item = T>, T> CollectArray<T> for I {
+	fn collect_array<const N: usize>(mut self) -> [T; N] {
+		let array =
+			array::from_fn(|_| self.next().expect("`Iterator` should be the expected size"));
+		assert!(
+			self.next().is_none(),
+			"`Iterator` should be the expected size"
+		);
+
+		array
 	}
 }
 
