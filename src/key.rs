@@ -320,11 +320,7 @@ impl<G: Group> Debug for PublicKey<G> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, G> Deserialize<'de> for PublicKey<G>
-where
-	G: Group,
-	G::NonIdentityElement: Deserialize<'de>,
-{
+impl<'de, G: Group> Deserialize<'de> for PublicKey<G> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let DeserializeWrapper::<G::ElementLength>(repr) =
 			serde::newtype_struct(deserializer, "PublicKey")?;
@@ -351,11 +347,7 @@ impl<G: Group> PartialEq for PublicKey<G> {
 }
 
 #[cfg(feature = "serde")]
-impl<G> Serialize for PublicKey<G>
-where
-	G: Group,
-	G::NonIdentityElement: Serialize,
-{
+impl<G: Group> Serialize for PublicKey<G> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,

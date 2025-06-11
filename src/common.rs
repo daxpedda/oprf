@@ -186,11 +186,7 @@ impl<CS: CipherSuite> Debug for BlindedElement<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for BlindedElement<CS>
-where
-	CS: CipherSuite,
-	NonIdentityElement<CS>: Deserialize<'de>,
-{
+impl<'de, CS: CipherSuite> Deserialize<'de> for BlindedElement<CS> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let DeserializeWrapper::<ElementLength<CS>>(repr) =
 			serde::newtype_struct(deserializer, "BlindedElement")?;
@@ -217,11 +213,7 @@ impl<CS: CipherSuite> PartialEq for BlindedElement<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for BlindedElement<CS>
-where
-	CS: CipherSuite,
-	NonIdentityElement<CS>: Serialize,
-{
+impl<CS: CipherSuite> Serialize for BlindedElement<CS> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -253,11 +245,7 @@ impl<CS: CipherSuite> Debug for EvaluationElement<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for EvaluationElement<CS>
-where
-	CS: CipherSuite,
-	NonIdentityElement<CS>: Deserialize<'de>,
-{
+impl<'de, CS: CipherSuite> Deserialize<'de> for EvaluationElement<CS> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let DeserializeWrapper::<ElementLength<CS>>(repr) =
 			serde::newtype_struct(deserializer, "EvaluationElement")?;
@@ -284,11 +272,7 @@ impl<CS: CipherSuite> PartialEq for EvaluationElement<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for EvaluationElement<CS>
-where
-	CS: CipherSuite,
-	NonIdentityElement<CS>: Serialize,
-{
+impl<CS: CipherSuite> Serialize for EvaluationElement<CS> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,

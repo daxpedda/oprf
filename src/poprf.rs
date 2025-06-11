@@ -15,9 +15,9 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 #[cfg(feature = "serde")]
-use crate::ciphersuite::{ElementLength, NonIdentityElement};
+use crate::ciphersuite::ElementLength;
+use crate::ciphersuite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
@@ -227,11 +227,6 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		self.key_pair.public_key()
 	}
 
-	#[cfg(test)]
-	pub(crate) const fn secret_key(&self) -> &SecretKey<CS::Group> {
-		self.key_pair.secret_key()
-	}
-
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
 	pub fn blind_evaluate<R: TryCryptoRng>(
@@ -382,7 +377,6 @@ impl<'de, CS> Deserialize<'de> for PoprfClient<CS>
 where
 	CS: CipherSuite,
 	NonZeroScalar<CS>: Deserialize<'de>,
-	NonIdentityElement<CS>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let (blind, DeserializeWrapper::<ElementLength<CS>>(blinded_element)) =
@@ -418,7 +412,6 @@ impl<CS> Serialize for PoprfClient<CS>
 where
 	CS: CipherSuite,
 	NonZeroScalar<CS>: Serialize,
-	NonIdentityElement<CS>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where

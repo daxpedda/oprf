@@ -36,12 +36,6 @@ serde_test = { workspace = true }
 static_assertions = { workspace = true }
 zeroize = { workspace = true, features = ["derive"] }
 
-[patch.crates-io]
-# https://github.com/RustCrypto/traits/pull/1884
-elliptic-curve = { git = "https://github.com/RustCrypto/traits", rev = "57c9e791f8df3199b4c11ab9a3dd258255a79a42" }
-# https://github.com/RustCrypto/elliptic-curves/pull/1214
-primeorder = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "0c503ceb5a3ccb9dfe5acdfc8efceba8683dddcf" }
-
 [lib]
 bench = false
 
@@ -65,17 +59,17 @@ criterion = { version = "0.6", default-features = false, features = [
 ] }
 derive-where = "1"
 digest = { version = "=0.11.0-rc.0", default-features = false }
-elliptic-curve = { version = "=0.14.0-rc.3", features = ["hash2curve", "oprf", "sec1"] }
+elliptic-curve = { version = "=0.14.0-rc.5", features = ["hash2curve", "oprf", "sec1"] }
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
 hybrid-array = "0.3"
 oprf = { path = "", features = ["primeorder"] }
 oprf-test = { path = "test" }
-p256 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
-p384 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
-p521 = { version = "=0.14.0-pre.4", default-features = false, features = ["oprf", "serde"] }
+p256 = { version = "=0.14.0-pre.5", default-features = false, features = ["oprf", "serde"] }
+p384 = { version = "=0.14.0-pre.5", default-features = false, features = ["oprf", "serde"] }
+p521 = { version = "=0.14.0-pre.5", default-features = false, features = ["oprf", "serde"] }
 paste = "1"
-primeorder = "=0.14.0-pre.3"
+primeorder = "=0.14.0-pre.4"
 rand = { version = "0.9", default-features = false, features = ["os_rng"] }
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false }
