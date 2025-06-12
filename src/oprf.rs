@@ -1,7 +1,6 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
-use core::ops::Deref;
 use core::{array, iter};
 
 #[cfg(feature = "serde")]
@@ -76,9 +75,8 @@ impl<CS: CipherSuite> OprfClient<CS> {
 			return Err(Error::Batch);
 		}
 
-		let blinds = clients.map(|client| client.blind.into()).collect();
-		let evaluation_elements =
-			evaluation_elements.map(|evaluation_element| evaluation_element.element().deref());
+		let blinds = clients.map(|client| client.blind).collect();
+		let evaluation_elements = evaluation_elements.map(EvaluationElement::element);
 
 		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
@@ -99,13 +97,8 @@ impl<CS: CipherSuite> OprfClient<CS> {
 			return Err(Error::Batch);
 		}
 
-		let blinds = clients
-			.iter()
-			.map(|client| client.blind.into())
-			.collect_array();
-		let evaluation_elements = evaluation_elements
-			.iter()
-			.map(|evaluation_element| evaluation_element.element().deref());
+		let blinds = clients.iter().map(|client| client.blind).collect_array();
+		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
 
 		internal::batch_finalize_fixed::<N, CS>(inputs, blinds, evaluation_elements, None)
 	}

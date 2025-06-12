@@ -79,6 +79,12 @@ serdect = { version = "0.3", default-features = false }
 static_assertions = "1"
 zeroize = "1.5"
 
+[patch.crates-io]
+# https://github.com/RustCrypto/traits/pull/1896
+elliptic-curve = { git = "https://github.com/RustCrypto/traits", rev = "e3e5f8f25d4984c4683c29b46cf0c3d51bca5055" }
+# https://github.com/RustCrypto/elliptic-curves/pull/1248
+primeorder = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "0ecb8254c616d1211186f3c6ebcc588f69fbac9d" }
+
 [workspace.lints.rust]
 # Rust groups.
 let_underscore = { level = "warn", priority = -1 }

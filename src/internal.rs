@@ -296,8 +296,8 @@ pub(crate) fn blind<CS: CipherSuite, R: TryCryptoRng>(
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, CS>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	blinds: Vec<Scalar<CS>>,
-	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements Element<CS>>,
+	blinds: Vec<NonZeroScalar<CS>>,
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
 	info: Option<Info<'_>>,
 ) -> Result<Vec<Output<CS::Hash>>>
 where
@@ -310,13 +310,13 @@ where
 		"found unequal item length"
 	);
 
-	let inverted_blinds = CS::Group::scalar_batch_invert(blinds).unwrap();
+	let inverted_blinds = CS::Group::scalar_batch_invert(blinds);
 	let n: Vec<_> = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
 		.collect();
-	let unblinded_elements = CS::Group::element_batch_to_repr(&n);
+	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr(&n);
 
 	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
 }
@@ -326,8 +326,8 @@ where
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, CS>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	blinds: [Scalar<CS>; N],
-	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements Element<CS>>,
+	blinds: [NonZeroScalar<CS>; N],
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
 	info: Option<Info<'_>>,
 ) -> Result<[Output<CS::Hash>; N]>
 where
@@ -338,13 +338,13 @@ where
 	debug_assert_eq!(N, inputs.len(), "found unequal item length");
 	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
 
-	let inverted_blinds = CS::Group::scalar_batch_invert_fixed(blinds).unwrap();
+	let inverted_blinds = CS::Group::scalar_batch_invert_fixed(blinds);
 	let n = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
 		.collect_array::<N>();
-	let unblinded_elements = CS::Group::element_batch_to_repr_fixed(&n);
+	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr_fixed(&n);
 
 	let mut outputs = internal_finalize::<CS>(inputs, &unblinded_elements, info);
 	// Using `Iterator::collect()` can panic!

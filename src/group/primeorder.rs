@@ -7,7 +7,6 @@ use elliptic_curve::hash2curve::{ExpandMsg, GroupDigest};
 use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
 use elliptic_curve::point::NonIdentity;
 use elliptic_curve::sec1::{CompressedPointSize, ModulusSize};
-use elliptic_curve::subtle::CtOption;
 use elliptic_curve::{
 	BatchNormalize, FieldBytesSize, Group as _, NonZeroScalar, OprfParameters, PrimeField, Scalar,
 };
@@ -61,14 +60,14 @@ where
 	}
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_invert(scalars: Vec<Self::Scalar>) -> CtOption<Vec<Self::Scalar>> {
-		Scalar::<C>::batch_invert(scalars)
+	fn scalar_batch_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+		NonZeroScalar::<C>::batch_invert(scalars)
 	}
 
 	fn scalar_batch_invert_fixed<const N: usize>(
-		scalars: [Self::Scalar; N],
-	) -> CtOption<[Self::Scalar; N]> {
-		Scalar::<C>::batch_invert(scalars)
+		scalars: [Self::NonZeroScalar; N],
+	) -> [Self::NonZeroScalar; N] {
+		NonZeroScalar::<C>::batch_invert(scalars)
 	}
 
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
@@ -111,11 +110,19 @@ where
 	}
 
 	#[cfg(feature = "alloc")]
-	fn element_batch_to_repr(elements: &[Self::Element]) -> Vec<Array<u8, Self::ElementLength>> {
-		ProjectivePoint::<C>::batch_normalize(elements)
+	fn non_identity_element_batch_to_repr(
+		elements: &[Self::NonIdentityElement],
+	) -> Vec<Array<u8, Self::ElementLength>> {
+		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements)
 			.into_iter()
 			.map(|point| point.to_bytes())
 			.collect()
+	}
+
+	fn non_identity_element_batch_to_repr_fixed<const N: usize>(
+		elements: &[Self::NonIdentityElement; N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements).map(|point| point.to_bytes())
 	}
 
 	fn element_batch_to_repr_fixed<const N: usize>(

@@ -1,7 +1,6 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
-use core::ops::Deref;
 use core::{array, iter};
 
 #[cfg(feature = "serde")]
@@ -108,12 +107,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		let c: Vec<_> = evaluation_elements.map(ElementWrapper::from).collect();
 		let (d, blinds): (Vec<_>, _) = clients
-			.map(|client| {
-				(
-					ElementWrapper::from(&client.blinded_element),
-					client.blind.into(),
-				)
-			})
+			.map(|client| (ElementWrapper::from(&client.blinded_element), client.blind))
 			.unzip();
 
 		internal::verify_proof(
@@ -124,7 +118,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			proof,
 		)?;
 
-		let evaluation_elements = c.into_iter().map(|element| element.element().deref());
+		let evaluation_elements = c.into_iter().map(ElementWrapper::element);
 
 		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, Some(info))
 	}
@@ -159,13 +153,8 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		internal::verify_proof(Mode::Poprf, ElementWrapper::from(&tweaked_key), c, d, proof)?;
 
-		let blinds = clients
-			.iter()
-			.map(|client| client.blind.into())
-			.collect_array();
-		let evaluation_elements = evaluation_elements
-			.iter()
-			.map(|evaluation_element| evaluation_element.element().deref());
+		let blinds = clients.iter().map(|client| client.blind).collect_array();
+		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
 
 		internal::batch_finalize_fixed::<N, CS>(inputs, blinds, evaluation_elements, Some(info))
 	}

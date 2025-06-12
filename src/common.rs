@@ -86,17 +86,11 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch(
-		non_identity_elements: impl Iterator<Item = NonIdentityElement<CS>>,
-	) -> Vec<Self> {
-		let non_identity_elements: Vec<_> = non_identity_elements.collect();
-		let elements: Vec<_> = non_identity_elements
-			.iter()
-			.map(|element| (*element).into())
-			.collect();
-		let repr = CS::Group::element_batch_to_repr(&elements);
+	pub(crate) fn new_batch(elements: impl Iterator<Item = NonIdentityElement<CS>>) -> Vec<Self> {
+		let elements: Vec<_> = elements.collect();
+		let repr = CS::Group::non_identity_element_batch_to_repr(&elements);
 
-		non_identity_elements
+		elements
 			.into_iter()
 			.zip(repr)
 			.map(|(element, repr)| Self { element, repr })
@@ -104,16 +98,11 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	}
 
 	pub(crate) fn new_batch_fixed<const N: usize>(
-		non_identity_elements: &[NonIdentityElement<CS>; N],
+		elements: &[NonIdentityElement<CS>; N],
 	) -> [Self; N] {
-		let elements = non_identity_elements
-			.iter()
-			.copied()
-			.map(NonIdentityElement::<CS>::into)
-			.collect_array::<N>();
-		let repr = CS::Group::element_batch_to_repr_fixed(&elements);
+		let repr = CS::Group::non_identity_element_batch_to_repr_fixed(elements);
 
-		non_identity_elements
+		elements
 			.iter()
 			.copied()
 			.zip(repr)

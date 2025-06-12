@@ -12,8 +12,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::ops::{Add, Deref, Mul, Sub};
 
-use ::elliptic_curve::hash2curve::ExpandMsg;
-use ::elliptic_curve::subtle::CtOption;
+use elliptic_curve::hash2curve::ExpandMsg;
 use hybrid_array::typenum::{IsLess, True, U65536, Unsigned};
 use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;
@@ -70,11 +69,11 @@ pub trait Group {
 	fn scalar_invert(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar;
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_invert(scalars: Vec<Self::Scalar>) -> CtOption<Vec<Self::Scalar>>;
+	fn scalar_batch_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar>;
 
 	fn scalar_batch_invert_fixed<const N: usize>(
-		scalars: [Self::Scalar; N],
-	) -> CtOption<[Self::Scalar; N]>;
+		scalars: [Self::NonZeroScalar; N],
+	) -> [Self::NonZeroScalar; N];
 
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
@@ -95,7 +94,13 @@ pub trait Group {
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
 
 	#[cfg(feature = "alloc")]
-	fn element_batch_to_repr(elements: &[Self::Element]) -> Vec<Array<u8, Self::ElementLength>>;
+	fn non_identity_element_batch_to_repr(
+		elements: &[Self::NonIdentityElement],
+	) -> Vec<Array<u8, Self::ElementLength>>;
+
+	fn non_identity_element_batch_to_repr_fixed<const N: usize>(
+		elements: &[Self::NonIdentityElement; N],
+	) -> [Array<u8, Self::ElementLength>; N];
 
 	fn element_batch_to_repr_fixed<const N: usize>(
 		elements: &[Self::Element; N],

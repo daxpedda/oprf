@@ -4,7 +4,6 @@ use core::convert::Infallible;
 use core::ops::{Add, Deref, Mul, Sub};
 
 use elliptic_curve::hash2curve::ExpandMsg;
-use elliptic_curve::subtle::{Choice, CtOption};
 use hybrid_array::Array;
 use hybrid_array::typenum::U0;
 use oprf::group::{Dst, Group};
@@ -93,14 +92,14 @@ impl Group for MockCurve {
 	}
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_invert(scalars: Vec<Self::Scalar>) -> CtOption<Vec<Self::Scalar>> {
-		CtOption::new(scalars, Choice::from(1))
+	fn scalar_batch_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+		scalars
 	}
 
 	fn scalar_batch_invert_fixed<const N: usize>(
-		scalars: [Self::Scalar; N],
-	) -> CtOption<[Self::Scalar; N]> {
-		CtOption::new(scalars, Choice::from(1))
+		scalars: [Self::NonZeroScalar; N],
+	) -> [Self::NonZeroScalar; N] {
+		scalars
 	}
 
 	fn element_to_repr(_: &Self::Element) -> Array<u8, Self::ElementLength> {
@@ -108,8 +107,16 @@ impl Group for MockCurve {
 	}
 
 	#[cfg(feature = "alloc")]
-	fn element_batch_to_repr(elements: &[Self::Element]) -> Vec<Array<u8, Self::ElementLength>> {
+	fn non_identity_element_batch_to_repr(
+		elements: &[Self::NonIdentityElement],
+	) -> Vec<Array<u8, Self::ElementLength>> {
 		vec![Array::default(); elements.len()]
+	}
+
+	fn non_identity_element_batch_to_repr_fixed<const N: usize>(
+		_: &[Self::NonIdentityElement; N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		[Array::default(); N]
 	}
 
 	fn element_batch_to_repr_fixed<const N: usize>(
