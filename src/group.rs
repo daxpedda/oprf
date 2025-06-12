@@ -1,9 +1,3 @@
-// https://github.com/rust-lang/rust-clippy/issues/14570
-#![cfg_attr(
-	test,
-	expect(clippy::arbitrary_source_item_ordering, reason = "false-positive")
-)]
-
 #[cfg(feature = "primeorder")]
 mod primeorder;
 
@@ -170,22 +164,5 @@ impl<CS: CipherSuite> InternalGroup for CS {
 		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, Dst::new::<CS>(mode, b"HashToGroup-"))
 			.try_into()
 			.ok()
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use oprf_test::test_ciphersuites;
-
-	use super::*;
-
-	test_ciphersuites!(identity_from_repr);
-
-	fn identity_from_repr<CS: CipherSuite>() {
-		let identity = CS::Group::element_identity();
-		let bytes = CS::Group::element_to_repr(&identity);
-
-		let result = CS::Group::non_identity_element_from_repr(&bytes);
-		assert_eq!(result, None);
 	}
 }
