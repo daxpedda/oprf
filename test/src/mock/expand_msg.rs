@@ -15,7 +15,7 @@ impl<K> ExpandMsg<K> for ExpandMsgMock {
 	fn expand_message<'dst>(
 		_: &[&[u8]],
 		_: &'dst [&[u8]],
-		_: NonZero<usize>,
+		_: NonZero<u16>,
 	) -> Result<Self::Expander<'dst>, Error> {
 		Ok(Self)
 	}
