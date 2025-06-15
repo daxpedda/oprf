@@ -14,6 +14,8 @@ test_ciphersuites!(test, Poprf);
 
 /// Tests non-batched test vectors.
 fn test<CS: CipherSuite>(mode: Mode) {
+	let mut tests = 0;
+
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
 		test_vector.identifier.as_bytes() == CS::ID.deref() && test_vector.mode == mode
 	}) {
@@ -23,6 +25,8 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			let Vector::Single(vector) = vector else {
 				continue;
 			};
+
+			tests += 1;
 
 			let vector_proof = vector.proof.as_ref();
 
@@ -96,4 +100,6 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			);
 		}
 	}
+
+	assert_eq!(tests, 2);
 }

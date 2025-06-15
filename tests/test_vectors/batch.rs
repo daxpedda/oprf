@@ -15,6 +15,8 @@ test_ciphersuites!(test, Poprf);
 /// Tests batched test vectors.
 #[expect(clippy::too_many_lines, reason = "test")]
 fn test<CS: CipherSuite>(mode: Mode) {
+	let mut tests = 0;
+
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
 		test_vector.identifier.as_bytes() == CS::ID.deref() && test_vector.mode == mode
 	}) {
@@ -24,6 +26,8 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			let Vector::Batch(vector) = vector else {
 				continue;
 			};
+
+			tests += 1;
 
 			let inputs = vector.inputs.each_ref().map(Vec::as_slice);
 			let inputs = inputs.each_ref().map(slice::from_ref);
@@ -136,4 +140,6 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			}
 		}
 	}
+
+	assert_eq!(tests, 1);
 }
