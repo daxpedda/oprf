@@ -4,7 +4,7 @@ pub mod expand_msg;
 pub mod group;
 pub mod hash;
 
-use oprf::ciphersuite::{CipherSuite, Id};
+use oprf::cipher_suite::{CipherSuite, Id};
 
 use self::expand_msg::ExpandMsgMock;
 use self::group::MockCurve;

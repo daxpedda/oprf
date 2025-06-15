@@ -39,6 +39,10 @@ zeroize = { workspace = true, features = ["derive"] }
 [lib]
 bench = false
 
+[[test]]
+name = "test_vectors"
+path = "tests/test_vectors/mod.rs"
+
 [[bench]]
 harness = false
 name = "bench"

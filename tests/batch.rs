@@ -10,7 +10,7 @@
 use std::iter;
 
 use oprf::Error;
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 #[cfg(feature = "alloc")]
 use oprf_test::MockCs;
@@ -25,7 +25,7 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on zero blinded elements.
 	if let Mode::Voprf | Mode::Poprf = mode {
-		let result = HelperServer::<CS>::batch_fixed_with::<0>(mode, &[], INFO);
+		let result = HelperServer::<CS>::batch_fixed_with::<0>(mode, None, None, &[], INFO);
 		assert_eq!(result.unwrap_err(), Error::Batch);
 	}
 
@@ -208,13 +208,18 @@ fn max(mode: Mode) {
 	let clients = HelperClient::<MockCs>::batch_clone(mode, usize::from(u16::MAX) + 1);
 
 	// Failure on overflowing blinded elements with `alloc`.
-	let result = HelperServer::batch_with(mode, clients.blinded_elements(), INFO);
+	let result = HelperServer::batch_with(mode, None, None, clients.blinded_elements(), INFO);
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Success on maximum number of elements.
-	let mut server =
-		HelperServer::batch_with(mode, &clients.blinded_elements()[..u16::MAX.into()], INFO)
-			.unwrap();
+	let mut server = HelperServer::batch_with(
+		mode,
+		None,
+		None,
+		&clients.blinded_elements()[..u16::MAX.into()],
+		INFO,
+	)
+	.unwrap();
 	server.push(server.evaluation_elements()[0].clone());
 
 	// Failure on overflowing clients.

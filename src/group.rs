@@ -12,7 +12,7 @@ use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::Zeroize;
 
-use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar};
+use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar};
 use crate::common::Mode;
 use crate::error::Result;
 use crate::internal;

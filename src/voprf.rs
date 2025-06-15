@@ -15,12 +15,12 @@ use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(feature = "serde")]
-use crate::ciphersuite::ElementLength;
-use crate::ciphersuite::{CipherSuite, NonZeroScalar};
+use crate::cipher_suite::ElementLength;
+use crate::cipher_suite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::internal::{self, BlindResult, ElementWrapper};
-#[cfg(any(feature = "serde", test))]
+#[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
 #[cfg(feature = "serde")]
@@ -168,11 +168,6 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 
 	pub const fn from_key_pair(key_pair: KeyPair<CS::Group>) -> Self {
 		Self { key_pair }
-	}
-
-	#[cfg(test)]
-	pub(crate) const fn secret_key(&self) -> &SecretKey<CS::Group> {
-		self.key_pair.secret_key()
 	}
 
 	pub const fn public_key(&self) -> &PublicKey<CS::Group> {

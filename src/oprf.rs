@@ -10,7 +10,7 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{CipherSuite, NonZeroScalar};
+use crate::cipher_suite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
 use crate::internal::{self, BlindResult};
@@ -123,11 +123,6 @@ impl<CS: CipherSuite> OprfServer<CS> {
 
 	pub const fn from_key(secret_key: SecretKey<CS::Group>) -> Self {
 		Self { secret_key }
-	}
-
-	#[cfg(test)]
-	pub(crate) const fn secret_key(&self) -> &SecretKey<CS::Group> {
-		&self.secret_key
 	}
 
 	// `BlindEvaluate`

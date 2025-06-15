@@ -6,7 +6,7 @@
 use std::iter;
 
 use oprf::Error;
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
 
@@ -17,7 +17,8 @@ test_ciphersuites!(basic, Poprf);
 fn basic<CS: CipherSuite>(mode: Mode) {
 	let client = HelperClient::<CS>::blind(mode);
 	let server = HelperServer::<CS>::blind_evaluate(&client);
-	let wrong_server = HelperServer::<CS>::blind_evaluate_with(&client, b"wrong").unwrap();
+	let wrong_server =
+		HelperServer::<CS>::blind_evaluate_with(&client, None, None, b"wrong").unwrap();
 
 	// Failure on wrong public key.
 	let result = client.finalize_with(
@@ -115,7 +116,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	}
 }
 
+#[cfg(feature = "alloc")]
 test_ciphersuites!(batch_alloc, Voprf);
+#[cfg(feature = "alloc")]
 test_ciphersuites!(batch_alloc, Poprf);
 
 /// Tests correct failure if the [`Proof`] is invalid when using batching

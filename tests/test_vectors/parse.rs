@@ -1,21 +1,20 @@
 //! Test vector parsing.
 
 use std::fs::File;
-use std::string::String;
 use std::sync::LazyLock;
-use std::vec::Vec;
 
 use hex::FromHex;
+use oprf::common::Mode;
+use oprf_test::INFO;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 
-use super::{INFO, KEY_INFO, SEED};
-use crate::common::Mode;
+use super::{KEY_INFO, SEED};
 
 /// Parsed test vectors cache.
 pub(super) static TEST_VECTORS: LazyLock<Vec<TestVector>> = LazyLock::new(|| {
 	let raw_test_vectors: Vec<RawTestVector> =
-		serde_json::from_reader(File::open("src/test_vectors/vectors.json").unwrap()).unwrap();
+		serde_json::from_reader(File::open("tests/test_vectors/vectors.json").unwrap()).unwrap();
 	let mut test_vectors = Vec::new();
 
 	for raw_test_vector in raw_test_vectors {
@@ -27,8 +26,6 @@ pub(super) static TEST_VECTORS: LazyLock<Vec<TestVector>> = LazyLock::new(|| {
 
 /// A single test vector.
 pub(super) struct TestVector {
-	/// The `dst`.
-	pub(super) group_dst: Vec<u8>,
 	/// Cipher suite ID.
 	pub(super) identifier: String,
 	/// The OPRF mode.
@@ -80,8 +77,6 @@ pub(super) struct Proof {
 /// further processed.
 #[derive(Deserialize)]
 struct RawTestVector {
-	#[serde(with = "hex::serde", rename = "groupDST")]
-	group_dst: Vec<u8>,
 	hash: String,
 	identifier: String,
 	#[serde(with = "hex::serde", rename = "keyInfo")]
@@ -121,7 +116,6 @@ impl TestVector {
 	/// De-serializes a [`RawTestVector`] into a [`TestVector`].
 	fn deserialize(raw_test_vector: RawTestVector) -> Self {
 		let RawTestVector {
-			group_dst,
 			hash,
 			identifier,
 			key_info,
@@ -198,7 +192,6 @@ impl TestVector {
 		}
 
 		Self {
-			group_dst,
 			identifier,
 			mode,
 			public_key,

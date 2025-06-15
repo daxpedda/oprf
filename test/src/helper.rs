@@ -13,14 +13,15 @@
 )]
 
 use std::iter;
+#[cfg(feature = "alloc")]
 use std::slice::SliceIndex;
 
 use derive_where::derive_where;
 use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
-use oprf::key::PublicKey;
+use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
 use oprf::poprf::PoprfBatchBlindEvaluateResult;
@@ -39,6 +40,7 @@ use rand::TryRngCore;
 use rand::rngs::OsRng;
 
 use super::{INFO, INPUT};
+use crate::rng::MockRng;
 
 /// Wrapper around clients in all [`Mode`]s.
 #[derive_where(Debug)]
@@ -108,19 +110,22 @@ impl<CS: CipherSuite> HelperClient<CS> {
 
 	#[must_use]
 	pub fn blind(mode: Mode) -> Self {
-		Self::blind_with(mode, INPUT).unwrap()
+		Self::blind_with(mode, None, INPUT).unwrap()
 	}
 
 	pub fn blind_with(
 		mode: Mode,
+		blind: Option<&[u8]>,
 		input: &[&[u8]],
 	) -> Result<Self, Error<<OsRng as TryRngCore>::Error>> {
+		let mut rng = blind.map_or_else(MockRng::new_os_rng, MockRng::new);
+
 		match mode {
 			Mode::Oprf => {
 				let OprfBlindResult {
 					client,
 					blinded_element,
-				} = OprfClient::<CS>::blind(&mut OsRng, input)?;
+				} = OprfClient::<CS>::blind(&mut rng, input)?;
 
 				Ok(Self {
 					client: client.into(),
@@ -131,7 +136,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 				let VoprfBlindResult {
 					client,
 					blinded_element,
-				} = VoprfClient::blind(&mut OsRng, input)?;
+				} = VoprfClient::blind(&mut rng, input)?;
 
 				Ok(Self {
 					client: client.into(),
@@ -142,7 +147,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 				let PoprfBlindResult {
 					client,
 					blinded_element,
-				} = PoprfClient::blind(&mut OsRng, input)?;
+				} = PoprfClient::blind(&mut rng, input)?;
 
 				Ok(Self {
 					client: client.into(),
@@ -166,21 +171,28 @@ impl<CS: CipherSuite> HelperClient<CS> {
 		.collect()
 	}
 
-	pub fn batch_with(
+	pub fn batch_with<'blind, 'input, B, I>(
 		mode: Mode,
-		count: usize,
-		input: &[&[u8]],
-	) -> Result<HelperClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
-		iter::repeat_with(|| {
-			let Self {
-				client,
-				blinded_element,
-			} = Self::blind_with(mode, input)?;
+		blind: B,
+		input: I,
+	) -> Result<HelperClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	where
+		B: ExactSizeIterator<Item = Option<&'blind [u8]>>,
+		I: ExactSizeIterator<Item = &'input [&'input [u8]]>,
+	{
+		assert_eq!(blind.len(), input.len(), "found unequal items");
 
-			Ok((client, blinded_element))
-		})
-		.take(count)
-		.collect()
+		blind
+			.zip(input)
+			.map(|(blind, input)| {
+				let Self {
+					client,
+					blinded_element,
+				} = Self::blind_with(mode, blind, input)?;
+
+				Ok((client, blinded_element))
+			})
+			.collect()
 	}
 
 	#[must_use]
@@ -397,16 +409,21 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 	#[must_use]
 	pub fn blind_evaluate(helper: &HelperClient<CS>) -> Self {
-		Self::blind_evaluate_with(helper, INFO).unwrap()
+		Self::blind_evaluate_with(helper, None, None, INFO).unwrap()
 	}
 
 	pub fn blind_evaluate_with(
 		helper: &HelperClient<CS>,
+		secret_key: Option<SecretKey<CS::Group>>,
+		r: Option<&[u8]>,
 		info: &[u8],
 	) -> Result<Self, Error<<OsRng as TryRngCore>::Error>> {
+		let secret_key = secret_key.unwrap_or_else(|| SecretKey::generate(&mut OsRng).unwrap());
+		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
+
 		match &helper.client {
 			Client::Oprf(_) => {
-				let server = OprfServer::new(&mut OsRng).unwrap();
+				let server = OprfServer::from_key(secret_key);
 				let evaluation_element = server.blind_evaluate(&helper.blinded_element);
 
 				Ok(Self {
@@ -415,11 +432,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Client::Voprf(_) => {
-				let server = VoprfServer::new(&mut OsRng).unwrap();
+				let server = VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key));
 				let VoprfBlindEvaluateResult {
 					evaluation_element,
 					proof,
-				} = server.blind_evaluate(&mut OsRng, &helper.blinded_element)?;
+				} = server.blind_evaluate(&mut rng, &helper.blinded_element)?;
 
 				Ok(Self {
 					server: Server::Voprf { server, proof },
@@ -427,11 +444,12 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Client::Poprf(_) => {
-				let server = PoprfServer::new(&mut OsRng, info)?;
+				let server = PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
+					.map_err(Error::into_random::<OsRng>)?;
 				let PoprfBlindEvaluateResult {
 					evaluation_element,
 					proof,
-				} = server.blind_evaluate(&mut OsRng, &helper.blinded_element)?;
+				} = server.blind_evaluate(&mut rng, &helper.blinded_element)?;
 
 				Ok(Self {
 					server: Server::Poprf { server, proof },
@@ -443,17 +461,23 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 	#[must_use]
 	pub fn batch_fixed<const N: usize>(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
-		Self::batch_fixed_with::<N>(clients.mode(), &clients.blinded_elements, INFO).unwrap()
+		Self::batch_fixed_with::<N>(clients.mode(), None, None, &clients.blinded_elements, INFO)
+			.unwrap()
 	}
 
 	pub fn batch_fixed_with<const N: usize>(
 		mode: Mode,
+		secret_key: Option<SecretKey<CS::Group>>,
+		r: Option<&[u8]>,
 		blinded_elements: &[BlindedElement<CS>],
 		info: &[u8],
 	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
+		let secret_key = secret_key.unwrap_or_else(|| SecretKey::generate(&mut OsRng).unwrap());
+		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
+
 		match mode {
 			Mode::Oprf => {
-				let server = OprfServer::new(&mut OsRng).unwrap();
+				let server = OprfServer::from_key(secret_key);
 
 				let evaluation_elements = blinded_elements
 					.iter()
@@ -466,12 +490,12 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Voprf => {
-				let server = VoprfServer::new(&mut OsRng).unwrap();
+				let server = VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key));
 				let VoprfBatchBlindEvaluateFixedResult {
 					evaluation_elements,
 					proof,
 				} = server.batch_blind_evaluate_fixed::<_, N>(
-					&mut OsRng,
+					&mut rng,
 					blinded_elements.try_into().unwrap(),
 				)?;
 
@@ -481,12 +505,13 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Poprf => {
-				let server = PoprfServer::new(&mut OsRng, info)?;
+				let server = PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
+					.map_err(Error::into_random::<OsRng>)?;
 				let PoprfBatchBlindEvaluateFixedResult {
 					evaluation_elements,
 					proof,
 				} = server.batch_blind_evaluate_fixed::<_, N>(
-					&mut OsRng,
+					&mut rng,
 					blinded_elements.try_into().unwrap(),
 				)?;
 
@@ -501,18 +526,23 @@ impl<CS: CipherSuite> HelperServer<CS> {
 	#[must_use]
 	#[cfg(feature = "alloc")]
 	pub fn batch(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
-		Self::batch_with(clients.mode(), &clients.blinded_elements, INFO).unwrap()
+		Self::batch_with(clients.mode(), None, None, &clients.blinded_elements, INFO).unwrap()
 	}
 
 	#[cfg(feature = "alloc")]
 	pub fn batch_with(
 		mode: Mode,
+		secret_key: Option<SecretKey<CS::Group>>,
+		r: Option<&[u8]>,
 		blinded_elements: &[BlindedElement<CS>],
 		info: &[u8],
 	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
+		let secret_key = secret_key.unwrap_or_else(|| SecretKey::generate(&mut OsRng).unwrap());
+		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
+
 		match mode {
 			Mode::Oprf => {
-				let server = OprfServer::new(&mut OsRng).unwrap();
+				let server = OprfServer::from_key(secret_key);
 
 				let evaluation_elements = blinded_elements
 					.iter()
@@ -525,11 +555,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Voprf => {
-				let server = VoprfServer::new(&mut OsRng).unwrap();
+				let server = VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key));
 				let VoprfBatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
-				} = server.batch_blind_evaluate(&mut OsRng, blinded_elements.iter())?;
+				} = server.batch_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
 				Ok(HelperServerBatch {
 					server: Server::Voprf { server, proof },
@@ -537,11 +567,12 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Poprf => {
-				let server = PoprfServer::new(&mut OsRng, info)?;
+				let server = PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
+					.map_err(Error::into_random::<OsRng>)?;
 				let PoprfBatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
-				} = server.batch_blind_evaluate(&mut OsRng, blinded_elements.iter())?;
+				} = server.batch_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
 				Ok(HelperServerBatch {
 					server: Server::Poprf { server, proof },

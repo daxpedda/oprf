@@ -14,6 +14,7 @@ elliptic-curve = { workspace = true }
 hybrid-array = { workspace = true }
 oprf = { workspace = true }
 rand = { workspace = true }
+rand_core = { workspace = true }
 zeroize = { workspace = true, features = ["derive"] }
 
 [lints]

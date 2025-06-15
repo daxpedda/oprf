@@ -1,5 +1,6 @@
 //! Test utilities.
 
+#![cfg_attr(coverage_nightly, feature(coverage_attribute), coverage(off))]
 #![expect(
 	clippy::cargo_common_metadata,
 	clippy::indexing_slicing,
@@ -7,11 +8,12 @@
 	reason = "tests"
 )]
 
+pub mod cipher_suite;
 pub mod helper;
-pub mod mock;
+mod rng;
 
+pub use self::cipher_suite::MockCs;
 pub use self::helper::{HelperClient, HelperServer};
-pub use self::mock::MockCs;
 
 /// Generates `#[test]` functions pre-fixed with the given `name` for all
 /// available [`CipherSuite`]s and passes the appropriate
@@ -56,6 +58,6 @@ macro_rules! test_ciphersuites {
 }
 
 /// Default `input`.
-pub const INPUT: &[&[u8]] = &[b"test"];
+pub const INPUT: &[&[u8]] = &[b"test input"];
 /// Default `info`.
-pub const INFO: &[u8] = b"test";
+pub const INFO: &[u8] = b"test info";

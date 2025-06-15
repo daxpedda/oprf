@@ -9,7 +9,7 @@ use hybrid_array::typenum::Unsigned;
 use hybrid_array::{Array, ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 
-use crate::ciphersuite::{
+use crate::cipher_suite::{
 	CipherSuite, Element, ElementLength, NonIdentityElement, NonZeroScalar, Scalar,
 };
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};

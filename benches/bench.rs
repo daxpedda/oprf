@@ -5,7 +5,7 @@
 use std::time::Duration;
 
 use criterion::{Criterion, criterion_main};
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Proof};
 use oprf::key::PublicKey;
 use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};

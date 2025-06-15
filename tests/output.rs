@@ -6,7 +6,7 @@
 use core::slice;
 use std::iter;
 
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
 

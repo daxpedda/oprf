@@ -16,7 +16,7 @@ use primeorder::{AffinePoint, PrimeCurveParams, ProjectivePoint};
 use rand_core::TryCryptoRng;
 
 use super::{Dst, Group};
-use crate::ciphersuite::{CipherSuite, Id};
+use crate::cipher_suite::{CipherSuite, Id};
 
 impl<C> Group for C
 where

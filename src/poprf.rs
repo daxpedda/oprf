@@ -15,13 +15,13 @@ use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(feature = "serde")]
-use crate::ciphersuite::ElementLength;
-use crate::ciphersuite::{CipherSuite, NonZeroScalar};
+use crate::cipher_suite::ElementLength;
+use crate::cipher_suite::{CipherSuite, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 use crate::internal::{self, BlindResult, ElementWrapper, Info};
-#[cfg(any(feature = "serde", test))]
+#[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
 #[cfg(feature = "serde")]

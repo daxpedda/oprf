@@ -12,7 +12,7 @@ use hybrid_array::Array;
 use hybrid_array::typenum::{Sum, Unsigned};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
+use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
 use crate::error::{Error, Result};
 use crate::group::Group;
 #[cfg(feature = "serde")]

@@ -11,7 +11,7 @@ use std::iter;
 use std::sync::LazyLock;
 
 use oprf::Error;
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf_test::{HelperClient, HelperServer, test_ciphersuites};
 
@@ -24,20 +24,21 @@ test_ciphersuites!(basic, Poprf);
 /// Tests correct failure on invalid `input` and `info` length.
 fn basic<CS: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
-	let result = HelperClient::<CS>::blind_with(mode, &[&TEST]);
+	let result = HelperClient::<CS>::blind_with(mode, None, &[&TEST]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Success on maximum length of input.
-	let client = HelperClient::<CS>::blind_with(mode, &[&TEST[..u16::MAX.into()]]).unwrap();
+	let client = HelperClient::<CS>::blind_with(mode, None, &[&TEST[..u16::MAX.into()]]).unwrap();
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = HelperServer::blind_evaluate_with(&client, &TEST);
+		let result = HelperServer::blind_evaluate_with(&client, None, None, &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
-	let server = HelperServer::blind_evaluate_with(&client, &TEST[..u16::MAX.into()]).unwrap();
+	let server =
+		HelperServer::blind_evaluate_with(&client, None, None, &TEST[..u16::MAX.into()]).unwrap();
 
 	// Failure on too large input.
 	let result = client.finalize_with(
@@ -95,17 +96,30 @@ test_ciphersuites!(batch, Poprf);
 /// Tests correct failure on invalid `input` and `info` length when using
 /// batching methods.
 fn batch<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch_with(mode, 1, &[&TEST[..u16::MAX.into()]]).unwrap();
+	let clients = HelperClient::<CS>::batch_with(
+		mode,
+		iter::once(None),
+		iter::once([&TEST[..u16::MAX.into()]].as_slice()),
+	)
+	.unwrap();
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = HelperServer::batch_fixed_with::<1>(mode, clients.blinded_elements(), &TEST);
+		let result = HelperServer::batch_fixed_with::<1>(
+			mode,
+			None,
+			None,
+			clients.blinded_elements(),
+			&TEST,
+		);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
 	let server = HelperServer::batch_fixed_with::<1>(
 		mode,
+		None,
+		None,
 		clients.blinded_elements(),
 		&TEST[..u16::MAX.into()],
 	)

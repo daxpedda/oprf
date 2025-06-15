@@ -7,7 +7,7 @@
 use std::fmt::Debug;
 
 use hybrid_array::Array;
-use oprf::ciphersuite::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Proof};
 use oprf::group::Group;
 use oprf::key::{KeyPair, PublicKey, SecretKey};

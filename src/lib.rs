@@ -18,7 +18,7 @@ extern crate alloc;
 #[cfg(test)]
 extern crate std;
 
-pub mod ciphersuite;
+pub mod cipher_suite;
 pub mod common;
 mod error;
 pub mod group;
@@ -28,13 +28,10 @@ pub mod oprf;
 pub mod poprf;
 #[cfg(feature = "serde")]
 mod serde;
-#[cfg(test)]
-#[cfg_attr(coverage_nightly, coverage(off))]
-mod test_vectors;
 mod util;
 pub mod voprf;
 
-pub use ciphersuite::CipherSuite;
+pub use cipher_suite::CipherSuite;
 pub use common::{BlindedElement, EvaluationElement, Proof};
 pub use error::{Error, Result};
 pub use oprf::{OprfClient, OprfServer};

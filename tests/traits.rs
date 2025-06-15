@@ -13,7 +13,7 @@ use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::{error, io};
 
 use oprf::Error;
-use oprf::ciphersuite::{CipherSuite, Id};
+use oprf::cipher_suite::{CipherSuite, Id};
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::group::Dst;
 use oprf::key::{KeyPair, PublicKey, SecretKey};

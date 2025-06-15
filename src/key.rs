@@ -9,7 +9,7 @@ use hybrid_array::Array;
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::ciphersuite::CipherSuite;
+use crate::cipher_suite::CipherSuite;
 use crate::common::Mode;
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
