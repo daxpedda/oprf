@@ -1,7 +1,7 @@
 //! Test vector suite.
 
 #![cfg(test)]
-#![expect(clippy::cargo_common_metadata, reason = "tests")]
+#![expect(clippy::cargo_common_metadata, unreachable_pub, reason = "tests")]
 
 mod basic;
 mod batch;

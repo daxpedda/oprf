@@ -15,7 +15,7 @@ use serde::{Deserialize, Deserializer};
 use super::{KEY_INFO, SEED};
 
 /// Parsed test vectors cache.
-pub(super) static TEST_VECTORS: LazyLock<Vec<TestVector>> = LazyLock::new(|| {
+pub static TEST_VECTORS: LazyLock<Vec<TestVector>> = LazyLock::new(|| {
 	let raw_test_vectors: Vec<RawTestVector> =
 		serde_json::from_reader(File::open("tests/test_vectors/vectors.json").unwrap()).unwrap();
 	let mut test_vectors = Vec::new();
@@ -28,52 +28,52 @@ pub(super) static TEST_VECTORS: LazyLock<Vec<TestVector>> = LazyLock::new(|| {
 });
 
 /// A single test vector.
-pub(super) struct TestVector {
+pub struct TestVector {
 	/// Cipher suite ID.
-	pub(super) identifier: String,
+	pub identifier: String,
 	/// The OPRF mode.
-	pub(super) mode: Mode,
+	pub mode: Mode,
 	/// The public key.
-	pub(super) public_key: Option<Vec<u8>>,
+	pub public_key: Option<Vec<u8>>,
 	/// The secret key.
-	pub(super) secret_key: Vec<u8>,
+	pub secret_key: Vec<u8>,
 	/// Child test vectors.
-	pub(super) vectors: Vec<Vector>,
+	pub vectors: Vec<Vector>,
 }
 
 /// Differentiate between basic and batched test vectors.
-pub(super) enum Vector {
+pub enum Vector {
 	Single(SingleVector),
 	Batch(BatchVector),
 }
 
 /// A test vector using basic functionality, ergo not batched.
-pub(super) struct SingleVector {
-	pub(super) blind: Vec<u8>,
-	pub(super) blinded_element: Vec<u8>,
-	pub(super) evaluation_element: Vec<u8>,
-	pub(super) input: Vec<u8>,
-	pub(super) output: Vec<u8>,
-	pub(super) proof: Option<Proof>,
+pub struct SingleVector {
+	pub blind: Vec<u8>,
+	pub blinded_element: Vec<u8>,
+	pub evaluation_element: Vec<u8>,
+	pub input: Vec<u8>,
+	pub output: Vec<u8>,
+	pub proof: Option<Proof>,
 }
 
 /// A test vector using batched functionality.
-pub(super) struct BatchVector {
-	pub(super) blinds: [Vec<u8>; 2],
-	pub(super) blinded_elements: [Vec<u8>; 2],
-	pub(super) evaluation_elements: [Vec<u8>; 2],
-	pub(super) inputs: [Vec<u8>; 2],
-	pub(super) outputs: [Vec<u8>; 2],
-	pub(super) proof: Option<Proof>,
+pub struct BatchVector {
+	pub blinds: [Vec<u8>; 2],
+	pub blinded_elements: [Vec<u8>; 2],
+	pub evaluation_elements: [Vec<u8>; 2],
+	pub inputs: [Vec<u8>; 2],
+	pub outputs: [Vec<u8>; 2],
+	pub proof: Option<Proof>,
 }
 
 /// A proof.
 #[derive(Deserialize)]
-pub(super) struct Proof {
+pub struct Proof {
 	#[serde(with = "hex::serde")]
-	pub(super) proof: Vec<u8>,
+	pub proof: Vec<u8>,
 	#[serde(with = "hex::serde")]
-	pub(super) r: Vec<u8>,
+	pub r: Vec<u8>,
 }
 
 /// A raw test vector, exactly represents the test vector file before being
