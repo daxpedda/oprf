@@ -1,4 +1,7 @@
 //! Test vector parsing.
+//!
+//! Test vectors sourced from
+//! <https://github.com/cfrg/draft-irtf-cfrg-voprf/blob/draft-irtf-cfrg-voprf-21/poc/vectors/allVectors.json>.
 
 use std::fs::File;
 use std::sync::LazyLock;
