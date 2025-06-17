@@ -170,6 +170,10 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		Self { key_pair }
 	}
 
+	pub const fn key_pair(&self) -> &KeyPair<CS::Group> {
+		&self.key_pair
+	}
+
 	pub const fn public_key(&self) -> &PublicKey<CS::Group> {
 		self.key_pair.public_key()
 	}

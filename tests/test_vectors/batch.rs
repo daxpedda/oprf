@@ -5,23 +5,23 @@ use std::slice;
 
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf_test::{HelperClient, HelperServer, INFO, test_ciphersuites};
 
 use super::parse::{TEST_VECTORS, Vector};
+use crate::{KEY_INFO, SEED};
 
 test_ciphersuites!(test, Voprf);
 test_ciphersuites!(test, Poprf);
 
 /// Tests batched test vectors.
-#[expect(clippy::too_many_lines, reason = "test")]
+#[expect(clippy::cognitive_complexity, clippy::too_many_lines, reason = "test")]
 fn test<CS: CipherSuite>(mode: Mode) {
 	let mut tests = 0;
 
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
 		test_vector.identifier.as_bytes() == CS::ID.deref() && test_vector.mode == mode
 	}) {
-		let secret_key = crate::secret_key::<CS>(mode, test_vector);
-
 		for vector in &test_vector.vectors {
 			let Vector::Batch(vector) = vector else {
 				continue;
@@ -57,12 +57,36 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			// Blind evaluate.
 			let server = HelperServer::batch_fixed_with::<2>(
 				mode,
-				Some(secret_key.clone()),
+				Some((&SEED, KEY_INFO)),
 				Some(&vector_proof.r),
 				clients.blinded_elements(),
 				INFO,
 			)
 			.unwrap();
+
+			let key_pair = KeyPair::derive::<CS>(mode, &SEED, KEY_INFO).unwrap();
+
+			assert_eq!(server.secret_key(), key_pair.secret_key());
+			assert_eq!(
+				test_vector.secret_key,
+				key_pair.secret_key().to_repr().as_slice()
+			);
+			assert_eq!(
+				&SecretKey::from_repr(&test_vector.secret_key).unwrap(),
+				key_pair.secret_key(),
+			);
+
+			assert_eq!(key_pair.public_key(), server.public_key().unwrap(),);
+
+			let vector_public_key = test_vector.public_key.as_ref().unwrap();
+			assert_eq!(
+				vector_public_key,
+				key_pair.public_key().as_repr().as_slice(),
+			);
+			assert_eq!(
+				&PublicKey::from_repr(vector_public_key).unwrap(),
+				key_pair.public_key(),
+			);
 
 			for (evaluation_element, vector_evaluation_element) in server
 				.evaluation_elements()
@@ -88,7 +112,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			{
 				let server = HelperServer::batch_with(
 					mode,
-					Some(secret_key.clone()),
+					Some((&SEED, KEY_INFO)),
 					Some(&vector_proof.r),
 					clients.blinded_elements(),
 					INFO,

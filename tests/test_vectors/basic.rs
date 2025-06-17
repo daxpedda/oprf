@@ -4,9 +4,11 @@ use std::ops::Deref;
 
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf_test::{HelperClient, HelperServer, INFO, test_ciphersuites};
 
 use super::parse::{TEST_VECTORS, Vector};
+use crate::{KEY_INFO, SEED};
 
 test_ciphersuites!(test, Oprf);
 test_ciphersuites!(test, Voprf);
@@ -19,8 +21,6 @@ fn test<CS: CipherSuite>(mode: Mode) {
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
 		test_vector.identifier.as_bytes() == CS::ID.deref() && test_vector.mode == mode
 	}) {
-		let secret_key = crate::secret_key::<CS>(mode, test_vector);
-
 		for vector in &test_vector.vectors {
 			let Vector::Single(vector) = vector else {
 				continue;
@@ -47,11 +47,20 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			// Blind evaluate.
 			let server = HelperServer::blind_evaluate_with(
 				&client,
-				Some(secret_key.clone()),
+				Some((&SEED, KEY_INFO)),
 				vector_proof.map(|proof| proof.r.as_slice()),
 				INFO,
 			)
 			.unwrap();
+
+			let secret_key = SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap();
+
+			assert_eq!(server.secret_key(), &secret_key);
+			assert_eq!(test_vector.secret_key, secret_key.to_repr().as_slice());
+			assert_eq!(
+				SecretKey::from_repr(&test_vector.secret_key).unwrap(),
+				secret_key,
+			);
 
 			assert_eq!(
 				vector.evaluation_element,
@@ -63,6 +72,20 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			);
 
 			if !matches!(mode, Mode::Oprf) {
+				let public_key = server.public_key().unwrap();
+
+				assert_eq!(
+					KeyPair::from_secret_key(secret_key).public_key(),
+					public_key
+				);
+
+				let vector_public_key = test_vector.public_key.as_ref().unwrap();
+				assert_eq!(vector_public_key, public_key.as_repr().as_slice(),);
+				assert_eq!(
+					&PublicKey::from_repr(vector_public_key).unwrap(),
+					public_key,
+				);
+
 				let vector_proof = vector_proof.unwrap();
 
 				assert_eq!(

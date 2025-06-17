@@ -125,6 +125,10 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		Self { secret_key }
 	}
 
+	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
+		&self.secret_key
+	}
+
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
 	#[must_use]
