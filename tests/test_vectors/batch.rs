@@ -57,9 +57,9 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			// Blind evaluate.
 			let server = HelperServer::batch_fixed_with::<2>(
 				mode,
-				Some((&SEED, KEY_INFO)),
-				Some(&vector_proof.r),
+				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 				clients.blinded_elements(),
+				Some(&vector_proof.r),
 				INFO,
 			)
 			.unwrap();
@@ -112,9 +112,9 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			{
 				let server = HelperServer::batch_with(
 					mode,
-					Some((&SEED, KEY_INFO)),
-					Some(&vector_proof.r),
+					Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 					clients.blinded_elements(),
+					Some(&vector_proof.r),
 					INFO,
 				)
 				.unwrap();

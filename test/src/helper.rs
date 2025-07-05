@@ -21,7 +21,7 @@ use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
-use oprf::key::{PublicKey, SecretKey};
+use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
 use oprf::poprf::PoprfBatchBlindEvaluateResult;
@@ -418,61 +418,68 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 	#[must_use]
 	pub fn blind_evaluate(helper: &HelperClient<CS>) -> Self {
-		Self::blind_evaluate_with(helper, None, None, INFO).unwrap()
+		let mode = match &helper.client {
+			Client::Oprf(_) => Mode::Oprf,
+			Client::Voprf(_) => Mode::Voprf,
+			Client::Poprf(_) => Mode::Poprf,
+		};
+
+		Self::blind_evaluate_with(mode, None, helper.blinded_element(), None, INFO).unwrap()
 	}
 
 	pub fn blind_evaluate_with(
-		helper: &HelperClient<CS>,
-		derive: Option<(&[u8; 32], &[u8])>,
+		mode: Mode,
+		secret_key: Option<SecretKey<CS::Group>>,
+		blinded_element: &BlindedElement<CS>,
 		r: Option<&[u8]>,
 		info: &[u8],
 	) -> Result<Self, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
-		match &helper.client {
-			Client::Oprf(_) => {
-				let server = if let Some((seed, key_info)) = derive {
-					OprfServer::from_seed(seed, key_info).map_err(Error::into_random::<OsRng>)?
+		match mode {
+			Mode::Oprf => {
+				let server = if let Some(secret_key) = secret_key {
+					OprfServer::from_key(secret_key)
 				} else {
-					OprfServer::new(&mut rng).map_err(Error::Random)?
+					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let evaluation_element = server.blind_evaluate(&helper.blinded_element);
+				let evaluation_element = server.blind_evaluate(blinded_element);
 
 				Ok(Self {
 					server: Server::Oprf(server),
 					evaluation_element,
 				})
 			}
-			Client::Voprf(_) => {
-				let server = if let Some((seed, key_info)) = derive {
-					VoprfServer::from_seed(seed, key_info).map_err(Error::into_random::<OsRng>)?
+			Mode::Voprf => {
+				let server = if let Some(secret_key) = secret_key {
+					VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key))
 				} else {
-					VoprfServer::new(&mut rng).map_err(Error::Random)?
+					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
 				let VoprfBlindEvaluateResult {
 					evaluation_element,
 					proof,
-				} = server.blind_evaluate(&mut rng, &helper.blinded_element)?;
+				} = server.blind_evaluate(&mut rng, blinded_element)?;
 
 				Ok(Self {
 					server: Server::Voprf { server, proof },
 					evaluation_element,
 				})
 			}
-			Client::Poprf(_) => {
-				let server = if let Some((seed, key_info)) = derive {
-					PoprfServer::from_seed(seed, key_info, info)
+			Mode::Poprf => {
+				let server = if let Some(secret_key) = secret_key {
+					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
 						.map_err(Error::into_random::<OsRng>)?
 				} else {
-					PoprfServer::new(&mut rng, info)?
+					PoprfServer::new(&mut OsRng, info)?
 				};
 
 				let PoprfBlindEvaluateResult {
 					evaluation_element,
 					proof,
-				} = server.blind_evaluate(&mut rng, &helper.blinded_element)?;
+				} = server.blind_evaluate(&mut rng, blinded_element)?;
 
 				Ok(Self {
 					server: Server::Poprf { server, proof },
@@ -484,25 +491,25 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 	#[must_use]
 	pub fn batch_fixed<const N: usize>(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
-		Self::batch_fixed_with::<N>(clients.mode(), None, None, &clients.blinded_elements, INFO)
+		Self::batch_fixed_with::<N>(clients.mode(), None, &clients.blinded_elements, None, INFO)
 			.unwrap()
 	}
 
 	pub fn batch_fixed_with<const N: usize>(
 		mode: Mode,
-		derive: Option<(&[u8; 32], &[u8])>,
-		r: Option<&[u8]>,
+		secret_key: Option<SecretKey<CS::Group>>,
 		blinded_elements: &[BlindedElement<CS>],
+		r: Option<&[u8]>,
 		info: &[u8],
 	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
 		match mode {
 			Mode::Oprf => {
-				let server = if let Some((seed, key_info)) = derive {
-					OprfServer::from_seed(seed, key_info).map_err(Error::into_random::<OsRng>)?
+				let server = if let Some(secret_key) = secret_key {
+					OprfServer::from_key(secret_key)
 				} else {
-					OprfServer::new(&mut rng).map_err(Error::Random)?
+					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
 				let evaluation_elements = blinded_elements
@@ -516,10 +523,10 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Voprf => {
-				let server = if let Some((seed, key_info)) = derive {
-					VoprfServer::from_seed(seed, key_info).map_err(Error::into_random::<OsRng>)?
+				let server = if let Some(secret_key) = secret_key {
+					VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key))
 				} else {
-					VoprfServer::new(&mut rng).map_err(Error::Random)?
+					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
 				let VoprfBatchBlindEvaluateFixedResult {
@@ -536,11 +543,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Poprf => {
-				let server = if let Some((seed, key_info)) = derive {
-					PoprfServer::from_seed(seed, key_info, info)
+				let server = if let Some(secret_key) = secret_key {
+					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
 						.map_err(Error::into_random::<OsRng>)?
 				} else {
-					PoprfServer::new(&mut rng, info)?
+					PoprfServer::new(&mut OsRng, info)?
 				};
 
 				let PoprfBatchBlindEvaluateFixedResult {
@@ -562,25 +569,25 @@ impl<CS: CipherSuite> HelperServer<CS> {
 	#[must_use]
 	#[cfg(feature = "alloc")]
 	pub fn batch(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
-		Self::batch_with(clients.mode(), None, None, &clients.blinded_elements, INFO).unwrap()
+		Self::batch_with(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
 	}
 
 	#[cfg(feature = "alloc")]
 	pub fn batch_with(
 		mode: Mode,
-		derive: Option<(&[u8; 32], &[u8])>,
-		r: Option<&[u8]>,
+		secret_key: Option<SecretKey<CS::Group>>,
 		blinded_elements: &[BlindedElement<CS>],
+		r: Option<&[u8]>,
 		info: &[u8],
 	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
 		match mode {
 			Mode::Oprf => {
-				let server = if let Some((seed, key_info)) = derive {
-					OprfServer::from_seed(seed, key_info).map_err(Error::into_random::<OsRng>)?
+				let server = if let Some(secret_key) = secret_key {
+					OprfServer::from_key(secret_key)
 				} else {
-					OprfServer::new(&mut rng).map_err(Error::Random)?
+					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
 				let evaluation_elements = blinded_elements
@@ -594,10 +601,10 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Voprf => {
-				let server = if let Some((seed, key_info)) = derive {
-					VoprfServer::from_seed(seed, key_info).map_err(Error::into_random::<OsRng>)?
+				let server = if let Some(secret_key) = secret_key {
+					VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key))
 				} else {
-					VoprfServer::new(&mut rng).map_err(Error::Random)?
+					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
 				let VoprfBatchBlindEvaluateResult {
@@ -611,11 +618,11 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				})
 			}
 			Mode::Poprf => {
-				let server = if let Some((seed, key_info)) = derive {
-					PoprfServer::from_seed(seed, key_info, info)
+				let server = if let Some(secret_key) = secret_key {
+					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
 						.map_err(Error::into_random::<OsRng>)?
 				} else {
-					PoprfServer::new(&mut rng, info)?
+					PoprfServer::new(&mut OsRng, info)?
 				};
 
 				let PoprfBatchBlindEvaluateResult {

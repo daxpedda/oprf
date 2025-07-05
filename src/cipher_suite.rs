@@ -1,9 +1,3 @@
-// https://github.com/rust-lang/rust-clippy/issues/14570
-#![cfg_attr(
-	test,
-	expect(clippy::arbitrary_source_item_ordering, reason = "false-positive")
-)]
-
 use core::ops::Deref;
 
 use digest::{FixedOutput, Update};

@@ -46,8 +46,9 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			// Blind evaluate.
 			let server = HelperServer::blind_evaluate_with(
-				&client,
-				Some((&SEED, KEY_INFO)),
+				mode,
+				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
+				client.blinded_element(),
 				vector_proof.map(|proof| proof.r.as_slice()),
 				INFO,
 			)

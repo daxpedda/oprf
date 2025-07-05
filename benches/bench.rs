@@ -1,185 +1,21 @@
 //! TODO
 
-#![expect(clippy::cargo_common_metadata, reason = "tests")]
+#![expect(clippy::cargo_common_metadata, clippy::unwrap_used, reason = "tests")]
 
+use std::ops::Deref;
 use std::time::Duration;
 
-use criterion::{Criterion, criterion_main};
+use criterion::measurement::WallTime;
+use criterion::{BenchmarkGroup, Criterion};
 use oprf::cipher_suite::CipherSuite;
-use oprf::common::{BlindedElement, EvaluationElement, Proof};
-use oprf::key::PublicKey;
-use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
-use oprf::poprf::{PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient, PoprfServer};
-use oprf::voprf::{VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient, VoprfServer};
-use oprf::{Error, Result};
+use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use oprf::group::Group;
+use oprf::key::{PublicKey, SecretKey};
+use oprf_test::{HelperClient, HelperServer, INFO, INPUT};
 use p256::NistP256;
 use p384::NistP384;
 use p521::NistP521;
-use rand::rngs::mock::StepRng;
-use rand::{CryptoRng, RngCore};
-
-/// Default `input`.
-const INPUT: &[&[u8]] = &[b"test"];
-/// Default `info`.
-const INFO: &[u8] = b"test";
-
-/// Type alias around [`Output`](digest::Output) over [`CipherSuite`].
-type Output<CS> = digest::Output<<CS as CipherSuite>::Hash>;
-
-/// [`CryptoRng`] wrapper around [`StepRng`].
-struct MockRng(StepRng);
-
-impl MockRng {
-	/// Creates a new [`MockRng`].
-	fn new() -> Self {
-		Self(StepRng::new(u32::MAX.into(), 1))
-	}
-}
-
-impl CryptoRng for MockRng {}
-
-impl RngCore for MockRng {
-	fn next_u32(&mut self) -> u32 {
-		self.0.next_u32()
-	}
-
-	fn next_u64(&mut self) -> u64 {
-		self.0.next_u64()
-	}
-
-	fn fill_bytes(&mut self, dst: &mut [u8]) {
-		self.0.fill_bytes(dst);
-	}
-}
-
-/// Benches OPRF flow.
-#[expect(clippy::significant_drop_tightening, reason = "false-positive")]
-fn oprf() {
-	fn oprf<CS: CipherSuite>() -> Result<(Output<CS>, Output<CS>)> {
-		let mut rng = MockRng::new();
-
-		let OprfBlindResult {
-			client,
-			blinded_element,
-		} = OprfClient::<CS>::blind(&mut rng, INPUT)?;
-		let blinded_element = blinded_element.as_repr();
-
-		let blinded_element = BlindedElement::from_repr(blinded_element)?;
-		let server = OprfServer::<CS>::new(&mut rng).map_err(Error::Random)?;
-		let evaluation_element = server.blind_evaluate(&blinded_element);
-		let evaluation_element = evaluation_element.as_repr();
-		let server_output = server.evaluate(INPUT)?;
-
-		let evaluation_element = EvaluationElement::from_repr(evaluation_element)?;
-		let client_output = client.finalize(INPUT, &evaluation_element)?;
-
-		Ok((server_output, client_output))
-	}
-
-	let mut criterion = criterion();
-	let mut group = criterion.benchmark_group("OPRF");
-
-	group.bench_function("P256", |bencher| {
-		bencher.iter(oprf::<NistP256>);
-	});
-	group.bench_function("P384", |bencher| {
-		bencher.iter(oprf::<NistP384>);
-	});
-	group.bench_function("P521", |bencher| {
-		bencher.iter(oprf::<NistP521>);
-	});
-}
-
-/// Benches VOPRF flow.
-#[expect(clippy::significant_drop_tightening, reason = "false-positive")]
-fn voprf() {
-	fn voprf<CS: CipherSuite>() -> Result<(Output<CS>, Output<CS>)> {
-		let mut rng = MockRng::new();
-
-		let VoprfBlindResult {
-			client,
-			blinded_element,
-		} = VoprfClient::<CS>::blind(&mut rng, INPUT)?;
-		let blinded_element = blinded_element.as_repr();
-
-		let blinded_element = BlindedElement::from_repr(blinded_element)?;
-		let server = VoprfServer::<CS>::new(&mut rng).map_err(Error::Random)?;
-		let public_key = server.public_key().as_repr();
-		let VoprfBlindEvaluateResult {
-			evaluation_element,
-			proof,
-		} = server.blind_evaluate(&mut rng, &blinded_element)?;
-		let evaluation_element = evaluation_element.as_repr();
-		let proof = proof.to_repr();
-		let server_output = server.evaluate(INPUT)?;
-
-		let public_key = PublicKey::from_repr(public_key)?;
-		let evaluation_element = EvaluationElement::from_repr(evaluation_element)?;
-		let proof = Proof::from_repr(&proof)?;
-		let client_output = client.finalize(&public_key, INPUT, &evaluation_element, &proof)?;
-
-		Ok((server_output, client_output))
-	}
-
-	let mut criterion = criterion();
-	let mut group = criterion.benchmark_group("VOPRF");
-
-	group.bench_function("P256", |bencher| {
-		bencher.iter(voprf::<NistP256>);
-	});
-	group.bench_function("P384", |bencher| {
-		bencher.iter(voprf::<NistP384>);
-	});
-	group.bench_function("P521", |bencher| {
-		bencher.iter(voprf::<NistP521>);
-	});
-}
-
-/// Benches POPRF flow.
-#[expect(clippy::significant_drop_tightening, reason = "false-positive")]
-fn poprf() {
-	fn poprf<CS: CipherSuite>() -> Result<(Output<CS>, Output<CS>)> {
-		let mut rng = MockRng::new();
-
-		let PoprfBlindResult {
-			client,
-			blinded_element,
-		} = PoprfClient::<CS>::blind(&mut rng, INPUT)?;
-		let blinded_element = blinded_element.as_repr();
-
-		let blinded_element = BlindedElement::from_repr(blinded_element)?;
-		let server = PoprfServer::<CS>::new(&mut rng, INFO)?;
-		let public_key = server.public_key().as_repr();
-		let PoprfBlindEvaluateResult {
-			evaluation_element,
-			proof,
-		} = server.blind_evaluate(&mut rng, &blinded_element)?;
-		let evaluation_element = evaluation_element.as_repr();
-		let proof = proof.to_repr();
-		let server_output = server.evaluate(INPUT, INFO)?;
-
-		let public_key = PublicKey::from_repr(public_key)?;
-		let evaluation_element = EvaluationElement::from_repr(evaluation_element)?;
-		let proof = Proof::from_repr(&proof)?;
-		let client_output =
-			client.finalize(&public_key, INPUT, &evaluation_element, &proof, INFO)?;
-
-		Ok((server_output, client_output))
-	}
-
-	let mut criterion = criterion();
-	let mut group = criterion.benchmark_group("POPRF");
-
-	group.bench_function("P256", |bencher| {
-		bencher.iter(poprf::<NistP256>);
-	});
-	group.bench_function("P384", |bencher| {
-		bencher.iter(poprf::<NistP384>);
-	});
-	group.bench_function("P521", |bencher| {
-		bencher.iter(poprf::<NistP521>);
-	});
-}
+use rand_core::OsRng;
 
 /// Default [`Criterion`] configuration.
 fn criterion() -> Criterion {
@@ -191,4 +27,74 @@ fn criterion() -> Criterion {
 		.configure_from_args()
 }
 
-criterion_main!(oprf, voprf, poprf);
+/// Code to bench.
+fn bench<CS: CipherSuite>(group: &mut BenchmarkGroup<'_, WallTime>, mode: Mode) {
+	group.bench_function(str::from_utf8(CS::ID.deref()).unwrap(), |bencher| {
+		bencher.iter_batched(
+			|| {
+				let blind = <CS::Group as Group>::scalar_random(&mut OsRng).unwrap();
+				let blind = <CS::Group as Group>::scalar_to_repr(&blind);
+
+				let secret_key = SecretKey::generate(&mut OsRng).unwrap();
+
+				let r = <CS::Group as Group>::scalar_random(&mut OsRng).unwrap();
+				let r = <CS::Group as Group>::scalar_to_repr(&r);
+
+				(blind, secret_key, r)
+			},
+			|(blind, secret_key, r)| {
+				let client = HelperClient::<CS>::blind_with(mode, Some(&blind), INPUT).unwrap();
+				let blinded_element = client.blinded_element().as_repr();
+
+				let blinded_element = BlindedElement::from_repr(blinded_element).unwrap();
+				let server = HelperServer::<CS>::blind_evaluate_with(
+					mode,
+					Some(secret_key),
+					&blinded_element,
+					Some(&r),
+					INFO,
+				)
+				.unwrap();
+				let public_key = server.public_key().map(PublicKey::as_repr);
+				let evaluation_element = server.evaluation_element().as_repr();
+				let proof = server.proof().map(Proof::to_repr);
+				let server_output = server.evaluate();
+
+				let public_key = public_key.map(|bytes| PublicKey::from_repr(bytes).unwrap());
+				let evaluation_element = EvaluationElement::from_repr(evaluation_element).unwrap();
+				let proof = proof.map(|bytes| Proof::from_repr(&bytes).unwrap());
+				let client_output = client
+					.finalize_with(
+						public_key.as_ref(),
+						INPUT,
+						&evaluation_element,
+						proof.as_ref(),
+						INFO,
+					)
+					.unwrap();
+
+				(client_output, server_output)
+			},
+			criterion::BatchSize::SmallInput,
+		);
+	});
+}
+
+/// Criterion group.
+#[expect(clippy::significant_drop_tightening, reason = "false-positive")]
+fn group(mode: Mode) {
+	let mut criterion = criterion();
+	let mut group = criterion.benchmark_group(format!("{mode:?}").to_uppercase());
+
+	bench::<NistP256>(&mut group, mode);
+	bench::<NistP384>(&mut group, mode);
+	bench::<NistP521>(&mut group, mode);
+}
+
+fn main() {
+	group(Mode::Oprf);
+	group(Mode::Voprf);
+	group(Mode::Poprf);
+
+	Criterion::default().configure_from_args().final_summary();
+}

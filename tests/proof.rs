@@ -17,8 +17,14 @@ test_ciphersuites!(basic, Poprf);
 fn basic<CS: CipherSuite>(mode: Mode) {
 	let client = HelperClient::<CS>::blind(mode);
 	let server = HelperServer::<CS>::blind_evaluate(&client);
-	let wrong_server =
-		HelperServer::<CS>::blind_evaluate_with(&client, None, None, b"wrong").unwrap();
+	let wrong_server = HelperServer::<CS>::blind_evaluate_with(
+		mode,
+		None,
+		client.blinded_element(),
+		None,
+		b"wrong",
+	)
+	.unwrap();
 
 	// Failure on wrong public key.
 	let result = client.finalize_with(

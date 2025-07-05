@@ -32,13 +32,20 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = HelperServer::blind_evaluate_with(&client, None, None, &TEST);
+		let result =
+			HelperServer::blind_evaluate_with(mode, None, client.blinded_element(), None, &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
-	let server =
-		HelperServer::blind_evaluate_with(&client, None, None, &TEST[..u16::MAX.into()]).unwrap();
+	let server = HelperServer::blind_evaluate_with(
+		mode,
+		None,
+		client.blinded_element(),
+		None,
+		&TEST[..u16::MAX.into()],
+	)
+	.unwrap();
 
 	// Failure on too large input.
 	let result = client.finalize_with(
@@ -108,8 +115,8 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 		let result = HelperServer::batch_fixed_with::<1>(
 			mode,
 			None,
-			None,
 			clients.blinded_elements(),
+			None,
 			&TEST,
 		);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
@@ -119,8 +126,8 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	let server = HelperServer::batch_fixed_with::<1>(
 		mode,
 		None,
-		None,
 		clients.blinded_elements(),
+		None,
 		&TEST[..u16::MAX.into()],
 	)
 	.unwrap();
