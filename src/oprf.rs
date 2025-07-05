@@ -10,10 +10,12 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::cipher_suite::{CipherSuite, NonZeroScalar};
+use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
-use crate::internal::{self, BlindResult};
+#[cfg(feature = "alloc")]
+use crate::internal::BatchBlindResult;
+use crate::internal::{self, BatchBlindFixedResult};
 use crate::key::SecretKey;
 #[cfg(feature = "serde")]
 use crate::serde;
@@ -30,14 +32,67 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		rng: &mut R,
 		input: &[&[u8]],
 	) -> Result<OprfBlindResult<CS>, Error<R::Error>> {
-		let BlindResult {
-			blind,
-			blinded_element,
-		} = internal::blind(Mode::Oprf, rng, input)?;
+		let OprfBatchBlindFixedResult {
+			clients: [client],
+			blinded_elements: [blinded_element],
+		} = Self::batch_blind_fixed(rng, &[input])?;
 
 		Ok(OprfBlindResult {
-			client: Self { blind },
+			client,
 			blinded_element,
+		})
+	}
+
+	// `Blind`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+	#[cfg(feature = "alloc")]
+	pub fn batch_blind<'inputs, R, I>(
+		rng: &mut R,
+		inputs: I,
+	) -> Result<OprfBatchBlindResult<CS>, Error<R::Error>>
+	where
+		R: TryCryptoRng,
+		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
+	{
+		let BatchBlindResult {
+			blinds,
+			blinded_elements,
+		} = internal::batch_blind(Mode::Oprf, rng, inputs)?;
+
+		let clients = blinds.into_iter().map(|blind| Self { blind }).collect();
+
+		Ok(OprfBatchBlindResult {
+			clients,
+			blinded_elements,
+		})
+	}
+
+	// `Blind`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+	pub fn batch_blind_fixed<const N: usize, R: TryCryptoRng>(
+		rng: &mut R,
+		inputs: &[&[&[u8]]; N],
+	) -> Result<OprfBatchBlindFixedResult<CS, N>, Error<R::Error>>
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[NonZeroScalar<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+	{
+		let BatchBlindFixedResult {
+			blinds,
+			blinded_elements,
+		} = internal::batch_blind_fixed(Mode::Oprf, rng, inputs)?;
+
+		let clients = blinds
+			.into_iter()
+			.map(|blind| Self { blind })
+			.collect_array();
+
+		Ok(OprfBatchBlindFixedResult {
+			clients,
+			blinded_elements,
 		})
 	}
 
@@ -149,6 +204,17 @@ impl<CS: CipherSuite> OprfServer<CS> {
 pub struct OprfBlindResult<CS: CipherSuite> {
 	pub client: OprfClient<CS>,
 	pub blinded_element: BlindedElement<CS>,
+}
+
+#[cfg(feature = "alloc")]
+pub struct OprfBatchBlindResult<CS: CipherSuite> {
+	pub clients: Vec<OprfClient<CS>>,
+	pub blinded_elements: Vec<BlindedElement<CS>>,
+}
+
+pub struct OprfBatchBlindFixedResult<CS: CipherSuite, const N: usize> {
+	pub clients: [OprfClient<CS>; N],
+	pub blinded_elements: [BlindedElement<CS>; N],
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -277,3 +343,29 @@ impl<CS: CipherSuite> Debug for OprfBlindResult<CS> {
 }
 
 impl<CS: CipherSuite> ZeroizeOnDrop for OprfBlindResult<CS> {}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Debug for OprfBatchBlindResult<CS> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("OprfBatchBlindResult")
+			.field("clients", &self.clients)
+			.field("blinded_elements", &self.blinded_elements)
+			.finish()
+	}
+}
+
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for OprfBatchBlindResult<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite, const N: usize> Debug for OprfBatchBlindFixedResult<CS, N> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("OprfBatchBlindFixedResult")
+			.field("clients", &self.clients)
+			.field("blinded_elements", &self.blinded_elements)
+			.finish()
+	}
+}
+
+impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for OprfBatchBlindFixedResult<CS, N> {}

@@ -81,7 +81,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 				);
 
 				let vector_public_key = test_vector.public_key.as_ref().unwrap();
-				assert_eq!(vector_public_key, public_key.as_repr().as_slice(),);
+				assert_eq!(vector_public_key, public_key.as_repr().as_slice());
 				assert_eq!(
 					&PublicKey::from_repr(vector_public_key).unwrap(),
 					public_key,

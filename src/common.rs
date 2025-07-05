@@ -58,11 +58,28 @@ pub struct Proof<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> BlindedElement<CS> {
-	pub(crate) fn new(element: NonIdentityElement<CS>) -> Self {
-		Self {
-			element,
-			repr: CS::Group::element_to_repr(&element),
-		}
+	#[cfg(feature = "alloc")]
+	pub(crate) fn new_batch(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
+		let repr = CS::Group::non_identity_element_batch_to_repr(&elements);
+
+		elements
+			.into_iter()
+			.zip(repr)
+			.map(|(element, repr)| Self { element, repr })
+			.collect()
+	}
+
+	pub(crate) fn new_batch_fixed<const N: usize>(
+		elements: &[NonIdentityElement<CS>; N],
+	) -> [Self; N] {
+		let repr = CS::Group::non_identity_element_batch_to_repr_fixed(elements);
+
+		elements
+			.iter()
+			.copied()
+			.zip(repr)
+			.map(|(element, repr)| Self { element, repr })
+			.collect_array()
 	}
 
 	pub(crate) const fn element(&self) -> &NonIdentityElement<CS> {
@@ -86,8 +103,7 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch(elements: impl Iterator<Item = NonIdentityElement<CS>>) -> Vec<Self> {
-		let elements: Vec<_> = elements.collect();
+	pub(crate) fn new_batch(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
 		let repr = CS::Group::non_identity_element_batch_to_repr(&elements);
 
 		elements

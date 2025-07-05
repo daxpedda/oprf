@@ -21,26 +21,33 @@ use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use oprf::group::Group;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
-use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
-use oprf::poprf::PoprfBatchBlindEvaluateResult;
+use oprf::oprf::OprfBatchBlindResult;
+use oprf::oprf::{OprfBatchBlindFixedResult, OprfBlindResult, OprfClient, OprfServer};
 use oprf::poprf::{
-	PoprfBatchBlindEvaluateFixedResult, PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient,
-	PoprfServer,
+	PoprfBatchBlindEvaluateFixedResult, PoprfBatchBlindFixedResult, PoprfBlindEvaluateResult,
+	PoprfBlindResult, PoprfClient, PoprfServer,
 };
 #[cfg(feature = "alloc")]
-use oprf::voprf::VoprfBatchBlindEvaluateResult;
+use oprf::poprf::{PoprfBatchBlindEvaluateResult, PoprfBatchBlindResult};
 use oprf::voprf::{
-	VoprfBatchBlindEvaluateFixedResult, VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient,
-	VoprfServer,
+	VoprfBatchBlindEvaluateFixedResult, VoprfBatchBlindFixedResult, VoprfBlindEvaluateResult,
+	VoprfBlindResult, VoprfClient, VoprfServer,
 };
+#[cfg(feature = "alloc")]
+use oprf::voprf::{VoprfBatchBlindEvaluateResult, VoprfBatchBlindResult};
 use oprf::{Error, Result};
 use rand::TryRngCore;
 use rand::rngs::OsRng;
 
 use super::{INFO, INPUT};
 use crate::rng::MockRng;
+
+type CsGroup<CS> = <CS as CipherSuite>::Group;
+type NonZeroScalar<CS> = <CsGroup<CS> as Group>::NonZeroScalar;
+type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
 
 /// Wrapper around clients in all [`Mode`]s.
 #[derive_where(Debug)]
@@ -58,7 +65,7 @@ pub struct HelperClient<CS: CipherSuite> {
 }
 
 /// Wrapper around multiple clients in all [`Mode`]s.
-#[derive_where(Debug)]
+#[derive_where(Debug, Eq, PartialEq)]
 enum ClientBatch<CS: CipherSuite> {
 	Oprf(Vec<OprfClient<CS>>),
 	Voprf(Vec<VoprfClient<CS>>),
@@ -66,7 +73,7 @@ enum ClientBatch<CS: CipherSuite> {
 }
 
 /// Wrapper around multiple clients in all [`Mode`]s and their `Blind` output.
-#[derive_where(Debug)]
+#[derive_where(Debug, Eq, PartialEq)]
 pub struct HelperClientBatch<CS: CipherSuite> {
 	clients: ClientBatch<CS>,
 	blinded_elements: Vec<BlindedElement<CS>>,
@@ -74,7 +81,7 @@ pub struct HelperClientBatch<CS: CipherSuite> {
 
 /// Wrapper around servers in all [`Mode`]s and potentially their
 /// `BlindEvaluate` [`Proof`] output.
-#[derive_where(Debug)]
+#[derive_where(Debug, Eq, PartialEq)]
 enum Server<CS: CipherSuite> {
 	Oprf(OprfServer<CS>),
 	Voprf {
@@ -96,7 +103,7 @@ pub struct HelperServer<CS: CipherSuite> {
 
 /// Wrapper around servers in all [`Mode`]s and their batched `BlindEvalaute`
 /// output.
-#[derive_where(Debug)]
+#[derive_where(Debug, Eq, PartialEq)]
 pub struct HelperServerBatch<CS: CipherSuite> {
 	server: Server<CS>,
 	evaluation_elements: Vec<EvaluationElement<CS>>,
@@ -158,41 +165,132 @@ impl<CS: CipherSuite> HelperClient<CS> {
 	}
 
 	#[must_use]
-	pub fn batch(mode: Mode, count: usize) -> HelperClientBatch<CS> {
-		iter::repeat_with(|| {
-			let Self {
-				client,
-				blinded_element,
-			} = Self::blind(mode);
-
-			(client, blinded_element)
-		})
-		.take(count)
-		.collect()
+	pub fn batch_fixed<const N: usize>(mode: Mode) -> HelperClientBatch<CS>
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[NonZeroScalar<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+	{
+		Self::batch_fixed_with(mode, None, &[INPUT; N]).unwrap()
 	}
 
-	pub fn batch_with<'blind, 'input, B, I>(
+	pub fn batch_fixed_with<const N: usize>(
 		mode: Mode,
-		blind: B,
-		input: I,
+		blinds: Option<&[&[u8]; N]>,
+		inputs: &[&[&[u8]]; N],
 	) -> Result<HelperClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
 	where
-		B: ExactSizeIterator<Item = Option<&'blind [u8]>>,
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[NonZeroScalar<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+	{
+		let blinds = blinds.map(|blinds| {
+			assert_eq!(blinds.len(), inputs.len(), "found unequal items");
+			blinds.concat()
+		});
+		let mut rng = blinds
+			.as_ref()
+			.map_or_else(MockRng::new_os_rng, |blinds| MockRng::new(blinds));
+
+		match mode {
+			Mode::Oprf => {
+				let OprfBatchBlindFixedResult {
+					clients,
+					blinded_elements,
+				} = OprfClient::batch_blind_fixed(&mut rng, inputs)?;
+
+				Ok(HelperClientBatch {
+					clients: ClientBatch::Oprf(clients.to_vec()),
+					blinded_elements: blinded_elements.to_vec(),
+				})
+			}
+			Mode::Voprf => {
+				let VoprfBatchBlindFixedResult {
+					clients,
+					blinded_elements,
+				} = VoprfClient::batch_blind_fixed(&mut rng, inputs)?;
+
+				Ok(HelperClientBatch {
+					clients: ClientBatch::Voprf(clients.to_vec()),
+					blinded_elements: blinded_elements.to_vec(),
+				})
+			}
+			Mode::Poprf => {
+				let PoprfBatchBlindFixedResult {
+					clients,
+					blinded_elements,
+				} = PoprfClient::batch_blind_fixed(&mut rng, inputs)?;
+
+				Ok(HelperClientBatch {
+					clients: ClientBatch::Poprf(clients.to_vec()),
+					blinded_elements: blinded_elements.to_vec(),
+				})
+			}
+		}
+	}
+
+	#[must_use]
+	#[cfg(feature = "alloc")]
+	pub fn batch(mode: Mode, count: usize) -> HelperClientBatch<CS> {
+		Self::batch_with(mode, None, iter::repeat_n(INPUT, count)).unwrap()
+	}
+
+	#[cfg(feature = "alloc")]
+	pub fn batch_with<'input, I>(
+		mode: Mode,
+		blinds: Option<&[&[u8]]>,
+		inputs: I,
+	) -> Result<HelperClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	where
 		I: ExactSizeIterator<Item = &'input [&'input [u8]]>,
 	{
-		assert_eq!(blind.len(), input.len(), "found unequal items");
+		let blinds = blinds.map(|blinds| {
+			assert_eq!(blinds.len(), inputs.len(), "found unequal items");
+			blinds.concat()
+		});
+		let mut rng = blinds
+			.as_ref()
+			.map_or_else(MockRng::new_os_rng, |blinds| MockRng::new(blinds));
 
-		blind
-			.zip(input)
-			.map(|(blind, input)| {
-				let Self {
-					client,
-					blinded_element,
-				} = Self::blind_with(mode, blind, input)?;
+		match mode {
+			Mode::Oprf => {
+				let OprfBatchBlindResult {
+					clients,
+					blinded_elements,
+				} = OprfClient::batch_blind(&mut rng, inputs)?;
 
-				Ok((client, blinded_element))
-			})
-			.collect()
+				Ok(HelperClientBatch {
+					clients: ClientBatch::Oprf(clients),
+					blinded_elements,
+				})
+			}
+			Mode::Voprf => {
+				let VoprfBatchBlindResult {
+					clients,
+					blinded_elements,
+				} = VoprfClient::batch_blind(&mut rng, inputs)?;
+
+				Ok(HelperClientBatch {
+					clients: ClientBatch::Voprf(clients),
+					blinded_elements,
+				})
+			}
+			Mode::Poprf => {
+				let PoprfBatchBlindResult {
+					clients,
+					blinded_elements,
+				} = PoprfClient::batch_blind(&mut rng, inputs)?;
+
+				Ok(HelperClientBatch {
+					clients: ClientBatch::Poprf(clients),
+					blinded_elements,
+				})
+			}
+		}
 	}
 
 	#[must_use]
@@ -715,66 +813,5 @@ impl<CS: CipherSuite> From<VoprfClient<CS>> for Client<CS> {
 impl<CS: CipherSuite> From<PoprfClient<CS>> for Client<CS> {
 	fn from(client: PoprfClient<CS>) -> Self {
 		Self::Poprf(client)
-	}
-}
-
-impl<CS: CipherSuite> FromIterator<(Client<CS>, BlindedElement<CS>)> for HelperClientBatch<CS> {
-	fn from_iter<T: IntoIterator<Item = (Client<CS>, BlindedElement<CS>)>>(iter: T) -> Self {
-		let mut items = iter.into_iter().peekable();
-
-		let Some((client, _)) = items.peek() else {
-			return Self {
-				clients: ClientBatch::Voprf(Vec::new()),
-				blinded_elements: Vec::new(),
-			};
-		};
-
-		match client {
-			Client::Oprf(_) => {
-				let (clients, blinded_elements) = items
-					.map(|(client, blinded_element)| {
-						let Client::Oprf(client) = client else {
-							panic!("attempting to create `ClientBatch` from non-uniform clients")
-						};
-						(client, blinded_element)
-					})
-					.unzip();
-
-				Self {
-					clients: ClientBatch::Oprf(clients),
-					blinded_elements,
-				}
-			}
-			Client::Voprf(_) => {
-				let (clients, blinded_elements) = items
-					.map(|(client, blinded_element)| {
-						let Client::Voprf(client) = client else {
-							panic!("attempting to create `ClientBatch` from non-uniform clients")
-						};
-						(client, blinded_element)
-					})
-					.unzip();
-
-				Self {
-					clients: ClientBatch::Voprf(clients),
-					blinded_elements,
-				}
-			}
-			Client::Poprf(_) => {
-				let (clients, blinded_elements) = items
-					.map(|(client, blinded_element)| {
-						let Client::Poprf(client) = client else {
-							panic!("attempting to create `ClientBatch` from non-uniform clients")
-						};
-						(client, blinded_element)
-					})
-					.unzip();
-
-				Self {
-					clients: ClientBatch::Poprf(clients),
-					blinded_elements,
-				}
-			}
-		}
 	}
 }

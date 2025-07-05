@@ -17,19 +17,21 @@ use oprf::cipher_suite::{CipherSuite, Id};
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::group::Dst;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
-use oprf::oprf::{OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
-use oprf::poprf::PoprfBatchBlindEvaluateResult;
+use oprf::oprf::OprfBatchBlindResult;
+use oprf::oprf::{OprfBatchBlindFixedResult, OprfBlindResult, OprfClient, OprfServer};
 use oprf::poprf::{
-	PoprfBatchBlindEvaluateFixedResult, PoprfBlindEvaluateResult, PoprfBlindResult, PoprfClient,
-	PoprfServer,
+	PoprfBatchBlindEvaluateFixedResult, PoprfBatchBlindFixedResult, PoprfBlindEvaluateResult,
+	PoprfBlindResult, PoprfClient, PoprfServer,
 };
 #[cfg(feature = "alloc")]
-use oprf::voprf::VoprfBatchBlindEvaluateResult;
+use oprf::poprf::{PoprfBatchBlindEvaluateResult, PoprfBatchBlindResult};
 use oprf::voprf::{
-	VoprfBatchBlindEvaluateFixedResult, VoprfBlindEvaluateResult, VoprfBlindResult, VoprfClient,
-	VoprfServer,
+	VoprfBatchBlindEvaluateFixedResult, VoprfBatchBlindFixedResult, VoprfBlindEvaluateResult,
+	VoprfBlindResult, VoprfClient, VoprfServer,
 };
+#[cfg(feature = "alloc")]
+use oprf::voprf::{VoprfBatchBlindEvaluateResult, VoprfBatchBlindResult};
 use p256::NistP256;
 use p384::NistP384;
 use p521::NistP521;
@@ -55,10 +57,16 @@ macro_rules! test_ciphersuite {
 				api!(OprfClient<$cs>);
 				api!(OprfServer<$cs>);
 				result!(OprfBlindResult<$cs>);
+				#[cfg(feature = "alloc")]
+				result!(OprfBatchBlindResult<$cs>);
+				result!(OprfBatchBlindFixedResult<$cs, 1>);
 
 				api!(VoprfClient<$cs>);
 				api!(VoprfServer<$cs>);
 				result!(VoprfBlindResult<$cs>);
+				#[cfg(feature = "alloc")]
+				result!(VoprfBatchBlindResult<$cs>);
+				result!(VoprfBatchBlindFixedResult<$cs, 1>);
 				result!(VoprfBlindEvaluateResult<$cs>);
 				#[cfg(feature = "alloc")]
 				result!(VoprfBatchBlindEvaluateResult<$cs>);
@@ -67,6 +75,9 @@ macro_rules! test_ciphersuite {
 				api!(PoprfClient<$cs>);
 				api!(PoprfServer<$cs>);
 				result!(PoprfBlindResult<$cs>);
+				#[cfg(feature = "alloc")]
+				result!(PoprfBatchBlindResult<$cs>);
+				result!(PoprfBatchBlindFixedResult<$cs, 1>);
 				result!(PoprfBlindEvaluateResult<$cs>);
 				#[cfg(feature = "alloc")]
 				result!(PoprfBatchBlindEvaluateResult<$cs>);

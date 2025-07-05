@@ -47,7 +47,7 @@ test_ciphersuites!(input_batch, Poprf);
 
 /// Tests unequal `output` with different `input`s when using batching methods.
 fn input_batch<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch(mode, 1);
+	let clients = HelperClient::<CS>::batch_fixed::<1>(mode);
 	let server = HelperServer::batch_fixed::<1>(&clients);
 
 	// Failure on wrong input during `Finalize` and `Evaluate`.
@@ -88,7 +88,7 @@ test_ciphersuites!(info_batch, Poprf);
 
 /// Tests unequal `output` with different `info`s when using batching methods.
 fn info_batch<CS: CipherSuite>(_: Mode) {
-	let clients = HelperClient::<CS>::batch(Mode::Poprf, 1);
+	let clients = HelperClient::<CS>::batch_fixed::<1>(Mode::Poprf);
 	let server = HelperServer::batch_fixed::<1>(&clients);
 
 	let client_output = clients.finalize_fixed::<1>(&server);
@@ -116,7 +116,7 @@ test_ciphersuites!(state_batch, Poprf);
 
 /// Tests using wrong server in `Evaluate` when using batching methods.
 fn state_batch<CS: CipherSuite>(_: Mode) {
-	let clients = HelperClient::<CS>::batch(Mode::Poprf, 1);
+	let clients = HelperClient::<CS>::batch_fixed::<1>(Mode::Poprf);
 	let server = HelperServer::batch_fixed::<1>(&clients);
 	let wrong_server = HelperServer::batch_fixed::<1>(&clients);
 

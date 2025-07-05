@@ -75,7 +75,7 @@ test_ciphersuites!(batch, Poprf);
 /// Tests correct failure if the [`Proof`] is invalid when using batching
 /// methods.
 fn batch<CS: CipherSuite>(mode: Mode) {
-	let client = HelperClient::<CS>::batch(mode, 1);
+	let client = HelperClient::<CS>::batch_fixed::<1>(mode);
 	let server = HelperServer::<CS>::batch_fixed::<1>(&client);
 	let wrong_server = HelperServer::<CS>::batch_fixed::<1>(&client);
 

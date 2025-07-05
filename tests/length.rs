@@ -102,10 +102,29 @@ test_ciphersuites!(batch, Poprf);
 
 /// Tests correct failure on invalid `input` and `info` length when using
 /// batching methods.
+#[expect(clippy::too_many_lines, reason = "test")]
 fn batch<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch_with(
+	// Failure on too large input.
+	let result = HelperClient::<CS>::batch_fixed_with::<1>(mode, None, &[&[&TEST]]);
+	assert_eq!(result.unwrap_err(), Error::InputLength);
+
+	// Failure on too large input with `alloc`.
+	#[cfg(feature = "alloc")]
+	assert_eq!(
+		HelperClient::<CS>::batch_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
+		Err(Error::InputLength)
+	);
+
+	// Success on maximum length of input.
+	let clients =
+		HelperClient::<CS>::batch_fixed_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]])
+			.unwrap();
+
+	// Success on maximum length of input with `alloc`.
+	#[cfg(feature = "alloc")]
+	HelperClient::<CS>::batch_with(
 		mode,
-		iter::once(None),
+		None,
 		iter::once([&TEST[..u16::MAX.into()]].as_slice()),
 	)
 	.unwrap();

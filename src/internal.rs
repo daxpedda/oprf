@@ -18,9 +18,15 @@ use crate::group::{Group, InternalGroup};
 use crate::key::PublicKey;
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
-pub(crate) struct BlindResult<CS: CipherSuite> {
-	pub(crate) blind: NonZeroScalar<CS>,
-	pub(crate) blinded_element: BlindedElement<CS>,
+#[cfg(feature = "alloc")]
+pub(crate) struct BatchBlindResult<CS: CipherSuite> {
+	pub(crate) blinds: Vec<NonZeroScalar<CS>>,
+	pub(crate) blinded_elements: Vec<BlindedElement<CS>>,
+}
+
+pub(crate) struct BatchBlindFixedResult<CS: CipherSuite, const N: usize> {
+	pub(crate) blinds: [NonZeroScalar<CS>; N],
+	pub(crate) blinded_elements: [BlindedElement<CS>; N],
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -269,24 +275,82 @@ pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> [&'static [u
 
 // `Blind`.
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
-pub(crate) fn blind<CS: CipherSuite, R: TryCryptoRng>(
+#[cfg(feature = "alloc")]
+pub(crate) fn batch_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
 	mode: Mode,
 	rng: &mut R,
-	input: &[&[u8]],
-) -> Result<BlindResult<CS>, Error<R::Error>> {
-	// Fail early.
-	let _ = input.i2osp_length().ok_or(Error::InputLength)?;
+	mut inputs: impl Iterator<Item = &'inputs [&'inputs [u8]]>,
+) -> Result<BatchBlindResult<CS>, Error<R::Error>> {
+	let (blinds, blinded_elements) = inputs.try_fold(
+		(Vec::new(), Vec::new()),
+		|(mut blinds, mut blinded_elements), input| {
+			// Fail early.
+			let _ = input.i2osp_length().ok_or(Error::InputLength)?;
 
-	let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
 
-	// Moved `blind` after to fail early.
-	let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
+			// Moved `blind` after to fail early.
+			let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 
-	let blinded_element = BlindedElement::new(blind * &input_element);
+			let blinded_element = blind * &input_element;
 
-	Ok(BlindResult {
-		blind,
-		blinded_element,
+			blinds.push(blind);
+			blinded_elements.push(blinded_element);
+
+			Ok((blinds, blinded_elements))
+		},
+	)?;
+
+	let blinded_elements = BlindedElement::new_batch(blinded_elements);
+
+	Ok(BatchBlindResult {
+		blinds,
+		blinded_elements,
+	})
+}
+
+// `Blind`.
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+pub(crate) fn batch_blind_fixed<CS: CipherSuite, R: TryCryptoRng, const N: usize>(
+	mode: Mode,
+	rng: &mut R,
+	inputs: &[&[&[u8]]; N],
+) -> Result<BatchBlindFixedResult<CS, N>, Error<R::Error>>
+where
+	[NonIdentityElement<CS>; N]: AssocArraySize<
+		Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+	>,
+	[NonZeroScalar<CS>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+{
+	let input_elements = ArrayN::<_, N>::try_from_fn(|index| {
+		#[expect(clippy::indexing_slicing, reason = "`N` matches")]
+		let input = inputs[index];
+
+		// Fail early.
+		let _ = input.i2osp_length().ok_or(Error::InputLength)?;
+
+		CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)
+	})?
+	.0;
+
+	let blinds = ArrayN::<_, N>::try_from_fn(|_| {
+		// Moved `blind` after to fail early.
+		CS::Group::scalar_random(rng).map_err(Error::Random)
+	})?
+	.0;
+
+	let blinded_elements = blinds
+		.iter()
+		.zip(input_elements)
+		.map(|(blind, input_element)| *blind * &input_element)
+		.collect_array();
+
+	let blinded_elements = BlindedElement::new_batch_fixed(&blinded_elements);
+
+	Ok(BatchBlindFixedResult {
+		blinds,
+		blinded_elements,
 	})
 }
 

@@ -21,7 +21,7 @@ test_ciphersuites!(empty, Poprf);
 
 /// Tests correct failure on empty iterators when using batching methods.
 fn empty<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch(mode, 1);
+	let clients = HelperClient::<CS>::batch_fixed::<1>(mode);
 
 	// Failure on zero blinded elements.
 	if let Mode::Voprf | Mode::Poprf = mode {
@@ -116,7 +116,7 @@ test_ciphersuites!(unequal, Poprf);
 /// Tests correct failure on iterators with unequal length when using batching
 /// methods.
 fn unequal<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch(mode, 2);
+	let clients = HelperClient::<CS>::batch_fixed::<2>(mode);
 	let server = HelperServer::<CS>::batch_fixed::<2>(&clients);
 
 	// Failure on unequal inputs.

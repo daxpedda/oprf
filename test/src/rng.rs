@@ -47,7 +47,7 @@ impl TryRngCore for MockRng<'_> {
 	fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
 		if let Some(bytes) = self.0.as_mut() {
 			dst.copy_from_slice(&bytes[..dst.len()]);
-			*bytes = &bytes[..dst.len()];
+			*bytes = &bytes[dst.len()..];
 			Ok(())
 		} else {
 			OsRng.try_fill_bytes(dst)

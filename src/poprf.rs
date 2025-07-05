@@ -16,11 +16,13 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 #[cfg(feature = "serde")]
 use crate::cipher_suite::ElementLength;
-use crate::cipher_suite::{CipherSuite, NonZeroScalar};
+use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
-use crate::internal::{self, BlindResult, ElementWrapper, Info};
+#[cfg(feature = "alloc")]
+use crate::internal::BatchBlindResult;
+use crate::internal::{self, BatchBlindFixedResult, ElementWrapper, Info};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -40,17 +42,78 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		rng: &mut R,
 		input: &[&[u8]],
 	) -> Result<PoprfBlindResult<CS>, Error<R::Error>> {
-		let BlindResult {
-			blind,
-			blinded_element,
-		} = internal::blind(Mode::Poprf, rng, input)?;
+		let PoprfBatchBlindFixedResult {
+			clients: [client],
+			blinded_elements: [blinded_element],
+		} = Self::batch_blind_fixed(rng, &[input])?;
 
 		Ok(PoprfBlindResult {
-			client: Self {
+			client,
+			blinded_element,
+		})
+	}
+
+	// `Blind`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
+	#[cfg(feature = "alloc")]
+	pub fn batch_blind<'inputs, R, I>(
+		rng: &mut R,
+		inputs: I,
+	) -> Result<PoprfBatchBlindResult<CS>, Error<R::Error>>
+	where
+		R: TryCryptoRng,
+		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
+	{
+		let BatchBlindResult {
+			blinds,
+			blinded_elements,
+		} = internal::batch_blind(Mode::Poprf, rng, inputs)?;
+
+		let clients = blinds
+			.into_iter()
+			.zip(&blinded_elements)
+			.map(|(blind, blinded_element)| Self {
 				blind,
 				blinded_element: blinded_element.clone(),
-			},
-			blinded_element,
+			})
+			.collect();
+
+		Ok(PoprfBatchBlindResult {
+			clients,
+			blinded_elements,
+		})
+	}
+
+	// `Blind`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
+	pub fn batch_blind_fixed<const N: usize, R: TryCryptoRng>(
+		rng: &mut R,
+		inputs: &[&[&[u8]]; N],
+	) -> Result<PoprfBatchBlindFixedResult<CS, N>, Error<R::Error>>
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[NonZeroScalar<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+	{
+		let BatchBlindFixedResult {
+			blinds,
+			blinded_elements,
+		} = internal::batch_blind_fixed(Mode::Poprf, rng, inputs)?;
+
+		let clients = blinds
+			.into_iter()
+			.zip(&blinded_elements)
+			.map(|(blind, blinded_element)| Self {
+				blind,
+				blinded_element: blinded_element.clone(),
+			})
+			.collect_array();
+
+		Ok(PoprfBatchBlindFixedResult {
+			clients,
+			blinded_elements,
 		})
 	}
 
@@ -259,7 +322,9 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 
 		let d: Vec<_> = blinded_elements.map(ElementWrapper::from).collect();
 		let evaluation_elements = EvaluationElement::new_batch(
-			d.iter().map(|element| self.t_inverted * element.element()),
+			d.iter()
+				.map(|element| self.t_inverted * element.element())
+				.collect(),
 		);
 		let c = evaluation_elements.iter().map(ElementWrapper::from);
 
@@ -327,6 +392,17 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 pub struct PoprfBlindResult<CS: CipherSuite> {
 	pub client: PoprfClient<CS>,
 	pub blinded_element: BlindedElement<CS>,
+}
+
+#[cfg(feature = "alloc")]
+pub struct PoprfBatchBlindResult<CS: CipherSuite> {
+	pub clients: Vec<PoprfClient<CS>>,
+	pub blinded_elements: Vec<BlindedElement<CS>>,
+}
+
+pub struct PoprfBatchBlindFixedResult<CS: CipherSuite, const N: usize> {
+	pub clients: [PoprfClient<CS>; N],
+	pub blinded_elements: [BlindedElement<CS>; N],
 }
 
 pub struct PoprfBlindEvaluateResult<CS: CipherSuite> {
@@ -516,6 +592,32 @@ impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
 }
 
 impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindResult<CS> {}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Debug for PoprfBatchBlindResult<CS> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("PoprfBatchBlindResult")
+			.field("clients", &self.clients)
+			.field("blinded_elements", &self.blinded_elements)
+			.finish()
+	}
+}
+
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindResult<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindFixedResult<CS, N> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("PoprfBatchBlindFixedResult")
+			.field("clients", &self.clients)
+			.field("blinded_elements", &self.blinded_elements)
+			.finish()
+	}
+}
+
+impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindFixedResult<CS, N> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {

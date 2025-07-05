@@ -15,7 +15,7 @@ test_ciphersuites!(test, Voprf);
 test_ciphersuites!(test, Poprf);
 
 /// Tests batched test vectors.
-#[expect(clippy::cognitive_complexity, clippy::too_many_lines, reason = "test")]
+#[expect(clippy::too_many_lines, reason = "test")]
 fn test<CS: CipherSuite>(mode: Mode) {
 	let mut tests = 0;
 
@@ -35,19 +35,31 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			let vector_proof = vector.proof.as_ref().expect("unexpected missing proof");
 
 			// Blind.
-			let clients = HelperClient::<CS>::batch_with(
+			let clients = HelperClient::<CS>::batch_fixed_with(
 				mode,
-				vector.blinds.iter().map(|blind| Some(blind.as_slice())),
-				inputs.into_iter(),
+				Some(&vector.blinds.each_ref().map(Vec::as_slice)),
+				&inputs,
 			)
 			.unwrap();
+
+			#[cfg(feature = "alloc")]
+			{
+				let alloc_clients = HelperClient::<CS>::batch_with(
+					mode,
+					Some(vector.blinds.each_ref().map(Vec::as_slice).as_slice()),
+					inputs.into_iter(),
+				)
+				.unwrap();
+
+				assert_eq!(alloc_clients, clients);
+			}
 
 			for (blinded_element, vector_blinded_element) in clients
 				.blinded_elements()
 				.iter()
 				.zip(&vector.blinded_elements)
 			{
-				assert_eq!(vector_blinded_element, blinded_element.as_repr().as_slice(),);
+				assert_eq!(vector_blinded_element, blinded_element.as_repr().as_slice());
 				assert_eq!(
 					&BlindedElement::from_repr(vector_blinded_element).unwrap(),
 					blinded_element,
@@ -76,7 +88,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 				key_pair.secret_key(),
 			);
 
-			assert_eq!(key_pair.public_key(), server.public_key().unwrap(),);
+			assert_eq!(key_pair.public_key(), server.public_key().unwrap());
 
 			let vector_public_key = test_vector.public_key.as_ref().unwrap();
 			assert_eq!(
@@ -110,7 +122,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let server = HelperServer::batch_with(
+				let alloc_server = HelperServer::batch_with(
 					mode,
 					Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 					clients.blinded_elements(),
@@ -119,25 +131,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 				)
 				.unwrap();
 
-				for (evaluation_element, vector_evaluation_element) in server
-					.evaluation_elements()
-					.iter()
-					.zip(&vector.evaluation_elements)
-				{
-					assert_eq!(
-						vector_evaluation_element,
-						evaluation_element.as_repr().as_slice(),
-					);
-					assert_eq!(
-						&EvaluationElement::from_repr(vector_evaluation_element).unwrap(),
-						evaluation_element,
-					);
-				}
-
-				let proof = server.proof().unwrap();
-
-				assert_eq!(vector_proof.proof, proof.to_repr().as_slice());
-				assert_eq!(&Proof::from_repr(&vector_proof.proof).unwrap(), proof);
+				assert_eq!(alloc_server, server);
 			}
 
 			// Finalize.
