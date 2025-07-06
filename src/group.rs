@@ -62,12 +62,12 @@ pub trait Group {
 
 	fn scalar_invert(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar;
 
-	#[cfg(feature = "alloc")]
-	fn scalar_batch_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar>;
-
-	fn scalar_batch_invert_fixed<const N: usize>(
+	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N];
+
+	#[cfg(feature = "alloc")]
+	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar>;
 
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
@@ -85,16 +85,16 @@ pub trait Group {
 	where
 		E: ExpandMsg<Self::K>;
 
-	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_to_repr(
-		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>>;
-
-	fn non_identity_element_batch_to_repr_fixed<const N: usize>(
+	fn non_identity_element_batch_to_repr<const N: usize>(
 		elements: &[Self::NonIdentityElement; N],
 	) -> [Array<u8, Self::ElementLength>; N];
 
-	fn element_batch_to_repr_fixed<const N: usize>(
+	#[cfg(feature = "alloc")]
+	fn non_identity_element_batch_vec_to_repr(
+		elements: &[Self::NonIdentityElement],
+	) -> Vec<Array<u8, Self::ElementLength>>;
+
+	fn element_batch_to_repr<const N: usize>(
 		elements: &[Self::Element; N],
 	) -> [Array<u8, Self::ElementLength>; N];
 

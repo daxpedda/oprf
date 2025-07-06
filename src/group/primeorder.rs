@@ -60,11 +60,11 @@ where
 	}
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		NonZeroScalar::<C>::batch_invert(scalars)
 	}
 
-	fn scalar_batch_invert_fixed<const N: usize>(
+	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N] {
 		NonZeroScalar::<C>::batch_invert(scalars)
@@ -106,7 +106,7 @@ where
 	}
 
 	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_to_repr(
+	fn non_identity_element_batch_vec_to_repr(
 		elements: &[Self::NonIdentityElement],
 	) -> Vec<Array<u8, Self::ElementLength>> {
 		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements)
@@ -115,13 +115,13 @@ where
 			.collect()
 	}
 
-	fn non_identity_element_batch_to_repr_fixed<const N: usize>(
+	fn non_identity_element_batch_to_repr<const N: usize>(
 		elements: &[Self::NonIdentityElement; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
 		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements).map(|point| point.to_bytes())
 	}
 
-	fn element_batch_to_repr_fixed<const N: usize>(
+	fn element_batch_to_repr<const N: usize>(
 		elements: &[Self::Element; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
 		ProjectivePoint::<C>::batch_normalize(elements).map(|point| point.to_bytes())

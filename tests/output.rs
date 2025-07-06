@@ -46,12 +46,12 @@ test_ciphersuites!(input_batch, Poprf);
 
 /// Tests unequal `output` with different `input`s when using batching methods.
 fn input_batch<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch_fixed::<1>(mode);
-	let server = HelperServer::batch_fixed::<1>(&clients);
+	let clients = HelperClient::<CS>::batch::<1>(mode);
+	let server = HelperServer::batch::<1>(&clients);
 
 	// Failure on wrong input during `Finalize` and `Evaluate`.
 	let wrong_client_output = clients
-		.finalize_fixed_with::<1, _>(
+		.finalize_with::<1, _>(
 			server.public_key(),
 			iter::once::<&[&[u8]]>(&[b"wrong"]),
 			server.evaluation_elements(),
@@ -59,15 +59,15 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 			INFO,
 		)
 		.unwrap();
-	let wrong_server_output = server.evaluate_fixed_with(&[&[b"wrong"]], INFO).unwrap();
+	let wrong_server_output = server.evaluate_with(&[&[b"wrong"]], INFO).unwrap();
 	assert_ne!(wrong_client_output, wrong_server_output);
 
 	// Failure on wrong input during `Finalize`.
-	let server_output = server.evaluate_fixed();
+	let server_output = server.evaluate();
 	assert_ne!(wrong_client_output, server_output);
 
 	// Failure on wrong input during `Evaluate`.
-	let client_output = clients.finalize_fixed::<1>(&server);
+	let client_output = clients.finalize::<1>(&server);
 	assert_ne!(client_output, wrong_server_output);
 }
 
@@ -87,11 +87,11 @@ test_ciphersuites!(info_batch, Poprf);
 
 /// Tests unequal `output` with different `info`s when using batching methods.
 fn info_batch<CS: CipherSuite>(_: Mode) {
-	let clients = HelperClient::<CS>::batch_fixed::<1>(Mode::Poprf);
-	let server = HelperServer::batch_fixed::<1>(&clients);
+	let clients = HelperClient::<CS>::batch::<1>(Mode::Poprf);
+	let server = HelperServer::batch::<1>(&clients);
 
-	let client_output = clients.finalize_fixed::<1>(&server);
-	let server_output = server.evaluate_fixed_with(&[INPUT], b"wrong").unwrap();
+	let client_output = clients.finalize::<1>(&server);
+	let server_output = server.evaluate_with(&[INPUT], b"wrong").unwrap();
 	assert_ne!(client_output, server_output);
 }
 
@@ -115,11 +115,11 @@ test_ciphersuites!(state_batch, Poprf);
 
 /// Tests using wrong server in `Evaluate` when using batching methods.
 fn state_batch<CS: CipherSuite>(_: Mode) {
-	let clients = HelperClient::<CS>::batch_fixed::<1>(Mode::Poprf);
-	let server = HelperServer::batch_fixed::<1>(&clients);
-	let wrong_server = HelperServer::batch_fixed::<1>(&clients);
+	let clients = HelperClient::<CS>::batch::<1>(Mode::Poprf);
+	let server = HelperServer::batch::<1>(&clients);
+	let wrong_server = HelperServer::batch::<1>(&clients);
 
-	let client_output = clients.finalize_fixed::<1>(&server);
-	let server_output = wrong_server.evaluate_fixed();
+	let client_output = clients.finalize::<1>(&server);
+	let server_output = wrong_server.evaluate();
 	assert_ne!(client_output, server_output);
 }

@@ -27,10 +27,10 @@ test_ciphersuites!(batch_fixed, Poprf);
 
 /// Tests complete protocol when using batching methods.
 fn batch_fixed<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch_fixed::<2>(mode);
-	let server = HelperServer::batch_fixed::<2>(&clients);
-	let client_outputs = clients.finalize_fixed::<2>(&server);
-	let server_output = server.evaluate_fixed();
+	let clients = HelperClient::<CS>::batch::<2>(mode);
+	let server = HelperServer::batch::<2>(&clients);
+	let client_outputs = clients.finalize::<2>(&server);
+	let server_output = server.evaluate();
 
 	assert_eq!(client_outputs, server_output);
 }
@@ -45,10 +45,10 @@ test_ciphersuites!(batch, Poprf);
 /// Tests complete protocol when using batching methods with `alloc`.
 #[cfg(feature = "alloc")]
 fn batch<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch(mode, 2);
-	let server = HelperServer::batch(&clients);
-	let client_outputs = clients.finalize(&server);
-	let server_output = server.evaluate();
+	let clients = HelperClient::<CS>::batch_vec(mode, 2);
+	let server = HelperServer::batch_vec(&clients);
+	let client_outputs = clients.finalize_vec(&server);
+	let server_output = server.evaluate_vec();
 
 	assert_eq!(client_outputs, server_output);
 }

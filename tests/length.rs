@@ -105,24 +105,23 @@ test_ciphersuites!(batch, Poprf);
 #[expect(clippy::too_many_lines, reason = "test")]
 fn batch<CS: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
-	let result = HelperClient::<CS>::batch_fixed_with::<1>(mode, None, &[&[&TEST]]);
+	let result = HelperClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST]]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large input with `alloc`.
 	#[cfg(feature = "alloc")]
 	assert_eq!(
-		HelperClient::<CS>::batch_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
+		HelperClient::<CS>::batch_vec_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
 		Err(Error::InputLength)
 	);
 
 	// Success on maximum length of input.
 	let clients =
-		HelperClient::<CS>::batch_fixed_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]])
-			.unwrap();
+		HelperClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]]).unwrap();
 
 	// Success on maximum length of input with `alloc`.
 	#[cfg(feature = "alloc")]
-	HelperClient::<CS>::batch_with(
+	HelperClient::<CS>::batch_vec_with(
 		mode,
 		None,
 		iter::once([&TEST[..u16::MAX.into()]].as_slice()),
@@ -131,18 +130,13 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = HelperServer::batch_fixed_with::<1>(
-			mode,
-			None,
-			clients.blinded_elements(),
-			None,
-			&TEST,
-		);
+		let result =
+			HelperServer::batch_with::<1>(mode, None, clients.blinded_elements(), None, &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
-	let server = HelperServer::batch_fixed_with::<1>(
+	let server = HelperServer::batch_with::<1>(
 		mode,
 		None,
 		clients.blinded_elements(),
@@ -152,7 +146,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	.unwrap();
 
 	// Failure on too large input.
-	let result = clients.finalize_fixed_with::<1, _>(
+	let result = clients.finalize_with::<1, _>(
 		server.public_key(),
 		iter::once::<&[&[u8]]>(&[&TEST]),
 		server.evaluation_elements(),
@@ -163,7 +157,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = clients.finalize_fixed_with::<1, _>(
+		let result = clients.finalize_with::<1, _>(
 			server.public_key(),
 			iter::once::<&[&[u8]]>(&[&TEST]),
 			server.evaluation_elements(),
@@ -175,7 +169,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Success on maximum length of input and info.
 	let _ = clients
-		.finalize_fixed_with::<1, _>(
+		.finalize_with::<1, _>(
 			server.public_key(),
 			iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
 			server.evaluation_elements(),
@@ -187,7 +181,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	#[cfg(feature = "alloc")]
 	{
 		// Failure on too large input with `alloc`.
-		let result = clients.finalize_with(
+		let result = clients.finalize_vec_with(
 			..,
 			server.public_key(),
 			iter::once::<&[&[u8]]>(&[&TEST]),
@@ -199,7 +193,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 		// Failure on too large info with `alloc`.
 		if let Mode::Poprf = mode {
-			let result = clients.finalize_with(
+			let result = clients.finalize_vec_with(
 				..,
 				server.public_key(),
 				iter::once::<&[&[u8]]>(&[&TEST]),
@@ -212,7 +206,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 		// Success on maximum length of input and info with `alloc`.
 		let _ = clients
-			.finalize_with(
+			.finalize_vec_with(
 				..,
 				server.public_key(),
 				iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
@@ -224,35 +218,35 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	}
 
 	// Failure on too large input.
-	let result = server.evaluate_fixed_with::<1>(&[&[&TEST]], &TEST[..u16::MAX.into()]);
+	let result = server.evaluate_with::<1>(&[&[&TEST]], &TEST[..u16::MAX.into()]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = server.evaluate_fixed_with::<1>(&[&[&TEST]], &TEST);
+		let result = server.evaluate_with::<1>(&[&[&TEST]], &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of input and info.
 	let _ = server
-		.evaluate_fixed_with::<1>(&[&[&TEST[..u16::MAX.into()]]], &TEST[..u16::MAX.into()])
+		.evaluate_with::<1>(&[&[&TEST[..u16::MAX.into()]]], &TEST[..u16::MAX.into()])
 		.unwrap();
 
 	#[cfg(feature = "alloc")]
 	{
 		// Failure on too large input with `alloc`.
-		let result = server.evaluate_with(&[&[&TEST]], &TEST[..u16::MAX.into()]);
+		let result = server.evaluate_vec_with(&[&[&TEST]], &TEST[..u16::MAX.into()]);
 		assert_eq!(result.unwrap_err(), Error::InputLength);
 
 		// Failure on too large info with `alloc`.
 		if let Mode::Poprf = mode {
-			let result = server.evaluate_with(&[&[&TEST]], &TEST);
+			let result = server.evaluate_vec_with(&[&[&TEST]], &TEST);
 			assert_eq!(result.unwrap_err(), Error::InfoLength);
 		}
 
 		// Success on maximum length of input and info with `alloc`.
 		let _ = server
-			.evaluate_with(&[&[&TEST[..u16::MAX.into()]]], &TEST[..u16::MAX.into()])
+			.evaluate_vec_with(&[&[&TEST[..u16::MAX.into()]]], &TEST[..u16::MAX.into()])
 			.unwrap();
 	}
 }

@@ -35,7 +35,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			let vector_proof = vector.proof.as_ref().expect("unexpected missing proof");
 
 			// Blind.
-			let clients = HelperClient::<CS>::batch_fixed_with(
+			let clients = HelperClient::<CS>::batch_with(
 				mode,
 				Some(&vector.blinds.each_ref().map(Vec::as_slice)),
 				&inputs,
@@ -44,7 +44,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_clients = HelperClient::<CS>::batch_with(
+				let alloc_clients = HelperClient::<CS>::batch_vec_with(
 					mode,
 					Some(vector.blinds.each_ref().map(Vec::as_slice).as_slice()),
 					inputs.into_iter(),
@@ -67,7 +67,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			}
 
 			// Blind evaluate.
-			let server = HelperServer::batch_fixed_with::<2>(
+			let server = HelperServer::batch_with::<2>(
 				mode,
 				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 				clients.blinded_elements(),
@@ -122,7 +122,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_server = HelperServer::batch_with(
+				let alloc_server = HelperServer::batch_vec_with(
 					mode,
 					Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 					clients.blinded_elements(),
@@ -136,7 +136,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			// Finalize.
 			let outputs = clients
-				.finalize_fixed_with::<2, _>(
+				.finalize_with::<2, _>(
 					server.public_key(),
 					inputs.into_iter(),
 					server.evaluation_elements(),
@@ -150,7 +150,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			}
 
 			// Evaluate.
-			let outputs = server.evaluate_fixed_with::<2>(&inputs, INFO).unwrap();
+			let outputs = server.evaluate_with::<2>(&inputs, INFO).unwrap();
 
 			for (output, vector_output) in outputs.into_iter().zip(&vector.outputs) {
 				assert_eq!(vector_output, output.as_slice());
@@ -158,7 +158,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let outputs = server.evaluate_with(&inputs, INFO).unwrap();
+				let outputs = server.evaluate_vec_with(&inputs, INFO).unwrap();
 
 				for (output, vector_output) in outputs.into_iter().zip(&vector.outputs) {
 					assert_eq!(vector_output, output.as_slice());

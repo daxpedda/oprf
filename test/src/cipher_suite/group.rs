@@ -91,31 +91,31 @@ impl Group for MockCurve {
 		Element
 	}
 
-	#[cfg(feature = "alloc")]
-	fn scalar_batch_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
-		scalars
-	}
-
-	fn scalar_batch_invert_fixed<const N: usize>(
+	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N] {
 		scalars
 	}
 
 	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_to_repr(
-		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>> {
-		vec![Array::default(); elements.len()]
+	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+		scalars
 	}
 
-	fn non_identity_element_batch_to_repr_fixed<const N: usize>(
+	fn non_identity_element_batch_to_repr<const N: usize>(
 		_: &[Self::NonIdentityElement; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
 		[Array::default(); N]
 	}
 
-	fn element_batch_to_repr_fixed<const N: usize>(
+	#[cfg(feature = "alloc")]
+	fn non_identity_element_batch_vec_to_repr(
+		elements: &[Self::NonIdentityElement],
+	) -> Vec<Array<u8, Self::ElementLength>> {
+		vec![Array::default(); elements.len()]
+	}
+
+	fn element_batch_to_repr<const N: usize>(
 		_: &[Self::Element; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
 		[Array::default(); N]

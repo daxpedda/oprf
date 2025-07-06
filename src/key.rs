@@ -163,7 +163,7 @@ impl<G: Group> PublicKey<G> {
 	}
 
 	pub(crate) fn from_point(element: G::NonIdentityElement) -> Self {
-		let [repr] = G::non_identity_element_batch_to_repr_fixed(array::from_ref(&element));
+		let [repr] = G::non_identity_element_batch_to_repr(array::from_ref(&element));
 
 		Self { element, repr }
 	}

@@ -21,8 +21,8 @@ use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 #[cfg(feature = "alloc")]
-use crate::internal::BatchBlindResult;
-use crate::internal::{self, BatchBlindFixedResult, ElementWrapper, Info};
+use crate::internal::BatchVecBlindResult;
+use crate::internal::{self, BatchBlindResult, ElementWrapper, Info};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -42,10 +42,10 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		rng: &mut R,
 		input: &[&[u8]],
 	) -> Result<PoprfBlindResult<CS>, Error<R::Error>> {
-		let PoprfBatchBlindFixedResult {
+		let PoprfBatchBlindResult {
 			clients: [client],
 			blinded_elements: [blinded_element],
-		} = Self::batch_blind_fixed(rng, &[input])?;
+		} = Self::batch_blind(rng, &[input])?;
 
 		Ok(PoprfBlindResult {
 			client,
@@ -55,14 +55,16 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
-	#[cfg(feature = "alloc")]
-	pub fn batch_blind<'inputs, R, I>(
+	pub fn batch_blind<const N: usize, R: TryCryptoRng>(
 		rng: &mut R,
-		inputs: I,
-	) -> Result<PoprfBatchBlindResult<CS>, Error<R::Error>>
+		inputs: &[&[&[u8]]; N],
+	) -> Result<PoprfBatchBlindResult<CS, N>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
-		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[NonZeroScalar<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
 	{
 		let BatchBlindResult {
 			blinds,
@@ -76,7 +78,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 				blind,
 				blinded_element: blinded_element.clone(),
 			})
-			.collect();
+			.collect_array();
 
 		Ok(PoprfBatchBlindResult {
 			clients,
@@ -86,21 +88,19 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
-	pub fn batch_blind_fixed<const N: usize, R: TryCryptoRng>(
+	#[cfg(feature = "alloc")]
+	pub fn batch_vec_blind<'inputs, R, I>(
 		rng: &mut R,
-		inputs: &[&[&[u8]]; N],
-	) -> Result<PoprfBatchBlindFixedResult<CS, N>, Error<R::Error>>
+		inputs: I,
+	) -> Result<PoprfBatchVecBlindResult<CS>, Error<R::Error>>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
-		>,
-		[NonZeroScalar<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		R: TryCryptoRng,
+		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		let BatchBlindFixedResult {
+		let BatchVecBlindResult {
 			blinds,
 			blinded_elements,
-		} = internal::batch_blind_fixed(Mode::Poprf, rng, inputs)?;
+		} = internal::batch_vec_blind(Mode::Poprf, rng, inputs)?;
 
 		let clients = blinds
 			.into_iter()
@@ -109,9 +109,9 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 				blind,
 				blinded_element: blinded_element.clone(),
 			})
-			.collect_array();
+			.collect();
 
-		Ok(PoprfBatchBlindFixedResult {
+		Ok(PoprfBatchVecBlindResult {
 			clients,
 			blinded_elements,
 		})
@@ -127,7 +127,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		proof: &Proof<CS>,
 		info: &[u8],
 	) -> Result<Output<CS::Hash>> {
-		let [output] = Self::batch_finalize_fixed(
+		let [output] = Self::batch_finalize(
 			array::from_ref(self),
 			public_key,
 			iter::once(input),
@@ -141,8 +141,44 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
+	pub fn batch_finalize<'inputs, I, const N: usize>(
+		clients: &[Self; N],
+		public_key: &PublicKey<CS::Group>,
+		inputs: I,
+		evaluation_elements: &[EvaluationElement<CS>; N],
+		proof: &Proof<CS>,
+		info: &[u8],
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+	{
+		if N == 0 || N != inputs.len() || N > u16::MAX.into() {
+			return Err(Error::Batch);
+		}
+
+		let info = Info::new(info)?;
+		let tweaked_key = Self::tweaked_key(public_key, info)?;
+
+		let c = evaluation_elements.iter().map(ElementWrapper::from);
+		let d = clients
+			.iter()
+			.map(|client| ElementWrapper::from(&client.blinded_element));
+
+		internal::verify_proof(Mode::Poprf, ElementWrapper::from(&tweaked_key), c, d, proof)?;
+
+		let blinds = clients.iter().map(|client| client.blind).collect_array();
+		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
+
+		internal::batch_finalize::<N, CS>(inputs, blinds, evaluation_elements, Some(info))
+	}
+
+	// `Finalize`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
 	#[cfg(feature = "alloc")]
-	pub fn batch_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
+	pub fn batch_vec_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: IC,
 		public_key: &PublicKey<CS::Group>,
 		inputs: II,
@@ -183,43 +219,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		let evaluation_elements = c.into_iter().map(ElementWrapper::element);
 
-		internal::batch_finalize::<CS>(inputs, blinds, evaluation_elements, Some(info))
-	}
-
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
-	pub fn batch_finalize_fixed<'inputs, I, const N: usize>(
-		clients: &[Self; N],
-		public_key: &PublicKey<CS::Group>,
-		inputs: I,
-		evaluation_elements: &[EvaluationElement<CS>; N],
-		proof: &Proof<CS>,
-		info: &[u8],
-	) -> Result<[Output<CS::Hash>; N]>
-	where
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	{
-		if N == 0 || N != inputs.len() || N > u16::MAX.into() {
-			return Err(Error::Batch);
-		}
-
-		let info = Info::new(info)?;
-		let tweaked_key = Self::tweaked_key(public_key, info)?;
-
-		let c = evaluation_elements.iter().map(ElementWrapper::from);
-		let d = clients
-			.iter()
-			.map(|client| ElementWrapper::from(&client.blinded_element));
-
-		internal::verify_proof(Mode::Poprf, ElementWrapper::from(&tweaked_key), c, d, proof)?;
-
-		let blinds = clients.iter().map(|client| client.blind).collect_array();
-		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
-
-		internal::batch_finalize_fixed::<N, CS>(inputs, blinds, evaluation_elements, Some(info))
+		internal::batch_vec_finalize::<CS>(inputs, blinds, evaluation_elements, Some(info))
 	}
 
 	fn tweaked_key(
@@ -290,10 +290,10 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		rng: &mut R,
 		blinded_element: &BlindedElement<CS>,
 	) -> Result<PoprfBlindEvaluateResult<CS>, Error<R::Error>> {
-		let PoprfBatchBlindEvaluateFixedResult {
+		let PoprfBatchBlindEvaluateResult {
 			evaluation_elements: [evaluation_element],
 			proof,
-		} = self.batch_blind_evaluate_fixed(rng, array::from_ref(blinded_element))?;
+		} = self.batch_blind_evaluate(rng, array::from_ref(blinded_element))?;
 
 		Ok(PoprfBlindEvaluateResult {
 			evaluation_element,
@@ -304,53 +304,11 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	// `BlindEvaluate` batched
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5
-	#[cfg(feature = "alloc")]
-	pub fn batch_blind_evaluate<'blinded_elements, R, I>(
-		&self,
-		rng: &mut R,
-		blinded_elements: I,
-	) -> Result<PoprfBatchBlindEvaluateResult<CS>, Error<R::Error>>
-	where
-		R: TryCryptoRng,
-		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
-	{
-		let blinded_elements_length = blinded_elements.len();
-
-		if blinded_elements_length == 0 || blinded_elements_length > u16::MAX.into() {
-			return Err(Error::Batch);
-		}
-
-		let d: Vec<_> = blinded_elements.map(ElementWrapper::from).collect();
-		let evaluation_elements = EvaluationElement::new_batch(
-			d.iter()
-				.map(|element| self.t_inverted * element.element())
-				.collect(),
-		);
-		let c = evaluation_elements.iter().map(ElementWrapper::from);
-
-		let proof = internal::generate_proof(
-			Mode::Poprf,
-			rng,
-			self.t,
-			ElementWrapper::from(&self.tweaked_key),
-			c.into_iter(),
-			d.into_iter(),
-		)?;
-
-		Ok(PoprfBatchBlindEvaluateResult {
-			evaluation_elements,
-			proof,
-		})
-	}
-
-	// `BlindEvaluate` batched
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5
-	pub fn batch_blind_evaluate_fixed<R, const N: usize>(
+	pub fn batch_blind_evaluate<R, const N: usize>(
 		&self,
 		rng: &mut R,
 		blinded_elements: &[BlindedElement<CS>; N],
-	) -> Result<PoprfBatchBlindEvaluateFixedResult<CS, N>, Error<R::Error>>
+	) -> Result<PoprfBatchBlindEvaluateResult<CS, N>, Error<R::Error>>
 	where
 		R: TryCryptoRng,
 	{
@@ -358,7 +316,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let evaluation_elements = EvaluationElement::new_batch_fixed(
+		let evaluation_elements = EvaluationElement::new_batch(
 			&blinded_elements
 				.iter()
 				.map(|blinded_element| self.t_inverted * blinded_element.element())
@@ -376,7 +334,49 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			d,
 		)?;
 
-		Ok(PoprfBatchBlindEvaluateFixedResult {
+		Ok(PoprfBatchBlindEvaluateResult {
+			evaluation_elements,
+			proof,
+		})
+	}
+
+	// `BlindEvaluate` batched
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5
+	#[cfg(feature = "alloc")]
+	pub fn batch_vec_blind_evaluate<'blinded_elements, R, I>(
+		&self,
+		rng: &mut R,
+		blinded_elements: I,
+	) -> Result<PoprfBatchVecBlindEvaluateResult<CS>, Error<R::Error>>
+	where
+		R: TryCryptoRng,
+		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
+	{
+		let blinded_elements_length = blinded_elements.len();
+
+		if blinded_elements_length == 0 || blinded_elements_length > u16::MAX.into() {
+			return Err(Error::Batch);
+		}
+
+		let d: Vec<_> = blinded_elements.map(ElementWrapper::from).collect();
+		let evaluation_elements = EvaluationElement::new_batch_vec(
+			d.iter()
+				.map(|element| self.t_inverted * element.element())
+				.collect(),
+		);
+		let c = evaluation_elements.iter().map(ElementWrapper::from);
+
+		let proof = internal::generate_proof(
+			Mode::Poprf,
+			rng,
+			self.t,
+			ElementWrapper::from(&self.tweaked_key),
+			c.into_iter(),
+			d.into_iter(),
+		)?;
+
+		Ok(PoprfBatchVecBlindEvaluateResult {
 			evaluation_elements,
 			proof,
 		})
@@ -385,24 +385,13 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-11
 	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
-		let [output] = self.batch_evaluate_fixed(&[input], info)?;
+		let [output] = self.batch_evaluate(&[input], info)?;
 		Ok(output)
 	}
 
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
-	#[cfg(feature = "alloc")]
-	pub fn batch_evaluate(
-		&self,
-		inputs: &[&[&[u8]]],
-		info: &[u8],
-	) -> Result<Vec<Output<CS::Hash>>> {
-		internal::batch_evaluate::<CS>(Mode::Poprf, self.t_inverted, inputs, Some(Info::new(info)?))
-	}
-
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
-	pub fn batch_evaluate_fixed<const N: usize>(
+	pub fn batch_evaluate<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]; N],
 		info: &[u8],
@@ -414,7 +403,23 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
-		internal::batch_evaluate_fixed::<CS, N>(
+		internal::batch_evaluate::<CS, N>(
+			Mode::Poprf,
+			self.t_inverted,
+			inputs,
+			Some(Info::new(info)?),
+		)
+	}
+
+	// `Evaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	#[cfg(feature = "alloc")]
+	pub fn batch_vec_evaluate(
+		&self,
+		inputs: &[&[&[u8]]],
+		info: &[u8],
+	) -> Result<Vec<Output<CS::Hash>>> {
+		internal::batch_vec_evaluate::<CS>(
 			Mode::Poprf,
 			self.t_inverted,
 			inputs,
@@ -428,15 +433,15 @@ pub struct PoprfBlindResult<CS: CipherSuite> {
 	pub blinded_element: BlindedElement<CS>,
 }
 
-#[cfg(feature = "alloc")]
-pub struct PoprfBatchBlindResult<CS: CipherSuite> {
-	pub clients: Vec<PoprfClient<CS>>,
-	pub blinded_elements: Vec<BlindedElement<CS>>,
-}
-
-pub struct PoprfBatchBlindFixedResult<CS: CipherSuite, const N: usize> {
+pub struct PoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
 	pub clients: [PoprfClient<CS>; N],
 	pub blinded_elements: [BlindedElement<CS>; N],
+}
+
+#[cfg(feature = "alloc")]
+pub struct PoprfBatchVecBlindResult<CS: CipherSuite> {
+	pub clients: Vec<PoprfClient<CS>>,
+	pub blinded_elements: Vec<BlindedElement<CS>>,
 }
 
 pub struct PoprfBlindEvaluateResult<CS: CipherSuite> {
@@ -445,12 +450,12 @@ pub struct PoprfBlindEvaluateResult<CS: CipherSuite> {
 }
 
 #[cfg(feature = "alloc")]
-pub struct PoprfBatchBlindEvaluateResult<CS: CipherSuite> {
+pub struct PoprfBatchVecBlindEvaluateResult<CS: CipherSuite> {
 	pub evaluation_elements: Vec<EvaluationElement<CS>>,
 	pub proof: Proof<CS>,
 }
 
-pub struct PoprfBatchBlindEvaluateFixedResult<CS: CipherSuite, const N: usize> {
+pub struct PoprfBatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
 	pub evaluation_elements: [EvaluationElement<CS>; N],
 	pub proof: Proof<CS>,
 }
@@ -627,9 +632,8 @@ impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
 
 impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindResult<CS> {}
 
-#[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBatchBlindResult<CS> {
+impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindResult<CS, N> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBatchBlindResult")
 			.field("clients", &self.clients)
@@ -638,20 +642,21 @@ impl<CS: CipherSuite> Debug for PoprfBatchBlindResult<CS> {
 	}
 }
 
-#[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindResult<CS> {}
+impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindResult<CS, N> {}
 
+#[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindFixedResult<CS, N> {
+impl<CS: CipherSuite> Debug for PoprfBatchVecBlindResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfBatchBlindFixedResult")
+		f.debug_struct("PoprfBatchVecBlindResult")
 			.field("clients", &self.clients)
 			.field("blinded_elements", &self.blinded_elements)
 			.finish()
 	}
 }
 
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindFixedResult<CS, N> {}
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchVecBlindResult<CS> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {
@@ -665,9 +670,8 @@ impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {
 
 impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindEvaluateResult<CS> {}
 
-#[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateResult<CS> {
+impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindEvaluateResult<CS, N> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBatchBlindEvaluateResult")
 			.field("evaluation_elements", &self.evaluation_elements)
@@ -676,17 +680,18 @@ impl<CS: CipherSuite> Debug for PoprfBatchBlindEvaluateResult<CS> {
 	}
 }
 
-#[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchBlindEvaluateResult<CS> {}
+impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindEvaluateResult<CS, N> {}
 
+#[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindEvaluateFixedResult<CS, N> {
+impl<CS: CipherSuite> Debug for PoprfBatchVecBlindEvaluateResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfBatchBlindEvaluateFixedResult")
+		f.debug_struct("PoprfBatchVecBlindEvaluateResult")
 			.field("evaluation_elements", &self.evaluation_elements)
 			.field("proof", &self.proof)
 			.finish()
 	}
 }
 
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindEvaluateFixedResult<CS, N> {}
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchVecBlindEvaluateResult<CS> {}

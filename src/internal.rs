@@ -18,15 +18,15 @@ use crate::group::{Group, InternalGroup};
 use crate::key::PublicKey;
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
-#[cfg(feature = "alloc")]
-pub(crate) struct BatchBlindResult<CS: CipherSuite> {
-	pub(crate) blinds: Vec<NonZeroScalar<CS>>,
-	pub(crate) blinded_elements: Vec<BlindedElement<CS>>,
-}
-
-pub(crate) struct BatchBlindFixedResult<CS: CipherSuite, const N: usize> {
+pub(crate) struct BatchBlindResult<CS: CipherSuite, const N: usize> {
 	pub(crate) blinds: [NonZeroScalar<CS>; N],
 	pub(crate) blinded_elements: [BlindedElement<CS>; N],
+}
+
+#[cfg(feature = "alloc")]
+pub(crate) struct BatchVecBlindResult<CS: CipherSuite> {
+	pub(crate) blinds: Vec<NonZeroScalar<CS>>,
+	pub(crate) blinded_elements: Vec<BlindedElement<CS>>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -187,7 +187,7 @@ fn compute_c<CS: CipherSuite>(
 	t2: Element<CS>,
 	t3: Element<CS>,
 ) -> Scalar<CS> {
-	let [Bm, a0, a1, a2, a3] = CS::Group::element_batch_to_repr_fixed(&[B, M, Z, t2, t3]);
+	let [Bm, a0, a1, a2, a3] = CS::Group::element_batch_to_repr(&[B, M, Z, t2, t3]);
 
 	CS::hash_to_scalar(
 		mode,
@@ -275,47 +275,11 @@ pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> [&'static [u
 
 // `Blind`.
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
-#[cfg(feature = "alloc")]
-pub(crate) fn batch_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
-	mode: Mode,
-	rng: &mut R,
-	mut inputs: impl Iterator<Item = &'inputs [&'inputs [u8]]>,
-) -> Result<BatchBlindResult<CS>, Error<R::Error>> {
-	let (blinds, blinded_elements) = inputs.try_fold(
-		(Vec::new(), Vec::new()),
-		|(mut blinds, mut blinded_elements), input| {
-			// Fail early.
-			let _ = input.i2osp_length().ok_or(Error::InputLength)?;
-
-			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
-
-			// Moved `blind` after to fail early.
-			let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
-
-			let blinded_element = blind * &input_element;
-
-			blinds.push(blind);
-			blinded_elements.push(blinded_element);
-
-			Ok((blinds, blinded_elements))
-		},
-	)?;
-
-	let blinded_elements = BlindedElement::new_batch(blinded_elements);
-
-	Ok(BatchBlindResult {
-		blinds,
-		blinded_elements,
-	})
-}
-
-// `Blind`.
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
-pub(crate) fn batch_blind_fixed<CS: CipherSuite, R: TryCryptoRng, const N: usize>(
+pub(crate) fn batch_blind<CS: CipherSuite, R: TryCryptoRng, const N: usize>(
 	mode: Mode,
 	rng: &mut R,
 	inputs: &[&[&[u8]]; N],
-) -> Result<BatchBlindFixedResult<CS, N>, Error<R::Error>>
+) -> Result<BatchBlindResult<CS, N>, Error<R::Error>>
 where
 	[NonIdentityElement<CS>; N]: AssocArraySize<
 		Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
@@ -346,9 +310,45 @@ where
 		.map(|(blind, input_element)| *blind * &input_element)
 		.collect_array();
 
-	let blinded_elements = BlindedElement::new_batch_fixed(&blinded_elements);
+	let blinded_elements = BlindedElement::new_batch(&blinded_elements);
 
-	Ok(BatchBlindFixedResult {
+	Ok(BatchBlindResult {
+		blinds,
+		blinded_elements,
+	})
+}
+
+// `Blind`.
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+#[cfg(feature = "alloc")]
+pub(crate) fn batch_vec_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
+	mode: Mode,
+	rng: &mut R,
+	mut inputs: impl Iterator<Item = &'inputs [&'inputs [u8]]>,
+) -> Result<BatchVecBlindResult<CS>, Error<R::Error>> {
+	let (blinds, blinded_elements) = inputs.try_fold(
+		(Vec::new(), Vec::new()),
+		|(mut blinds, mut blinded_elements), input| {
+			// Fail early.
+			let _ = input.i2osp_length().ok_or(Error::InputLength)?;
+
+			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+
+			// Moved `blind` after to fail early.
+			let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
+
+			let blinded_element = blind * &input_element;
+
+			blinds.push(blind);
+			blinded_elements.push(blinded_element);
+
+			Ok((blinds, blinded_elements))
+		},
+	)?;
+
+	let blinded_elements = BlindedElement::new_batch_vec(blinded_elements);
+
+	Ok(BatchVecBlindResult {
 		blinds,
 		blinded_elements,
 	})
@@ -356,9 +356,45 @@ where
 
 // `Finalize`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+#[expect(single_use_lifetimes, reason = "false-positive")]
+pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, const N: usize, CS>(
+	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+	blinds: [NonZeroScalar<CS>; N],
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
+	info: Option<Info<'_>>,
+) -> Result<[Output<CS::Hash>; N]>
+where
+	[Output<CS::Hash>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	CS: CipherSuite,
+{
+	debug_assert_eq!(N, inputs.len(), "found unequal item length");
+	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
+
+	let inverted_blinds = CS::Group::scalar_batch_invert(blinds);
+	let n = inverted_blinds
+		.into_iter()
+		.zip(evaluation_elements)
+		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
+		.collect_array::<N>();
+	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr(&n);
+
+	let mut outputs = internal_finalize::<CS>(inputs, &unblinded_elements, info);
+	// Using `Iterator::collect()` can panic!
+	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
+		outputs
+			.next()
+			.expect("should have the same number of items")
+	})?;
+
+	Ok(outputs.0)
+}
+
+// `Finalize`
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 #[cfg(feature = "alloc")]
 #[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, CS>(
+pub(crate) fn batch_vec_finalize<'inputs, 'evaluation_elements, CS>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	blinds: Vec<NonZeroScalar<CS>>,
 	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
@@ -374,51 +410,15 @@ where
 		"found unequal item length"
 	);
 
-	let inverted_blinds = CS::Group::scalar_batch_invert(blinds);
+	let inverted_blinds = CS::Group::scalar_batch_vec_invert(blinds);
 	let n: Vec<_> = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
 		.collect();
-	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr(&n);
+	let unblinded_elements = CS::Group::non_identity_element_batch_vec_to_repr(&n);
 
 	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
-}
-
-// `Finalize`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
-#[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_finalize_fixed<'inputs, 'evaluation_elements, const N: usize, CS>(
-	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	blinds: [NonZeroScalar<CS>; N],
-	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
-	info: Option<Info<'_>>,
-) -> Result<[Output<CS::Hash>; N]>
-where
-	[Output<CS::Hash>; N]:
-		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-	CS: CipherSuite,
-{
-	debug_assert_eq!(N, inputs.len(), "found unequal item length");
-	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
-
-	let inverted_blinds = CS::Group::scalar_batch_invert_fixed(blinds);
-	let n = inverted_blinds
-		.into_iter()
-		.zip(evaluation_elements)
-		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
-		.collect_array::<N>();
-	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr_fixed(&n);
-
-	let mut outputs = internal_finalize::<CS>(inputs, &unblinded_elements, info);
-	// Using `Iterator::collect()` can panic!
-	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
-		outputs
-			.next()
-			.expect("should have the same number of items")
-	})?;
-
-	Ok(outputs.0)
 }
 
 // `Finalize`
@@ -456,28 +456,7 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 
 // `Evaluate`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
-#[cfg(feature = "alloc")]
-pub(crate) fn batch_evaluate<CS: CipherSuite>(
-	mode: Mode,
-	secret_key: NonZeroScalar<CS>,
-	inputs: &[&[&[u8]]],
-	info: Option<Info<'_>>,
-) -> Result<Vec<Output<CS::Hash>>> {
-	let evaluation_elements = inputs
-		.iter()
-		.map(|input| {
-			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
-			Ok(secret_key * &input_element)
-		})
-		.collect::<Result<Vec<_>>>()?;
-	let issued_elements = CS::Group::non_identity_element_batch_to_repr(&evaluation_elements);
-
-	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
-}
-
-// `Evaluate`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
-pub(crate) fn batch_evaluate_fixed<CS, const N: usize>(
+pub(crate) fn batch_evaluate<CS, const N: usize>(
 	mode: Mode,
 	secret_key: NonZeroScalar<CS>,
 	inputs: &[&[&[u8]]; N],
@@ -499,7 +478,7 @@ where
 		Ok(secret_key * &input_element)
 	})?
 	.0;
-	let issued_elements = CS::Group::non_identity_element_batch_to_repr_fixed(&evaluation_elements);
+	let issued_elements = CS::Group::non_identity_element_batch_to_repr(&evaluation_elements);
 
 	let mut outputs = internal_evaluate::<CS>(inputs, &issued_elements, info);
 
@@ -511,6 +490,27 @@ where
 	})?;
 
 	Ok(outputs.0)
+}
+
+// `Evaluate`
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+#[cfg(feature = "alloc")]
+pub(crate) fn batch_vec_evaluate<CS: CipherSuite>(
+	mode: Mode,
+	secret_key: NonZeroScalar<CS>,
+	inputs: &[&[&[u8]]],
+	info: Option<Info<'_>>,
+) -> Result<Vec<Output<CS::Hash>>> {
+	let evaluation_elements = inputs
+		.iter()
+		.map(|input| {
+			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+			Ok(secret_key * &input_element)
+		})
+		.collect::<Result<Vec<_>>>()?;
+	let issued_elements = CS::Group::non_identity_element_batch_vec_to_repr(&evaluation_elements);
+
+	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
 }
 
 fn internal_evaluate<CS: CipherSuite>(
