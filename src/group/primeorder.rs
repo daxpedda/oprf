@@ -40,11 +40,11 @@ where
 		NonZeroScalar::try_from_rng(rng)
 	}
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Self::Scalar
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::K>,
 	{
-		C::hash_to_scalar::<E>(input, dst.as_ref()).expect("invalid cipher suite")
+		C::hash_to_scalar::<E>(input, dst.as_ref()).ok()
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -92,11 +92,11 @@ where
 		ProjectivePoint::<C>::generator()
 	}
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Self::Element
+	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::K>,
 	{
-		C::hash_from_bytes::<E>(input, dst.as_ref()).expect("invalid cipher suite")
+		C::hash_from_bytes::<E>(input, dst.as_ref()).ok()
 	}
 
 	fn non_identity_element_from_repr(

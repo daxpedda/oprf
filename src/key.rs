@@ -99,7 +99,7 @@ impl<G: Group> SecretKey<G> {
 				mode,
 				&derive_input.concat([slice::from_ref(&counter)]),
 				Some(b"DeriveKeyPair"),
-			);
+			)?;
 
 			if let Ok(secret_key) = secret_key.try_into() {
 				return Ok(Self(secret_key));

@@ -14,7 +14,7 @@ use zeroize::Zeroize;
 
 use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar};
 use crate::common::Mode;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::internal;
 use crate::util::Concat;
 
@@ -52,7 +52,7 @@ pub trait Group {
 
 	fn scalar_random<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>;
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Self::Scalar
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::K>;
 
@@ -81,7 +81,7 @@ pub trait Group {
 
 	fn element_generator() -> Self::Element;
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Self::Element
+	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::K>;
 
@@ -139,9 +139,9 @@ pub(crate) trait InternalGroup: CipherSuite {
 		mode: Mode,
 		input: &[&[u8]],
 		dst_pre_concat: Option<&'static [u8]>,
-	) -> Scalar<Self>;
+	) -> Result<Scalar<Self>>;
 
-	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Option<NonIdentityElement<Self>>;
+	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>>;
 }
 
 impl<CS: CipherSuite> InternalGroup for CS {
@@ -151,16 +151,18 @@ impl<CS: CipherSuite> InternalGroup for CS {
 		mode: Mode,
 		input: &[&[u8]],
 		dst_pre_concat: Option<&'static [u8]>,
-	) -> Scalar<Self> {
+	) -> Result<Scalar<Self>> {
 		CS::Group::hash_to_scalar::<CS::ExpandMsg>(
 			input,
 			Dst::new::<CS>(mode, dst_pre_concat.unwrap_or(b"HashToScalar-")),
 		)
+		.ok_or(Error::InvalidCipherSuite)
 	}
 
-	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Option<NonIdentityElement<Self>> {
+	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>> {
 		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, Dst::new::<CS>(mode, b"HashToGroup-"))
+			.ok_or(Error::InvalidCipherSuite)?
 			.try_into()
-			.ok()
+			.map_err(|_| Error::InvalidInput)
 	}
 }

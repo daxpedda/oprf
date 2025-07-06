@@ -14,6 +14,7 @@ pub enum Error<E = Infallible> {
 	InfoLength,
 	DeriveKeyPair,
 	InputLength,
+	InvalidCipherSuite,
 	InvalidInput,
 	InvalidInfo,
 	InvalidInfoDanger,
@@ -30,6 +31,7 @@ impl Error {
 			Self::InfoLength => Error::InfoLength,
 			Self::DeriveKeyPair => Error::DeriveKeyPair,
 			Self::InputLength => Error::InputLength,
+			Self::InvalidCipherSuite => Error::InvalidCipherSuite,
 			Self::InvalidInput => Error::InvalidInput,
 			Self::InvalidInfo => Error::InvalidInfo,
 			Self::InvalidInfoDanger => Error::InvalidInfoDanger,
@@ -47,6 +49,10 @@ impl<E: Display> Display for Error<E> {
 			Self::InfoLength => "length of `info` larger than 0xFFFF",
 			Self::DeriveKeyPair => "key can't be derived from the given input",
 			Self::InputLength => "length of `input` larger than 0xFFFF",
+			Self::InvalidCipherSuite => {
+				"the given `CipherSuite` is invalid, `CipherSuite::ExpandMsg` is incompatible with \
+				 the specified `CipherSuite::Group` or `CipherSuite::Hash"
+			}
 			Self::InvalidInput => "the given `input` can't produce a valid `BlindedElement`",
 			Self::InvalidInfo => "the given `info` can't produce a valid `BlindedElement`",
 			Self::InvalidInfoDanger => {

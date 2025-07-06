@@ -130,13 +130,15 @@ where
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
-	let Composites::<CS> { M, Z } = compute_composites(mode, Some(k), B, C, D);
+	let Composites::<CS> { M, Z } =
+		compute_composites(mode, Some(k), B, C, D).map_err(Error::into_random::<R>)?;
 
 	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
 	let t3 = r.into() * &M;
 
-	let c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2.into(), t3);
+	let c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2.into(), t3)
+		.map_err(Error::into_random::<R>)?;
 	let s = r.into() - &(c * k.deref());
 
 	Ok(Proof { c, s })
@@ -158,7 +160,7 @@ where
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
-	let Composites::<CS> { M, Z } = compute_composites(mode, None, B, C, D);
+	let Composites::<CS> { M, Z } = compute_composites(mode, None, B, C, D)?;
 	let Proof { c, s } = proof;
 
 	let t2 = CS::Group::lincomb([
@@ -167,7 +169,7 @@ where
 	]);
 	let t3 = CS::Group::lincomb([(M, *s), (Z, *c)]);
 
-	let expected_c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2, t3);
+	let expected_c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2, t3)?;
 
 	if &expected_c == c {
 		Ok(())
@@ -186,7 +188,7 @@ fn compute_c<CS: CipherSuite>(
 	Z: Element<CS>,
 	t2: Element<CS>,
 	t3: Element<CS>,
-) -> Scalar<CS> {
+) -> Result<Scalar<CS>> {
 	let [Bm, a0, a1, a2, a3] = CS::Group::element_batch_to_repr(&[B, M, Z, t2, t3]);
 
 	CS::hash_to_scalar(
@@ -217,7 +219,7 @@ fn compute_composites<'items, CS>(
 	B: ElementWrapper<'_, CS>,
 	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
 	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
-) -> Composites<CS>
+) -> Result<Composites<CS>>
 where
 	CS: CipherSuite,
 {
@@ -251,7 +253,7 @@ where
 				b"Composite",
 			],
 			None,
-		);
+		)?;
 
 		M = di * Ci.element.deref() + &M;
 
@@ -264,7 +266,7 @@ where
 		Z = k.into() * &M;
 	}
 
-	Composites { M, Z }
+	Ok(Composites { M, Z })
 }
 
 // `CreateContextString`
@@ -294,7 +296,7 @@ where
 		// Fail early.
 		let _ = input.i2osp_length().ok_or(Error::InputLength)?;
 
-		CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)
+		CS::hash_to_curve(mode, input).map_err(Error::into_random::<R>)
 	})?
 	.0;
 
@@ -332,7 +334,7 @@ pub(crate) fn batch_vec_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
 			// Fail early.
 			let _ = input.i2osp_length().ok_or(Error::InputLength)?;
 
-			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+			let input_element = CS::hash_to_curve(mode, input).map_err(Error::into_random::<R>)?;
 
 			// Moved `blind` after to fail early.
 			let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
@@ -474,7 +476,7 @@ where
 		#[expect(clippy::indexing_slicing, reason = "`N` matches")]
 		let input = inputs[index];
 
-		let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+		let input_element = CS::hash_to_curve(mode, input)?;
 		Ok(secret_key * &input_element)
 	})?
 	.0;
@@ -504,7 +506,7 @@ pub(crate) fn batch_vec_evaluate<CS: CipherSuite>(
 	let evaluation_elements = inputs
 		.iter()
 		.map(|input| {
-			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+			let input_element = CS::hash_to_curve(mode, input)?;
 			Ok(secret_key * &input_element)
 		})
 		.collect::<Result<Vec<_>>>()?;

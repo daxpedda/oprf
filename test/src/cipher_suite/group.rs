@@ -45,11 +45,11 @@ impl Group for MockCurve {
 		Ok(NonZeroScalar)
 	}
 
-	fn hash_to_scalar<E>(_: &[&[u8]], _: Dst) -> Self::Scalar
+	fn hash_to_scalar<E>(_: &[&[u8]], _: Dst) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::K>,
 	{
-		Scalar
+		Some(Scalar)
 	}
 
 	fn non_zero_scalar_mul_by_generator(_: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -84,11 +84,11 @@ impl Group for MockCurve {
 		Element
 	}
 
-	fn hash_to_curve<E>(_: &[&[u8]], _: Dst) -> Self::Element
+	fn hash_to_curve<E>(_: &[&[u8]], _: Dst) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::K>,
 	{
-		Element
+		Some(Element)
 	}
 
 	fn scalar_batch_invert<const N: usize>(

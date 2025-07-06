@@ -227,7 +227,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		info: Info<'_>,
 	) -> Result<PublicKey<CS::Group>> {
 		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
-		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None);
+		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
 		let t = CS::Group::scalar_mul_by_generator(&m);
 		let element = (t + public_key.as_point())
 			.try_into()
@@ -258,7 +258,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	pub fn from_key_pair(key_pair: KeyPair<CS::Group>, info: &[u8]) -> Result<Self> {
 		let info = Info::new(info)?;
 		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
-		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None);
+		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
 		// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-6
 		let t = (key_pair.secret_key().to_scalar().into() + &m)
 			.try_into()
