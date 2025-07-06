@@ -385,7 +385,41 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-11
 	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
-		internal::evaluate::<CS>(Mode::Poprf, self.t_inverted, input, Some(Info::new(info)?))
+		let [output] = self.batch_evaluate_fixed(&[input], info)?;
+		Ok(output)
+	}
+
+	// `Evaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	#[cfg(feature = "alloc")]
+	pub fn batch_evaluate(
+		&self,
+		inputs: &[&[&[u8]]],
+		info: &[u8],
+	) -> Result<Vec<Output<CS::Hash>>> {
+		internal::batch_evaluate::<CS>(Mode::Poprf, self.t_inverted, inputs, Some(Info::new(info)?))
+	}
+
+	// `Evaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	pub fn batch_evaluate_fixed<const N: usize>(
+		&self,
+		inputs: &[&[&[u8]]; N],
+		info: &[u8],
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	{
+		internal::batch_evaluate_fixed::<CS, N>(
+			Mode::Poprf,
+			self.t_inverted,
+			inputs,
+			Some(Info::new(info)?),
+		)
 	}
 }
 

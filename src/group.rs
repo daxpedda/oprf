@@ -85,8 +85,6 @@ pub trait Group {
 	where
 		E: ExpandMsg<Self::K>;
 
-	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
-
 	#[cfg(feature = "alloc")]
 	fn non_identity_element_batch_to_repr(
 		elements: &[Self::NonIdentityElement],

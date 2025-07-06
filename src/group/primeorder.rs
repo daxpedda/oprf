@@ -99,10 +99,6 @@ where
 		C::hash_from_bytes::<E>(input, dst.as_ref()).expect("invalid cipher suite")
 	}
 
-	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
-		element.to_bytes()
-	}
-
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {

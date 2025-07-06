@@ -227,7 +227,36 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
 	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<CS::Hash>> {
-		internal::evaluate::<CS>(Mode::Oprf, self.secret_key.to_scalar(), input, None)
+		let [output] = self.batch_evaluate_fixed(&[input])?;
+		Ok(output)
+	}
+
+	// `Evaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+	#[cfg(feature = "alloc")]
+	pub fn batch_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
+		internal::batch_evaluate::<CS>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
+	}
+
+	// `Evaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+	pub fn batch_evaluate_fixed<const N: usize>(
+		&self,
+		inputs: &[&[&[u8]]; N],
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	{
+		internal::batch_evaluate_fixed::<CS, N>(
+			Mode::Oprf,
+			self.secret_key.to_scalar(),
+			inputs,
+			None,
+		)
 	}
 }
 

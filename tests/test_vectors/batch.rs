@@ -15,7 +15,7 @@ test_ciphersuites!(test, Voprf);
 test_ciphersuites!(test, Poprf);
 
 /// Tests batched test vectors.
-#[expect(clippy::too_many_lines, reason = "test")]
+#[expect(clippy::cognitive_complexity, clippy::too_many_lines, reason = "test")]
 fn test<CS: CipherSuite>(mode: Mode) {
 	let mut tests = 0;
 
@@ -150,11 +150,19 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			}
 
 			// Evaluate.
-			for (input, output) in inputs.into_iter().zip(&vector.outputs) {
-				assert_eq!(
-					output,
-					server.evaluate_with(input, INFO).unwrap().as_slice(),
-				);
+			let outputs = server.evaluate_fixed_with::<2>(&inputs, INFO).unwrap();
+
+			for (output, vector_output) in outputs.into_iter().zip(&vector.outputs) {
+				assert_eq!(vector_output, output.as_slice());
+			}
+
+			#[cfg(feature = "alloc")]
+			{
+				let outputs = server.evaluate_with(&inputs, INFO).unwrap();
+
+				for (output, vector_output) in outputs.into_iter().zip(&vector.outputs) {
+					assert_eq!(vector_output, output.as_slice());
+				}
 			}
 		}
 	}

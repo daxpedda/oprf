@@ -3,7 +3,6 @@
 #![cfg(test)]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
-use core::slice;
 use std::iter;
 
 use oprf::cipher_suite::CipherSuite;
@@ -60,16 +59,16 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 			INFO,
 		)
 		.unwrap();
-	let wrong_server_output = server.evaluate_with(&[b"wrong"], INFO).unwrap();
-	assert_ne!(wrong_client_output, slice::from_ref(&wrong_server_output));
+	let wrong_server_output = server.evaluate_fixed_with(&[&[b"wrong"]], INFO).unwrap();
+	assert_ne!(wrong_client_output, wrong_server_output);
 
 	// Failure on wrong input during `Finalize`.
-	let server_output = server.evaluate();
-	assert_ne!(wrong_client_output, [server_output]);
+	let server_output = server.evaluate_fixed();
+	assert_ne!(wrong_client_output, server_output);
 
 	// Failure on wrong input during `Evaluate`.
 	let client_output = clients.finalize_fixed::<1>(&server);
-	assert_ne!(client_output, [wrong_server_output]);
+	assert_ne!(client_output, wrong_server_output);
 }
 
 test_ciphersuites!(info, Poprf);
@@ -92,8 +91,8 @@ fn info_batch<CS: CipherSuite>(_: Mode) {
 	let server = HelperServer::batch_fixed::<1>(&clients);
 
 	let client_output = clients.finalize_fixed::<1>(&server);
-	let server_output = server.evaluate_with(INPUT, b"wrong").unwrap();
-	assert_ne!(client_output, [server_output]);
+	let server_output = server.evaluate_fixed_with(&[INPUT], b"wrong").unwrap();
+	assert_ne!(client_output, server_output);
 }
 
 test_ciphersuites!(server, Oprf);
@@ -121,6 +120,6 @@ fn state_batch<CS: CipherSuite>(_: Mode) {
 	let wrong_server = HelperServer::batch_fixed::<1>(&clients);
 
 	let client_output = clients.finalize_fixed::<1>(&server);
-	let server_output = wrong_server.evaluate();
-	assert_ne!(client_output, [server_output]);
+	let server_output = wrong_server.evaluate_fixed();
+	assert_ne!(client_output, server_output);
 }

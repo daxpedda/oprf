@@ -29,10 +29,10 @@ test_ciphersuites!(batch_fixed, Poprf);
 fn batch_fixed<CS: CipherSuite>(mode: Mode) {
 	let clients = HelperClient::<CS>::batch_fixed::<2>(mode);
 	let server = HelperServer::batch_fixed::<2>(&clients);
-	let client_outputs = clients.finalize_fixed(&server);
-	let server_output = server.evaluate();
+	let client_outputs = clients.finalize_fixed::<2>(&server);
+	let server_output = server.evaluate_fixed();
 
-	assert_eq!(client_outputs, [server_output.clone(), server_output]);
+	assert_eq!(client_outputs, server_output);
 }
 
 #[cfg(feature = "alloc")]
@@ -50,5 +50,5 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	let client_outputs = clients.finalize(&server);
 	let server_output = server.evaluate();
 
-	assert_eq!(client_outputs, [server_output.clone(), server_output]);
+	assert_eq!(client_outputs, server_output);
 }

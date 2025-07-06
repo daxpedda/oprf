@@ -1,5 +1,5 @@
 use core::fmt::{self, Debug, Formatter};
-use core::slice;
+use core::{array, slice};
 
 #[cfg(feature = "serde")]
 use ::serde::de::Error as _;
@@ -163,7 +163,7 @@ impl<G: Group> PublicKey<G> {
 	}
 
 	pub(crate) fn from_point(element: G::NonIdentityElement) -> Self {
-		let repr = G::element_to_repr(&element);
+		let [repr] = G::non_identity_element_batch_to_repr_fixed(array::from_ref(&element));
 
 		Self { element, repr }
 	}

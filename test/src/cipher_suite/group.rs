@@ -102,10 +102,6 @@ impl Group for MockCurve {
 		scalars
 	}
 
-	fn element_to_repr(_: &Self::Element) -> Array<u8, Self::ElementLength> {
-		Array::default()
-	}
-
 	#[cfg(feature = "alloc")]
 	fn non_identity_element_batch_to_repr(
 		elements: &[Self::NonIdentityElement],

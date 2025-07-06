@@ -456,28 +456,85 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 
 // `Evaluate`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
-pub(crate) fn evaluate<CS: CipherSuite>(
+#[cfg(feature = "alloc")]
+pub(crate) fn batch_evaluate<CS: CipherSuite>(
 	mode: Mode,
 	secret_key: NonZeroScalar<CS>,
-	input: &[&[u8]],
+	inputs: &[&[&[u8]]],
 	info: Option<Info<'_>>,
-) -> Result<Output<CS::Hash>> {
-	let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
-	let evaluation_element = secret_key * &input_element;
-	let issued_element = CS::Group::element_to_repr(&evaluation_element);
+) -> Result<Vec<Output<CS::Hash>>> {
+	let evaluation_elements = inputs
+		.iter()
+		.map(|input| {
+			let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+			Ok(secret_key * &input_element)
+		})
+		.collect::<Result<Vec<_>>>()?;
+	let issued_elements = CS::Group::non_identity_element_batch_to_repr(&evaluation_elements);
 
-	let mut hash = CS::Hash::default()
-		.chain(input.i2osp_length().ok_or(Error::InputLength)?)
-		.chain_iter(input.iter().copied());
+	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
+}
 
-	if let Some(info) = info {
-		hash.update(&info.i2osp);
-		hash.update(info.info);
-	}
+// `Evaluate`
+// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+pub(crate) fn batch_evaluate_fixed<CS, const N: usize>(
+	mode: Mode,
+	secret_key: NonZeroScalar<CS>,
+	inputs: &[&[&[u8]]; N],
+	info: Option<Info<'_>>,
+) -> Result<[Output<CS::Hash>; N]>
+where
+	[NonIdentityElement<CS>; N]: AssocArraySize<
+		Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+	>,
+	[Output<CS::Hash>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	CS: CipherSuite,
+{
+	let evaluation_elements = ArrayN::try_from_fn(|index| {
+		#[expect(clippy::indexing_slicing, reason = "`N` matches")]
+		let input = inputs[index];
 
-	Ok(hash
-		.chain(CS::I2OSP_ELEMENT_LEN)
-		.chain(issued_element)
-		.chain(b"Finalize")
-		.finalize_fixed())
+		let input_element = CS::hash_to_curve(mode, input).ok_or(Error::InvalidInput)?;
+		Ok(secret_key * &input_element)
+	})?
+	.0;
+	let issued_elements = CS::Group::non_identity_element_batch_to_repr_fixed(&evaluation_elements);
+
+	let mut outputs = internal_evaluate::<CS>(inputs, &issued_elements, info);
+
+	// Using `Iterator::collect()` can panic!
+	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
+		outputs
+			.next()
+			.expect("should have the same number of items")
+	})?;
+
+	Ok(outputs.0)
+}
+
+fn internal_evaluate<CS: CipherSuite>(
+	inputs: &[&[&[u8]]],
+	issued_elements: &[Array<u8, ElementLength<CS>>],
+	info: Option<Info<'_>>,
+) -> impl Iterator<Item = Result<Output<CS::Hash>>> {
+	inputs
+		.iter()
+		.zip(issued_elements)
+		.map(move |(input, issued_element)| {
+			let mut hash = CS::Hash::default()
+				.chain(input.i2osp_length().ok_or(Error::InputLength)?)
+				.chain_iter(input.iter().copied());
+
+			if let Some(info) = info {
+				hash.update(&info.i2osp);
+				hash.update(info.info);
+			}
+
+			Ok(hash
+				.chain(CS::I2OSP_ELEMENT_LEN)
+				.chain(issued_element)
+				.chain(b"Finalize")
+				.finalize_fixed())
+		})
 }

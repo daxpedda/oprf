@@ -780,15 +780,50 @@ impl<CS: CipherSuite> HelperServerBatch<CS> {
 		self.evaluation_elements.push(evaluation_element);
 	}
 
-	pub fn evaluate(&self) -> Output<CS::Hash> {
-		self.evaluate_with(INPUT, INFO).unwrap()
+	pub fn evaluate_fixed<const N: usize>(&self) -> [Output<CS::Hash>; N]
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	{
+		self.evaluate_fixed_with(&[INPUT; N], INFO).unwrap()
 	}
 
-	pub fn evaluate_with(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
+	pub fn evaluate_fixed_with<const N: usize>(
+		&self,
+		inputs: &[&[&[u8]]],
+		info: &[u8],
+	) -> Result<[Output<CS::Hash>; N]>
+	where
+		[NonIdentityElement<CS>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		>,
+		[Output<CS::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+	{
 		match &self.server {
-			Server::Oprf(server) => server.evaluate(input),
-			Server::Voprf { server, .. } => server.evaluate(input),
-			Server::Poprf { server, .. } => server.evaluate(input, info),
+			Server::Oprf(server) => server.batch_evaluate_fixed(inputs.try_into().unwrap()),
+			Server::Voprf { server, .. } => server.batch_evaluate_fixed(inputs.try_into().unwrap()),
+			Server::Poprf { server, .. } => {
+				server.batch_evaluate_fixed(inputs.try_into().unwrap(), info)
+			}
+		}
+	}
+
+	#[cfg(feature = "alloc")]
+	pub fn evaluate(&self) -> Vec<Output<CS::Hash>> {
+		self.evaluate_with(&vec![INPUT; self.evaluation_elements.len()], INFO)
+			.unwrap()
+	}
+
+	#[cfg(feature = "alloc")]
+	pub fn evaluate_with(&self, inputs: &[&[&[u8]]], info: &[u8]) -> Result<Vec<Output<CS::Hash>>> {
+		match &self.server {
+			Server::Oprf(server) => server.batch_evaluate(inputs),
+			Server::Voprf { server, .. } => server.batch_evaluate(inputs),
+			Server::Poprf { server, .. } => server.batch_evaluate(inputs, info),
 		}
 	}
 }

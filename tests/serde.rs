@@ -4,6 +4,7 @@
 #![cfg(feature = "serde")]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
+use std::array;
 use std::fmt::Debug;
 
 use hybrid_array::Array;
@@ -204,7 +205,7 @@ fn wrong_scalar<CS: CipherSuite>() -> &'static [u8] {
 fn element<CS: CipherSuite>() -> &'static [u8] {
 	let scalar = CS::Group::scalar_random(&mut OsRng).unwrap();
 	let element = CS::Group::scalar_mul_by_generator(&scalar);
-	let element_bytes = CS::Group::element_to_repr(&element);
+	let [element_bytes] = CS::Group::element_batch_to_repr_fixed(array::from_ref(&element));
 	Box::leak(Box::new(element_bytes))
 }
 
