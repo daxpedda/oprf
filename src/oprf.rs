@@ -188,10 +188,40 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
 	#[must_use]
 	pub fn blind_evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
-		let element = self.secret_key.to_scalar() * blinded_element.element();
-		let [evaluation_element] = EvaluationElement::new_batch_fixed(array::from_ref(&element));
-
+		let [evaluation_element] =
+			self.batch_blind_evaluate_fixed(array::from_ref(blinded_element));
 		evaluation_element
+	}
+
+	// `BlindEvaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
+	#[must_use]
+	#[cfg(feature = "alloc")]
+	pub fn batch_blind_evaluate<'blinded_elements, I>(
+		&self,
+		blinded_elements: I,
+	) -> Vec<EvaluationElement<CS>>
+	where
+		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
+	{
+		let elements: Vec<_> = blinded_elements
+			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.element())
+			.collect();
+		EvaluationElement::new_batch(elements)
+	}
+
+	// `BlindEvaluate`
+	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
+	#[must_use]
+	pub fn batch_blind_evaluate_fixed<const N: usize>(
+		&self,
+		blinded_elements: &[BlindedElement<CS>; N],
+	) -> [EvaluationElement<CS>; N] {
+		let elements = blinded_elements
+			.iter()
+			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.element())
+			.collect_array();
+		EvaluationElement::new_batch_fixed(&elements)
 	}
 
 	// `Evaluate`

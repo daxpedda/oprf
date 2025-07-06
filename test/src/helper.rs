@@ -610,14 +610,12 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let evaluation_elements = blinded_elements
-					.iter()
-					.map(|blinded_element| server.blind_evaluate(blinded_element))
-					.collect();
+				let evaluation_elements =
+					server.batch_blind_evaluate_fixed::<N>(blinded_elements.try_into().unwrap());
 
 				Ok(HelperServerBatch {
 					server: Server::Oprf(server),
-					evaluation_elements,
+					evaluation_elements: evaluation_elements.to_vec(),
 				})
 			}
 			Mode::Voprf => {
@@ -688,10 +686,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let evaluation_elements = blinded_elements
-					.iter()
-					.map(|blinded_element| server.blind_evaluate(blinded_element))
-					.collect();
+				let evaluation_elements = server.batch_blind_evaluate(blinded_elements.iter());
 
 				Ok(HelperServerBatch {
 					server: Server::Oprf(server),
