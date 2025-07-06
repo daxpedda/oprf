@@ -13,7 +13,7 @@ use std::iter;
 use oprf::Error;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
-use oprf_test::{HelperClient, HelperServer, INFO, test_ciphersuites};
+use oprf_test::{CommonClient, CommonServer, INFO, test_ciphersuites};
 #[cfg(feature = "alloc")]
 use oprf_test::{INPUT, MockCs};
 
@@ -22,15 +22,15 @@ test_ciphersuites!(empty, Poprf);
 
 /// Tests correct failure on empty iterators when using batching methods.
 fn empty<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch::<1>(mode);
+	let clients = CommonClient::<CS>::batch::<1>(mode);
 
 	// Failure on zero blinded elements.
 	if let Mode::Voprf | Mode::Poprf = mode {
-		let result = HelperServer::<CS>::batch_with::<0>(mode, None, &[], None, INFO);
+		let result = CommonServer::<CS>::batch_with::<0>(mode, None, &[], None, INFO);
 		assert_eq!(result.unwrap_err(), Error::Batch);
 	}
 
-	let server = HelperServer::<CS>::batch::<1>(&clients);
+	let server = CommonServer::<CS>::batch::<1>(&clients);
 
 	// Failure on equal but zero elements for all parameters.
 	let result = clients.finalize_with::<0>(server.public_key(), &[], &[], server.proof(), INFO);
@@ -96,8 +96,8 @@ test_ciphersuites!(unequal, Poprf);
 // Not possible to pass unequal parameters to fixed array API.
 #[cfg(feature = "alloc")]
 fn unequal<CS: CipherSuite>(mode: Mode) {
-	let clients = HelperClient::<CS>::batch::<2>(mode);
-	let server = HelperServer::<CS>::batch::<2>(&clients);
+	let clients = CommonClient::<CS>::batch::<2>(mode);
+	let server = CommonServer::<CS>::batch::<2>(&clients);
 
 	// Failure on unequal clients.
 	let result = clients.finalize_vec_with(
@@ -172,14 +172,14 @@ fn max_poprf() {
 // `hybrid-array` doesn't support sized this big.
 #[cfg(feature = "alloc")]
 fn max(mode: Mode) {
-	let clients = HelperClient::<MockCs>::batch_clone(mode, usize::from(u16::MAX) + 1);
+	let clients = CommonClient::<MockCs>::batch_clone(mode, usize::from(u16::MAX) + 1);
 
 	// Failure on overflowing blinded elements with `alloc`.
-	let result = HelperServer::batch_vec_with(mode, None, clients.blinded_elements(), None, INFO);
+	let result = CommonServer::batch_vec_with(mode, None, clients.blinded_elements(), None, INFO);
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Success on maximum number of elements.
-	let mut server = HelperServer::batch_vec_with(
+	let mut server = CommonServer::batch_vec_with(
 		mode,
 		None,
 		&clients.blinded_elements()[..u16::MAX.into()],

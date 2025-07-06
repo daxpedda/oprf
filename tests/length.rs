@@ -14,7 +14,7 @@ use std::sync::LazyLock;
 use oprf::Error;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
-use oprf_test::{HelperClient, HelperServer, test_ciphersuites};
+use oprf_test::{CommonClient, CommonServer, test_ciphersuites};
 
 static TEST: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; usize::from(u16::MAX) + 1]);
 
@@ -25,21 +25,21 @@ test_ciphersuites!(basic, Poprf);
 /// Tests correct failure on invalid `input` and `info` length.
 fn basic<CS: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
-	let result = HelperClient::<CS>::blind_with(mode, None, &[&TEST]);
+	let result = CommonClient::<CS>::blind_with(mode, None, &[&TEST]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Success on maximum length of input.
-	let client = HelperClient::<CS>::blind_with(mode, None, &[&TEST[..u16::MAX.into()]]).unwrap();
+	let client = CommonClient::<CS>::blind_with(mode, None, &[&TEST[..u16::MAX.into()]]).unwrap();
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
 		let result =
-			HelperServer::blind_evaluate_with(mode, None, client.blinded_element(), None, &TEST);
+			CommonServer::blind_evaluate_with(mode, None, client.blinded_element(), None, &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
-	let server = HelperServer::blind_evaluate_with(
+	let server = CommonServer::blind_evaluate_with(
 		mode,
 		None,
 		client.blinded_element(),
@@ -106,23 +106,23 @@ test_ciphersuites!(batch, Poprf);
 #[expect(clippy::too_many_lines, reason = "test")]
 fn batch<CS: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
-	let result = HelperClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST]]);
+	let result = CommonClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST]]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large input with `alloc`.
 	#[cfg(feature = "alloc")]
 	assert_eq!(
-		HelperClient::<CS>::batch_vec_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
+		CommonClient::<CS>::batch_vec_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
 		Err(Error::InputLength)
 	);
 
 	// Success on maximum length of input.
 	let clients =
-		HelperClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]]).unwrap();
+		CommonClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]]).unwrap();
 
 	// Success on maximum length of input with `alloc`.
 	#[cfg(feature = "alloc")]
-	HelperClient::<CS>::batch_vec_with(
+	CommonClient::<CS>::batch_vec_with(
 		mode,
 		None,
 		iter::once([&TEST[..u16::MAX.into()]].as_slice()),
@@ -132,12 +132,12 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
 		let result =
-			HelperServer::batch_with::<1>(mode, None, clients.blinded_elements(), None, &TEST);
+			CommonServer::batch_with::<1>(mode, None, clients.blinded_elements(), None, &TEST);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of info.
-	let server = HelperServer::batch_with::<1>(
+	let server = CommonServer::batch_with::<1>(
 		mode,
 		None,
 		clients.blinded_elements(),

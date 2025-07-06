@@ -9,11 +9,11 @@
 )]
 
 pub mod cipher_suite;
-pub mod helper;
+pub mod common;
 mod rng;
 
 pub use self::cipher_suite::MockCs;
-pub use self::helper::{HelperClient, HelperServer};
+pub use self::common::{CommonClient, CommonServer};
 
 /// Generates `#[test]` functions pre-fixed with the given `name` for all
 /// available [`CipherSuite`]s and passes the appropriate

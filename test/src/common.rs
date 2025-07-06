@@ -58,7 +58,7 @@ enum Client<CS: CipherSuite> {
 
 /// Wrapper around clients in all [`Mode`]s and their `Blind` output.
 #[derive_where(Debug)]
-pub struct HelperClient<CS: CipherSuite> {
+pub struct CommonClient<CS: CipherSuite> {
 	client: Client<CS>,
 	blinded_element: BlindedElement<CS>,
 }
@@ -73,7 +73,7 @@ enum ClientBatch<CS: CipherSuite> {
 
 /// Wrapper around multiple clients in all [`Mode`]s and their `Blind` output.
 #[derive_where(Debug, Eq, PartialEq)]
-pub struct HelperClientBatch<CS: CipherSuite> {
+pub struct CommonClientBatch<CS: CipherSuite> {
 	clients: ClientBatch<CS>,
 	blinded_elements: Vec<BlindedElement<CS>>,
 }
@@ -95,7 +95,7 @@ enum Server<CS: CipherSuite> {
 
 /// Wrapper around servers in all [`Mode`]s and their `BlindEvalaute` output.
 #[derive_where(Debug)]
-pub struct HelperServer<CS: CipherSuite> {
+pub struct CommonServer<CS: CipherSuite> {
 	server: Server<CS>,
 	evaluation_element: EvaluationElement<CS>,
 }
@@ -103,12 +103,12 @@ pub struct HelperServer<CS: CipherSuite> {
 /// Wrapper around servers in all [`Mode`]s and their batched `BlindEvalaute`
 /// output.
 #[derive_where(Debug, Eq, PartialEq)]
-pub struct HelperServerBatch<CS: CipherSuite> {
+pub struct CommonServerBatch<CS: CipherSuite> {
 	server: Server<CS>,
 	evaluation_elements: Vec<EvaluationElement<CS>>,
 }
 
-impl<CS: CipherSuite> HelperClient<CS> {
+impl<CS: CipherSuite> CommonClient<CS> {
 	#[must_use]
 	pub const fn blinded_element(&self) -> &BlindedElement<CS> {
 		&self.blinded_element
@@ -164,7 +164,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 	}
 
 	#[must_use]
-	pub fn batch<const N: usize>(mode: Mode) -> HelperClientBatch<CS>
+	pub fn batch<const N: usize>(mode: Mode) -> CommonClientBatch<CS>
 	where
 		[NonIdentityElement<CS>; N]: AssocArraySize<
 			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
@@ -179,7 +179,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 		mode: Mode,
 		blinds: Option<&[&[u8]; N]>,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<HelperClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<CommonClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
 	where
 		[NonIdentityElement<CS>; N]: AssocArraySize<
 			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
@@ -202,7 +202,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 					blinded_elements,
 				} = OprfClient::batch_blind(&mut rng, inputs)?;
 
-				Ok(HelperClientBatch {
+				Ok(CommonClientBatch {
 					clients: ClientBatch::Oprf(clients.to_vec()),
 					blinded_elements: blinded_elements.to_vec(),
 				})
@@ -213,7 +213,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 					blinded_elements,
 				} = VoprfClient::batch_blind(&mut rng, inputs)?;
 
-				Ok(HelperClientBatch {
+				Ok(CommonClientBatch {
 					clients: ClientBatch::Voprf(clients.to_vec()),
 					blinded_elements: blinded_elements.to_vec(),
 				})
@@ -224,7 +224,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 					blinded_elements,
 				} = PoprfClient::batch_blind(&mut rng, inputs)?;
 
-				Ok(HelperClientBatch {
+				Ok(CommonClientBatch {
 					clients: ClientBatch::Poprf(clients.to_vec()),
 					blinded_elements: blinded_elements.to_vec(),
 				})
@@ -234,7 +234,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec(mode: Mode, count: usize) -> HelperClientBatch<CS> {
+	pub fn batch_vec(mode: Mode, count: usize) -> CommonClientBatch<CS> {
 		Self::batch_vec_with(mode, None, iter::repeat_n(INPUT, count)).unwrap()
 	}
 
@@ -243,7 +243,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 		mode: Mode,
 		blinds: Option<&[&[u8]]>,
 		inputs: I,
-	) -> Result<HelperClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<CommonClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
 	where
 		I: ExactSizeIterator<Item = &'input [&'input [u8]]>,
 	{
@@ -262,7 +262,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 					blinded_elements,
 				} = OprfClient::batch_vec_blind(&mut rng, inputs)?;
 
-				Ok(HelperClientBatch {
+				Ok(CommonClientBatch {
 					clients: ClientBatch::Oprf(clients),
 					blinded_elements,
 				})
@@ -273,7 +273,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 					blinded_elements,
 				} = VoprfClient::batch_vec_blind(&mut rng, inputs)?;
 
-				Ok(HelperClientBatch {
+				Ok(CommonClientBatch {
 					clients: ClientBatch::Voprf(clients),
 					blinded_elements,
 				})
@@ -284,7 +284,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 					blinded_elements,
 				} = PoprfClient::batch_vec_blind(&mut rng, inputs)?;
 
-				Ok(HelperClientBatch {
+				Ok(CommonClientBatch {
 					clients: ClientBatch::Poprf(clients),
 					blinded_elements,
 				})
@@ -293,13 +293,13 @@ impl<CS: CipherSuite> HelperClient<CS> {
 	}
 
 	#[must_use]
-	pub fn batch_clone(mode: Mode, count: usize) -> HelperClientBatch<CS> {
+	pub fn batch_clone(mode: Mode, count: usize) -> CommonClientBatch<CS> {
 		let Self {
 			client,
 			blinded_element,
 		} = Self::blind(mode);
 
-		HelperClientBatch {
+		CommonClientBatch {
 			clients: match client {
 				Client::Oprf(_) => panic!("OPRF doesn't have batching functionality"),
 				Client::Voprf(client) => ClientBatch::Voprf(vec![client; count]),
@@ -310,7 +310,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 	}
 
 	#[must_use]
-	pub fn finalize(&self, server: &HelperServer<CS>) -> Output<CS::Hash> {
+	pub fn finalize(&self, server: &CommonServer<CS>) -> Output<CS::Hash> {
 		self.finalize_with(
 			server.public_key(),
 			INPUT,
@@ -348,7 +348,7 @@ impl<CS: CipherSuite> HelperClient<CS> {
 	}
 }
 
-impl<CS: CipherSuite> HelperClientBatch<CS> {
+impl<CS: CipherSuite> CommonClientBatch<CS> {
 	#[must_use]
 	const fn mode(&self) -> Mode {
 		match self.clients {
@@ -371,7 +371,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		}
 	}
 
-	pub fn finalize<const N: usize>(&self, server: &HelperServerBatch<CS>) -> [Output<CS::Hash>; N]
+	pub fn finalize<const N: usize>(&self, server: &CommonServerBatch<CS>) -> [Output<CS::Hash>; N]
 	where
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
@@ -423,7 +423,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn finalize_vec(&self, server: &HelperServerBatch<CS>) -> Vec<Output<CS::Hash>> {
+	pub fn finalize_vec(&self, server: &CommonServerBatch<CS>) -> Vec<Output<CS::Hash>> {
 		self.finalize_vec_with(
 			..,
 			server.public_key(),
@@ -477,7 +477,7 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 	}
 }
 
-impl<CS: CipherSuite> HelperServer<CS> {
+impl<CS: CipherSuite> CommonServer<CS> {
 	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
 		match &self.server {
@@ -510,14 +510,14 @@ impl<CS: CipherSuite> HelperServer<CS> {
 	}
 
 	#[must_use]
-	pub fn blind_evaluate(helper: &HelperClient<CS>) -> Self {
-		let mode = match &helper.client {
+	pub fn blind_evaluate(client: &CommonClient<CS>) -> Self {
+		let mode = match &client.client {
 			Client::Oprf(_) => Mode::Oprf,
 			Client::Voprf(_) => Mode::Voprf,
 			Client::Poprf(_) => Mode::Poprf,
 		};
 
-		Self::blind_evaluate_with(mode, None, helper.blinded_element(), None, INFO).unwrap()
+		Self::blind_evaluate_with(mode, None, client.blinded_element(), None, INFO).unwrap()
 	}
 
 	pub fn blind_evaluate_with(
@@ -583,7 +583,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 	}
 
 	#[must_use]
-	pub fn batch<const N: usize>(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
+	pub fn batch<const N: usize>(clients: &CommonClientBatch<CS>) -> CommonServerBatch<CS> {
 		Self::batch_with::<N>(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
 	}
 
@@ -593,7 +593,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		blinded_elements: &[BlindedElement<CS>],
 		r: Option<&[u8]>,
 		info: &[u8],
-	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
+	) -> Result<CommonServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
 		match mode {
@@ -607,7 +607,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				let evaluation_elements =
 					server.batch_blind_evaluate::<N>(blinded_elements.try_into().unwrap());
 
-				Ok(HelperServerBatch {
+				Ok(CommonServerBatch {
 					server: Server::Oprf(server),
 					evaluation_elements: evaluation_elements.to_vec(),
 				})
@@ -625,7 +625,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				} = server
 					.batch_blind_evaluate::<_, N>(&mut rng, blinded_elements.try_into().unwrap())?;
 
-				Ok(HelperServerBatch {
+				Ok(CommonServerBatch {
 					server: Server::Voprf { server, proof },
 					evaluation_elements: evaluation_elements.to_vec(),
 				})
@@ -644,7 +644,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 				} = server
 					.batch_blind_evaluate::<_, N>(&mut rng, blinded_elements.try_into().unwrap())?;
 
-				Ok(HelperServerBatch {
+				Ok(CommonServerBatch {
 					server: Server::Poprf { server, proof },
 					evaluation_elements: evaluation_elements.to_vec(),
 				})
@@ -654,7 +654,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec(clients: &HelperClientBatch<CS>) -> HelperServerBatch<CS> {
+	pub fn batch_vec(clients: &CommonClientBatch<CS>) -> CommonServerBatch<CS> {
 		Self::batch_vec_with(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
 	}
 
@@ -665,7 +665,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 		blinded_elements: &[BlindedElement<CS>],
 		r: Option<&[u8]>,
 		info: &[u8],
-	) -> Result<HelperServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
+	) -> Result<CommonServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
 		match mode {
@@ -678,7 +678,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 
 				let evaluation_elements = server.batch_vec_blind_evaluate(blinded_elements.iter());
 
-				Ok(HelperServerBatch {
+				Ok(CommonServerBatch {
 					server: Server::Oprf(server),
 					evaluation_elements,
 				})
@@ -695,7 +695,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					proof,
 				} = server.batch_vec_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
-				Ok(HelperServerBatch {
+				Ok(CommonServerBatch {
 					server: Server::Voprf { server, proof },
 					evaluation_elements,
 				})
@@ -713,7 +713,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					proof,
 				} = server.batch_vec_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
-				Ok(HelperServerBatch {
+				Ok(CommonServerBatch {
 					server: Server::Poprf { server, proof },
 					evaluation_elements,
 				})
@@ -734,7 +734,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 	}
 }
 
-impl<CS: CipherSuite> HelperServerBatch<CS> {
+impl<CS: CipherSuite> CommonServerBatch<CS> {
 	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
 		match &self.server {

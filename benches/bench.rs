@@ -11,7 +11,7 @@ use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::group::Group;
 use oprf::key::{PublicKey, SecretKey};
-use oprf_test::{HelperClient, HelperServer, INFO, INPUT};
+use oprf_test::{CommonClient, CommonServer, INFO, INPUT};
 use p256::NistP256;
 use p384::NistP384;
 use p521::NistP521;
@@ -43,11 +43,11 @@ fn bench<CS: CipherSuite>(group: &mut BenchmarkGroup<'_, WallTime>, mode: Mode) 
 				(blind, secret_key, r)
 			},
 			|(blind, secret_key, r)| {
-				let client = HelperClient::<CS>::blind_with(mode, Some(&blind), INPUT).unwrap();
+				let client = CommonClient::<CS>::blind_with(mode, Some(&blind), INPUT).unwrap();
 				let blinded_element = client.blinded_element().as_repr();
 
 				let blinded_element = BlindedElement::from_repr(blinded_element).unwrap();
-				let server = HelperServer::<CS>::blind_evaluate_with(
+				let server = CommonServer::<CS>::blind_evaluate_with(
 					mode,
 					Some(secret_key),
 					&blinded_element,

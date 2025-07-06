@@ -9,16 +9,16 @@ use std::iter;
 use oprf::Error;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
-use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
+use oprf_test::{CommonClient, CommonServer, INFO, INPUT, test_ciphersuites};
 
 test_ciphersuites!(basic, Voprf);
 test_ciphersuites!(basic, Poprf);
 
 /// Tests correct failure if the [`Proof`] is invalid.
 fn basic<CS: CipherSuite>(mode: Mode) {
-	let client = HelperClient::<CS>::blind(mode);
-	let server = HelperServer::<CS>::blind_evaluate(&client);
-	let wrong_server = HelperServer::<CS>::blind_evaluate_with(
+	let client = CommonClient::<CS>::blind(mode);
+	let server = CommonServer::<CS>::blind_evaluate(&client);
+	let wrong_server = CommonServer::<CS>::blind_evaluate_with(
 		mode,
 		None,
 		client.blinded_element(),
@@ -76,9 +76,9 @@ test_ciphersuites!(batch, Poprf);
 /// Tests correct failure if the [`Proof`] is invalid when using batching
 /// methods.
 fn batch<CS: CipherSuite>(mode: Mode) {
-	let client = HelperClient::<CS>::batch::<1>(mode);
-	let server = HelperServer::<CS>::batch::<1>(&client);
-	let wrong_server = HelperServer::<CS>::batch::<1>(&client);
+	let client = CommonClient::<CS>::batch::<1>(mode);
+	let server = CommonServer::<CS>::batch::<1>(&client);
+	let wrong_server = CommonServer::<CS>::batch::<1>(&client);
 
 	// Failure on wrong public key.
 	let result = client.finalize_with::<1>(
@@ -132,9 +132,9 @@ test_ciphersuites!(batch_alloc, Poprf);
 /// methods with alloc.
 #[cfg(feature = "alloc")]
 fn batch_alloc<CS: CipherSuite>(mode: Mode) {
-	let client = HelperClient::<CS>::batch_vec(mode, 1);
-	let server = HelperServer::<CS>::batch_vec(&client);
-	let wrong_server = HelperServer::<CS>::batch_vec(&client);
+	let client = CommonClient::<CS>::batch_vec(mode, 1);
+	let server = CommonServer::<CS>::batch_vec(&client);
+	let wrong_server = CommonServer::<CS>::batch_vec(&client);
 
 	// Failure on wrong public key.
 	let result = client.finalize_vec_with(

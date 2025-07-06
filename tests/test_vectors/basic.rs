@@ -5,7 +5,7 @@ use std::ops::Deref;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::key::{KeyPair, PublicKey, SecretKey};
-use oprf_test::{HelperClient, HelperServer, INFO, test_ciphersuites};
+use oprf_test::{CommonClient, CommonServer, INFO, test_ciphersuites};
 
 use super::parse::{TEST_VECTORS, Vector};
 use crate::{KEY_INFO, SEED};
@@ -32,7 +32,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			// Blind.
 			let client =
-				HelperClient::<CS>::blind_with(mode, Some(&vector.blind), &[&vector.input])
+				CommonClient::<CS>::blind_with(mode, Some(&vector.blind), &[&vector.input])
 					.unwrap();
 
 			assert_eq!(
@@ -45,7 +45,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			);
 
 			// Blind evaluate.
-			let server = HelperServer::blind_evaluate_with(
+			let server = CommonServer::blind_evaluate_with(
 				mode,
 				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 				client.blinded_element(),

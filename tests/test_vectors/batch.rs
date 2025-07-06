@@ -6,7 +6,7 @@ use std::slice;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::key::{KeyPair, PublicKey, SecretKey};
-use oprf_test::{HelperClient, HelperServer, INFO, test_ciphersuites};
+use oprf_test::{CommonClient, CommonServer, INFO, test_ciphersuites};
 
 use super::parse::{TEST_VECTORS, Vector};
 use crate::{KEY_INFO, SEED};
@@ -35,7 +35,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			let vector_proof = vector.proof.as_ref().expect("unexpected missing proof");
 
 			// Blind.
-			let clients = HelperClient::<CS>::batch_with(
+			let clients = CommonClient::<CS>::batch_with(
 				mode,
 				Some(&vector.blinds.each_ref().map(Vec::as_slice)),
 				&inputs,
@@ -44,7 +44,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_clients = HelperClient::<CS>::batch_vec_with(
+				let alloc_clients = CommonClient::<CS>::batch_vec_with(
 					mode,
 					Some(vector.blinds.each_ref().map(Vec::as_slice).as_slice()),
 					inputs.into_iter(),
@@ -67,7 +67,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			}
 
 			// Blind evaluate.
-			let server = HelperServer::batch_with::<2>(
+			let server = CommonServer::batch_with::<2>(
 				mode,
 				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 				clients.blinded_elements(),
@@ -122,7 +122,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_server = HelperServer::batch_vec_with(
+				let alloc_server = CommonServer::batch_vec_with(
 					mode,
 					Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 					clients.blinded_elements(),
