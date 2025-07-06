@@ -17,7 +17,11 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[cfg(feature = "serde")]
 use crate::cipher_suite::ElementLength;
 use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
-use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
+#[cfg(feature = "alloc")]
+use crate::common::BatchVecBlindEvaluateResult;
+use crate::common::{
+	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
+};
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
 use crate::internal::BatchVecBlindResult;
@@ -250,16 +254,16 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_element: &BlindedElement<CS>,
-	) -> Result<VoprfBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BlindEvaluateResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
-		let VoprfBatchBlindEvaluateResult {
+		let BatchBlindEvaluateResult {
 			evaluation_elements: [evaluation_element],
 			proof,
 		} = self.batch_blind_evaluate(rng, array::from_ref(blinded_element))?;
 
-		Ok(VoprfBlindEvaluateResult {
+		Ok(BlindEvaluateResult {
 			evaluation_element,
 			proof,
 		})
@@ -272,7 +276,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: &[BlindedElement<CS>; N],
-	) -> Result<VoprfBatchBlindEvaluateResult<CS, N>, Error<R::Error>>
+	) -> Result<BatchBlindEvaluateResult<CS, N>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -300,7 +304,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			d,
 		)?;
 
-		Ok(VoprfBatchBlindEvaluateResult {
+		Ok(BatchBlindEvaluateResult {
 			evaluation_elements,
 			proof,
 		})
@@ -314,7 +318,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: I,
-	) -> Result<VoprfBatchVecBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BatchVecBlindEvaluateResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
@@ -342,7 +346,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			d,
 		)?;
 
-		Ok(VoprfBatchVecBlindEvaluateResult {
+		Ok(BatchVecBlindEvaluateResult {
 			evaluation_elements,
 			proof,
 		})
@@ -403,22 +407,6 @@ pub struct VoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
 pub struct VoprfBatchVecBlindResult<CS: CipherSuite> {
 	pub clients: Vec<VoprfClient<CS>>,
 	pub blinded_elements: Vec<BlindedElement<CS>>,
-}
-
-pub struct VoprfBlindEvaluateResult<CS: CipherSuite> {
-	pub evaluation_element: EvaluationElement<CS>,
-	pub proof: Proof<CS>,
-}
-
-pub struct VoprfBatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
-	pub evaluation_elements: [EvaluationElement<CS>; N],
-	pub proof: Proof<CS>,
-}
-
-#[cfg(feature = "alloc")]
-pub struct VoprfBatchVecBlindEvaluateResult<CS: CipherSuite> {
-	pub evaluation_elements: Vec<EvaluationElement<CS>>,
-	pub proof: Proof<CS>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -592,41 +580,3 @@ impl<CS: CipherSuite> Debug for VoprfBatchVecBlindResult<CS> {
 
 #[cfg(feature = "alloc")]
 impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBatchVecBlindResult<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite + Debug> Debug for VoprfBlindEvaluateResult<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("VoprfBlindEvaluateResult")
-			.field("evaluation_element", &self.evaluation_element)
-			.field("proof", &self.proof)
-			.finish()
-	}
-}
-
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBlindEvaluateResult<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for VoprfBatchBlindEvaluateResult<CS, N> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("VoprfBatchBlindEvaluateResult")
-			.field("evaluation_elements", &self.evaluation_elements)
-			.field("proof", &self.proof)
-			.finish()
-	}
-}
-
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for VoprfBatchBlindEvaluateResult<CS, N> {}
-
-#[cfg(feature = "alloc")]
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for VoprfBatchVecBlindEvaluateResult<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("VoprfBatchVecBlindEvaluateResult")
-			.field("evaluation_elements", &self.evaluation_elements)
-			.field("proof", &self.proof)
-			.finish()
-	}
-}
-
-#[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBatchVecBlindEvaluateResult<CS> {}

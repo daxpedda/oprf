@@ -14,24 +14,22 @@ use std::{error, io};
 
 use oprf::Error;
 use oprf::cipher_suite::{CipherSuite, Id};
-use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
+#[cfg(feature = "alloc")]
+use oprf::common::BatchVecBlindEvaluateResult;
+use oprf::common::{
+	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
+};
 use oprf::group::Dst;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
 use oprf::oprf::OprfBatchVecBlindResult;
 use oprf::oprf::{OprfBatchBlindResult, OprfBlindResult, OprfClient, OprfServer};
-use oprf::poprf::{
-	PoprfBatchBlindEvaluateResult, PoprfBatchBlindResult, PoprfBlindEvaluateResult,
-	PoprfBlindResult, PoprfClient, PoprfServer,
-};
 #[cfg(feature = "alloc")]
-use oprf::poprf::{PoprfBatchVecBlindEvaluateResult, PoprfBatchVecBlindResult};
-use oprf::voprf::{
-	VoprfBatchBlindEvaluateResult, VoprfBatchBlindResult, VoprfBlindEvaluateResult,
-	VoprfBlindResult, VoprfClient, VoprfServer,
-};
+use oprf::poprf::PoprfBatchVecBlindResult;
+use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfServer};
 #[cfg(feature = "alloc")]
-use oprf::voprf::{VoprfBatchVecBlindEvaluateResult, VoprfBatchVecBlindResult};
+use oprf::voprf::VoprfBatchVecBlindResult;
+use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
 use p256::NistP256;
 use p384::NistP384;
 use p521::NistP521;
@@ -49,6 +47,10 @@ macro_rules! test_ciphersuite {
 				api!(BlindedElement<$cs>);
 				api!(EvaluationElement<$cs>);
 				api!(Proof<$cs>);
+				result!(BlindEvaluateResult<$cs>);
+				result!(BatchBlindEvaluateResult<$cs, 1>);
+				#[cfg(feature = "alloc")]
+				result!(BatchVecBlindEvaluateResult<$cs>);
 
 				api!(KeyPair<<$cs as CipherSuite>::Group>);
 				api!(SecretKey<<$cs as CipherSuite>::Group>);
@@ -67,10 +69,6 @@ macro_rules! test_ciphersuite {
 				result!(VoprfBatchBlindResult<$cs, 1>);
 				#[cfg(feature = "alloc")]
 				result!(VoprfBatchVecBlindResult<$cs>);
-				result!(VoprfBlindEvaluateResult<$cs>);
-				assert_impl_all!(VoprfBatchBlindEvaluateResult<$cs, 1>: Debug);
-				#[cfg(feature = "alloc")]
-				result!(VoprfBatchVecBlindEvaluateResult<$cs>);
 
 				api!(PoprfClient<$cs>);
 				api!(PoprfServer<$cs>);
@@ -78,10 +76,6 @@ macro_rules! test_ciphersuite {
 				result!(PoprfBatchBlindResult<$cs, 1>);
 				#[cfg(feature = "alloc")]
 				result!(PoprfBatchVecBlindResult<$cs>);
-				result!(PoprfBlindEvaluateResult<$cs>);
-				assert_impl_all!(PoprfBatchBlindEvaluateResult<$cs, 1>: Debug);
-				#[cfg(feature = "alloc")]
-				result!(PoprfBatchVecBlindEvaluateResult<$cs>);
 			}
 		}
 	};

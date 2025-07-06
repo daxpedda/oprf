@@ -3,6 +3,7 @@
 #![cfg(test)]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
+#[cfg(feature = "alloc")]
 use std::iter;
 
 use oprf::Error;

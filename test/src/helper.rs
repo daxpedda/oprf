@@ -12,6 +12,7 @@
 	expect(clippy::missing_docs_in_private_items, reason = "tests")
 )]
 
+#[cfg(feature = "alloc")]
 use std::iter;
 #[cfg(feature = "alloc")]
 use std::slice::SliceIndex;
@@ -20,24 +21,22 @@ use derive_where::derive_where;
 use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use oprf::cipher_suite::CipherSuite;
-use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
+#[cfg(feature = "alloc")]
+use oprf::common::BatchVecBlindEvaluateResult;
+use oprf::common::{
+	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
+};
 use oprf::group::Group;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
 use oprf::oprf::OprfBatchVecBlindResult;
 use oprf::oprf::{OprfBatchBlindResult, OprfBlindResult, OprfClient, OprfServer};
-use oprf::poprf::{
-	PoprfBatchBlindEvaluateResult, PoprfBatchBlindResult, PoprfBlindEvaluateResult,
-	PoprfBlindResult, PoprfClient, PoprfServer,
-};
 #[cfg(feature = "alloc")]
-use oprf::poprf::{PoprfBatchVecBlindEvaluateResult, PoprfBatchVecBlindResult};
-use oprf::voprf::{
-	VoprfBatchBlindEvaluateResult, VoprfBatchBlindResult, VoprfBlindEvaluateResult,
-	VoprfBlindResult, VoprfClient, VoprfServer,
-};
+use oprf::poprf::PoprfBatchVecBlindResult;
+use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfServer};
 #[cfg(feature = "alloc")]
-use oprf::voprf::{VoprfBatchVecBlindEvaluateResult, VoprfBatchVecBlindResult};
+use oprf::voprf::VoprfBatchVecBlindResult;
+use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
 use oprf::{Error, Result};
 use rand::TryRngCore;
 use rand::rngs::OsRng;
@@ -552,7 +551,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let VoprfBlindEvaluateResult {
+				let BlindEvaluateResult {
 					evaluation_element,
 					proof,
 				} = server.blind_evaluate(&mut rng, blinded_element)?;
@@ -570,7 +569,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					PoprfServer::new(&mut OsRng, info)?
 				};
 
-				let PoprfBlindEvaluateResult {
+				let BlindEvaluateResult {
 					evaluation_element,
 					proof,
 				} = server.blind_evaluate(&mut rng, blinded_element)?;
@@ -620,7 +619,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let VoprfBatchBlindEvaluateResult {
+				let BatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
 				} = server
@@ -639,7 +638,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					PoprfServer::new(&mut OsRng, info)?
 				};
 
-				let PoprfBatchBlindEvaluateResult {
+				let BatchBlindEvaluateResult {
 					evaluation_elements,
 					proof,
 				} = server
@@ -691,7 +690,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let VoprfBatchVecBlindEvaluateResult {
+				let BatchVecBlindEvaluateResult {
 					evaluation_elements,
 					proof,
 				} = server.batch_vec_blind_evaluate(&mut rng, blinded_elements.iter())?;
@@ -709,7 +708,7 @@ impl<CS: CipherSuite> HelperServer<CS> {
 					PoprfServer::new(&mut OsRng, info)?
 				};
 
-				let PoprfBatchVecBlindEvaluateResult {
+				let BatchVecBlindEvaluateResult {
 					evaluation_elements,
 					proof,
 				} = server.batch_vec_blind_evaluate(&mut rng, blinded_elements.iter())?;

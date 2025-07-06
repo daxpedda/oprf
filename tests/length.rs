@@ -7,6 +7,7 @@
 	reason = "tests"
 )]
 
+#[cfg(feature = "alloc")]
 use std::iter;
 use std::sync::LazyLock;
 

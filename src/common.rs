@@ -57,6 +57,22 @@ pub struct Proof<CS: CipherSuite> {
 	pub(crate) s: Scalar<CS>,
 }
 
+pub struct BlindEvaluateResult<CS: CipherSuite> {
+	pub evaluation_element: EvaluationElement<CS>,
+	pub proof: Proof<CS>,
+}
+
+pub struct BatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
+	pub evaluation_elements: [EvaluationElement<CS>; N],
+	pub proof: Proof<CS>,
+}
+
+#[cfg(feature = "alloc")]
+pub struct BatchVecBlindEvaluateResult<CS: CipherSuite> {
+	pub evaluation_elements: Vec<EvaluationElement<CS>>,
+	pub proof: Proof<CS>,
+}
+
 impl<CS: CipherSuite> BlindedElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(elements: &[NonIdentityElement<CS>; N]) -> [Self; N] {
 		let repr = CS::Group::non_identity_element_batch_to_repr(elements);
@@ -354,3 +370,41 @@ where
 }
 
 impl<CS: CipherSuite> ZeroizeOnDrop for Proof<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Debug for BlindEvaluateResult<CS> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("BlindEvaluateResult")
+			.field("evaluation_element", &self.evaluation_element)
+			.field("proof", &self.proof)
+			.finish()
+	}
+}
+
+impl<CS: CipherSuite> ZeroizeOnDrop for BlindEvaluateResult<CS> {}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite, const N: usize> Debug for BatchBlindEvaluateResult<CS, N> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("BatchBlindEvaluateResult")
+			.field("evaluation_elements", &self.evaluation_elements)
+			.field("proof", &self.proof)
+			.finish()
+	}
+}
+
+impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for BatchBlindEvaluateResult<CS, N> {}
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Debug for BatchVecBlindEvaluateResult<CS> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("BatchVecBlindEvaluateResult")
+			.field("evaluation_elements", &self.evaluation_elements)
+			.field("proof", &self.proof)
+			.finish()
+	}
+}
+
+#[cfg(feature = "alloc")]
+impl<CS: CipherSuite> ZeroizeOnDrop for BatchVecBlindEvaluateResult<CS> {}

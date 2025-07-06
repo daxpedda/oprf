@@ -17,7 +17,11 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[cfg(feature = "serde")]
 use crate::cipher_suite::ElementLength;
 use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
-use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
+#[cfg(feature = "alloc")]
+use crate::common::BatchVecBlindEvaluateResult;
+use crate::common::{
+	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
+};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 #[cfg(feature = "alloc")]
@@ -292,16 +296,16 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_element: &BlindedElement<CS>,
-	) -> Result<PoprfBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BlindEvaluateResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
-		let PoprfBatchBlindEvaluateResult {
+		let BatchBlindEvaluateResult {
 			evaluation_elements: [evaluation_element],
 			proof,
 		} = self.batch_blind_evaluate(rng, array::from_ref(blinded_element))?;
 
-		Ok(PoprfBlindEvaluateResult {
+		Ok(BlindEvaluateResult {
 			evaluation_element,
 			proof,
 		})
@@ -314,7 +318,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: &[BlindedElement<CS>; N],
-	) -> Result<PoprfBatchBlindEvaluateResult<CS, N>, Error<R::Error>>
+	) -> Result<BatchBlindEvaluateResult<CS, N>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -340,7 +344,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			d,
 		)?;
 
-		Ok(PoprfBatchBlindEvaluateResult {
+		Ok(BatchBlindEvaluateResult {
 			evaluation_elements,
 			proof,
 		})
@@ -354,7 +358,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: I,
-	) -> Result<PoprfBatchVecBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BatchVecBlindEvaluateResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
@@ -382,7 +386,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			d.into_iter(),
 		)?;
 
-		Ok(PoprfBatchVecBlindEvaluateResult {
+		Ok(BatchVecBlindEvaluateResult {
 			evaluation_elements,
 			proof,
 		})
@@ -448,22 +452,6 @@ pub struct PoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
 pub struct PoprfBatchVecBlindResult<CS: CipherSuite> {
 	pub clients: Vec<PoprfClient<CS>>,
 	pub blinded_elements: Vec<BlindedElement<CS>>,
-}
-
-pub struct PoprfBlindEvaluateResult<CS: CipherSuite> {
-	pub evaluation_element: EvaluationElement<CS>,
-	pub proof: Proof<CS>,
-}
-
-#[cfg(feature = "alloc")]
-pub struct PoprfBatchVecBlindEvaluateResult<CS: CipherSuite> {
-	pub evaluation_elements: Vec<EvaluationElement<CS>>,
-	pub proof: Proof<CS>,
-}
-
-pub struct PoprfBatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
-	pub evaluation_elements: [EvaluationElement<CS>; N],
-	pub proof: Proof<CS>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -663,41 +651,3 @@ impl<CS: CipherSuite> Debug for PoprfBatchVecBlindResult<CS> {
 
 #[cfg(feature = "alloc")]
 impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchVecBlindResult<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBlindEvaluateResult<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfBlindEvaluateResult")
-			.field("evaluation_element", &self.evaluation_element)
-			.field("proof", &self.proof)
-			.finish()
-	}
-}
-
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindEvaluateResult<CS> {}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindEvaluateResult<CS, N> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfBatchBlindEvaluateResult")
-			.field("evaluation_elements", &self.evaluation_elements)
-			.field("proof", &self.proof)
-			.finish()
-	}
-}
-
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindEvaluateResult<CS, N> {}
-
-#[cfg(feature = "alloc")]
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBatchVecBlindEvaluateResult<CS> {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("PoprfBatchVecBlindEvaluateResult")
-			.field("evaluation_elements", &self.evaluation_elements)
-			.field("proof", &self.proof)
-			.finish()
-	}
-}
-
-#[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchVecBlindEvaluateResult<CS> {}

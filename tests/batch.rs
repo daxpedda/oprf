@@ -7,14 +7,15 @@
 	reason = "tests"
 )]
 
+#[cfg(feature = "alloc")]
 use std::iter;
 
 use oprf::Error;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
+use oprf_test::{HelperClient, HelperServer, INFO, test_ciphersuites};
 #[cfg(feature = "alloc")]
-use oprf_test::MockCs;
-use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
+use oprf_test::{INPUT, MockCs};
 
 test_ciphersuites!(empty, Voprf);
 test_ciphersuites!(empty, Poprf);
@@ -83,73 +84,75 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 	}
 }
 
+#[cfg(feature = "alloc")]
 test_ciphersuites!(unequal, Oprf);
+#[cfg(feature = "alloc")]
 test_ciphersuites!(unequal, Voprf);
+#[cfg(feature = "alloc")]
 test_ciphersuites!(unequal, Poprf);
 
 /// Tests correct failure on iterators with unequal length when using batching
 /// methods.
+// Not possible to pass unequal parameters to fixed array API.
+#[cfg(feature = "alloc")]
 fn unequal<CS: CipherSuite>(mode: Mode) {
 	let clients = HelperClient::<CS>::batch::<2>(mode);
 	let server = HelperServer::<CS>::batch::<2>(&clients);
 
-	#[cfg(feature = "alloc")]
-	{
-		// Failure on unequal clients with `alloc`.
-		let result = clients.finalize_vec_with(
-			..1,
-			server.public_key(),
-			iter::repeat_n(INPUT, 2),
-			server.evaluation_elements().iter(),
-			server.proof(),
-			INFO,
-		);
-		assert_eq!(result.unwrap_err(), Error::Batch);
+	// Failure on unequal clients.
+	let result = clients.finalize_vec_with(
+		..1,
+		server.public_key(),
+		iter::repeat_n(INPUT, 2),
+		server.evaluation_elements().iter(),
+		server.proof(),
+		INFO,
+	);
+	assert_eq!(result.unwrap_err(), Error::Batch);
 
-		// Failure on unequal inputs with `alloc`.
-		let result = clients.finalize_vec_with(
-			..,
-			server.public_key(),
-			iter::once(INPUT),
-			server.evaluation_elements().iter(),
-			server.proof(),
-			INFO,
-		);
-		assert_eq!(result.unwrap_err(), Error::Batch);
+	// Failure on unequal inputs.
+	let result = clients.finalize_vec_with(
+		..,
+		server.public_key(),
+		iter::once(INPUT),
+		server.evaluation_elements().iter(),
+		server.proof(),
+		INFO,
+	);
+	assert_eq!(result.unwrap_err(), Error::Batch);
 
-		// Failure on unequal evaluation elements with `alloc`.
-		let result = clients.finalize_vec_with(
-			..,
-			server.public_key(),
-			iter::repeat_n(INPUT, 2),
-			iter::once(&server.evaluation_elements()[0]),
-			server.proof(),
-			INFO,
-		);
-		assert_eq!(result.unwrap_err(), Error::Batch);
+	// Failure on unequal evaluation elements.
+	let result = clients.finalize_vec_with(
+		..,
+		server.public_key(),
+		iter::repeat_n(INPUT, 2),
+		iter::once(&server.evaluation_elements()[0]),
+		server.proof(),
+		INFO,
+	);
+	assert_eq!(result.unwrap_err(), Error::Batch);
 
-		// Failure on unequal clients and inputs with `alloc`.
-		let result = clients.finalize_vec_with(
-			..1,
-			server.public_key(),
-			iter::once(INPUT),
-			server.evaluation_elements().iter(),
-			server.proof(),
-			INFO,
-		);
-		assert_eq!(result.unwrap_err(), Error::Batch);
+	// Failure on unequal clients and inputs.
+	let result = clients.finalize_vec_with(
+		..1,
+		server.public_key(),
+		iter::once(INPUT),
+		server.evaluation_elements().iter(),
+		server.proof(),
+		INFO,
+	);
+	assert_eq!(result.unwrap_err(), Error::Batch);
 
-		// Failure on unequal clients and evaluation elements with `alloc`.
-		let result = clients.finalize_vec_with(
-			..1,
-			server.public_key(),
-			iter::repeat_n(INPUT, 2),
-			iter::once(&server.evaluation_elements()[0]),
-			server.proof(),
-			INFO,
-		);
-		assert_eq!(result.unwrap_err(), Error::Batch);
-	}
+	// Failure on unequal clients and evaluation elements.
+	let result = clients.finalize_vec_with(
+		..1,
+		server.public_key(),
+		iter::repeat_n(INPUT, 2),
+		iter::once(&server.evaluation_elements()[0]),
+		server.proof(),
+		INFO,
+	);
+	assert_eq!(result.unwrap_err(), Error::Batch);
 }
 
 #[test]
