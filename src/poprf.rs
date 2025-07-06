@@ -38,10 +38,10 @@ pub struct PoprfClient<CS: CipherSuite> {
 impl<CS: CipherSuite> PoprfClient<CS> {
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
-	pub fn blind<R: TryCryptoRng>(
-		rng: &mut R,
-		input: &[&[u8]],
-	) -> Result<PoprfBlindResult<CS>, Error<R::Error>> {
+	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<PoprfBlindResult<CS>, Error<R::Error>>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		let PoprfBatchBlindResult {
 			clients: [client],
 			blinded_elements: [blinded_element],
@@ -55,7 +55,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
-	pub fn batch_blind<R: TryCryptoRng, const N: usize>(
+	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
 	) -> Result<PoprfBatchBlindResult<CS, N>, Error<R::Error>>
@@ -65,6 +65,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		>,
 		[NonZeroScalar<CS>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		R: ?Sized + TryCryptoRng,
 	{
 		let BatchBlindResult {
 			blinds,
@@ -94,7 +95,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		inputs: I,
 	) -> Result<PoprfBatchVecBlindResult<CS>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
 	{
 		let BatchVecBlindResult {
@@ -244,7 +245,10 @@ pub struct PoprfServer<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> PoprfServer<CS> {
-	pub fn new<R: TryCryptoRng>(rng: &mut R, info: &[u8]) -> Result<Self, Error<R::Error>> {
+	pub fn new<R>(rng: &mut R, info: &[u8]) -> Result<Self, Error<R::Error>>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		let key_pair = KeyPair::generate(rng).map_err(Error::Random)?;
 		Self::from_key_pair(key_pair, info).map_err(Error::into_random::<R>)
 	}
@@ -284,11 +288,14 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
-	pub fn blind_evaluate<R: TryCryptoRng>(
+	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
 		blinded_element: &BlindedElement<CS>,
-	) -> Result<PoprfBlindEvaluateResult<CS>, Error<R::Error>> {
+	) -> Result<PoprfBlindEvaluateResult<CS>, Error<R::Error>>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		let PoprfBatchBlindEvaluateResult {
 			evaluation_elements: [evaluation_element],
 			proof,
@@ -309,7 +316,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		blinded_elements: &[BlindedElement<CS>; N],
 	) -> Result<PoprfBatchBlindEvaluateResult<CS, N>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 	{
 		if blinded_elements.is_empty() || blinded_elements.len() > u16::MAX.into() {
 			return Err(Error::Batch);
@@ -349,7 +356,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		blinded_elements: I,
 	) -> Result<PoprfBatchVecBlindEvaluateResult<CS>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
 		let blinded_elements_length = blinded_elements.len();

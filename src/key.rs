@@ -25,7 +25,10 @@ pub struct KeyPair<G: Group> {
 impl<G: Group> KeyPair<G> {
 	// `GenerateKeyPair`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2
-	pub fn generate<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
+	pub fn generate<R>(rng: &mut R) -> Result<Self, R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		SecretKey::generate(rng).map(Self::from_secret_key)
 	}
 
@@ -77,7 +80,10 @@ pub struct SecretKey<G: Group>(G::NonZeroScalar);
 impl<G: Group> SecretKey<G> {
 	// `GenerateKeyPair` without public key
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2
-	pub fn generate<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
+	pub fn generate<R>(rng: &mut R) -> Result<Self, R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		G::scalar_random(rng).map(Self)
 	}
 

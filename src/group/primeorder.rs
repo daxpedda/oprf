@@ -36,7 +36,10 @@ where
 	type Element = ProjectivePoint<C>;
 	type ElementLength = CompressedPointSize<C>;
 
-	fn scalar_random<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
+	fn scalar_random<R>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		NonZeroScalar::try_from_rng(rng)
 	}
 

@@ -24,7 +24,10 @@ pub enum Error<E = Infallible> {
 
 impl Error {
 	#[must_use]
-	pub const fn into_random<R: TryCryptoRng>(self) -> Error<R::Error> {
+	pub const fn into_random<R>(self) -> Error<R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		match self {
 			Self::Batch => Error::Batch,
 			Self::Proof => Error::Proof,

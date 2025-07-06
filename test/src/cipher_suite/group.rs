@@ -7,6 +7,7 @@ use elliptic_curve::hash2curve::ExpandMsg;
 use hybrid_array::Array;
 use hybrid_array::typenum::U0;
 use oprf::group::{Dst, Group};
+use rand::TryCryptoRng;
 use zeroize::Zeroize;
 
 /// A mock [`Group`] for testing purposes. It is zero-sized and does no checks
@@ -41,7 +42,10 @@ impl Group for MockCurve {
 	type Element = Element;
 	type ElementLength = U0;
 
-	fn scalar_random<R: rand::TryCryptoRng>(_: &mut R) -> Result<Self::NonZeroScalar, R::Error> {
+	fn scalar_random<R>(_: &mut R) -> Result<Self::NonZeroScalar, R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		Ok(NonZeroScalar)
 	}
 

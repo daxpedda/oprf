@@ -50,7 +50,9 @@ pub trait Group {
 		+ TryInto<Self::NonIdentityElement>;
 	type ElementLength: ArraySize + IsLess<U65536, Output = True>;
 
-	fn scalar_random<R: TryCryptoRng>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>;
+	fn scalar_random<R>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>
+	where
+		R: ?Sized + TryCryptoRng;
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where

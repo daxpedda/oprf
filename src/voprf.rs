@@ -37,10 +37,10 @@ pub struct VoprfClient<CS: CipherSuite> {
 impl<CS: CipherSuite> VoprfClient<CS> {
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-1
-	pub fn blind<R: TryCryptoRng>(
-		rng: &mut R,
-		input: &[&[u8]],
-	) -> Result<VoprfBlindResult<CS>, Error<R::Error>> {
+	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<VoprfBlindResult<CS>, Error<R::Error>>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		let VoprfBatchBlindResult {
 			clients: [client],
 			blinded_elements: [blinded_element],
@@ -54,7 +54,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-1
-	pub fn batch_blind<R: TryCryptoRng, const N: usize>(
+	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
 	) -> Result<VoprfBatchBlindResult<CS, N>, Error<R::Error>>
@@ -64,6 +64,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		>,
 		[NonZeroScalar<CS>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		R: ?Sized + TryCryptoRng,
 	{
 		let BatchBlindResult {
 			blinds,
@@ -93,7 +94,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		inputs: I,
 	) -> Result<VoprfBatchVecBlindResult<CS>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
 	{
 		let BatchVecBlindResult {
@@ -216,7 +217,10 @@ pub struct VoprfServer<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> VoprfServer<CS> {
-	pub fn new<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
+	pub fn new<R>(rng: &mut R) -> Result<Self, R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		Ok(Self {
 			key_pair: KeyPair::generate(rng)?,
 		})
@@ -242,11 +246,14 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 
 	// `BlindEvaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2
-	pub fn blind_evaluate<R: TryCryptoRng>(
+	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
 		blinded_element: &BlindedElement<CS>,
-	) -> Result<VoprfBlindEvaluateResult<CS>, Error<R::Error>> {
+	) -> Result<VoprfBlindEvaluateResult<CS>, Error<R::Error>>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		let VoprfBatchBlindEvaluateResult {
 			evaluation_elements: [evaluation_element],
 			proof,
@@ -267,7 +274,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		blinded_elements: &[BlindedElement<CS>; N],
 	) -> Result<VoprfBatchBlindEvaluateResult<CS, N>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 	{
 		if blinded_elements.is_empty() || blinded_elements.len() > u16::MAX.into() {
 			return Err(Error::Batch);
@@ -309,7 +316,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		blinded_elements: I,
 	) -> Result<VoprfBatchVecBlindEvaluateResult<CS>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
 		let blinded_elements_length = blinded_elements.len();

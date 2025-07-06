@@ -28,10 +28,10 @@ pub struct OprfClient<CS: CipherSuite> {
 impl<CS: CipherSuite> OprfClient<CS> {
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
-	pub fn blind<R: TryCryptoRng>(
-		rng: &mut R,
-		input: &[&[u8]],
-	) -> Result<OprfBlindResult<CS>, Error<R::Error>> {
+	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<OprfBlindResult<CS>, Error<R::Error>>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		let OprfBatchBlindResult {
 			clients: [client],
 			blinded_elements: [blinded_element],
@@ -45,7 +45,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
-	pub fn batch_blind<R: TryCryptoRng, const N: usize>(
+	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
 	) -> Result<OprfBatchBlindResult<CS, N>, Error<R::Error>>
@@ -55,6 +55,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		>,
 		[NonZeroScalar<CS>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		R: ?Sized + TryCryptoRng,
 	{
 		let BatchBlindResult {
 			blinds,
@@ -80,7 +81,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		inputs: I,
 	) -> Result<OprfBatchVecBlindResult<CS>, Error<R::Error>>
 	where
-		R: TryCryptoRng,
+		R: ?Sized + TryCryptoRng,
 		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
 	{
 		let BatchVecBlindResult {
@@ -159,7 +160,10 @@ pub struct OprfServer<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> OprfServer<CS> {
-	pub fn new<R: TryCryptoRng>(rng: &mut R) -> Result<Self, R::Error> {
+	pub fn new<R>(rng: &mut R) -> Result<Self, R::Error>
+	where
+		R: ?Sized + TryCryptoRng,
+	{
 		Ok(Self {
 			secret_key: SecretKey::generate(rng)?,
 		})

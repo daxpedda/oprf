@@ -124,7 +124,7 @@ pub(crate) fn generate_proof<'items, CS, R>(
 ) -> Result<Proof<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
-	R: TryCryptoRng,
+	R: ?Sized + TryCryptoRng,
 {
 	debug_assert_ne!(C.len(), 0, "found zero item length");
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
@@ -277,7 +277,7 @@ pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> [&'static [u
 
 // `Blind`.
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
-pub(crate) fn batch_blind<CS: CipherSuite, R: TryCryptoRng, const N: usize>(
+pub(crate) fn batch_blind<CS, R, const N: usize>(
 	mode: Mode,
 	rng: &mut R,
 	inputs: &[&[&[u8]]; N],
@@ -288,6 +288,8 @@ where
 	>,
 	[NonZeroScalar<CS>; N]:
 		AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+	CS: CipherSuite,
+	R: ?Sized + TryCryptoRng,
 {
 	let input_elements = ArrayN::<_, N>::try_from_fn(|index| {
 		#[expect(clippy::indexing_slicing, reason = "`N` matches")]
@@ -323,11 +325,15 @@ where
 // `Blind`.
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
 #[cfg(feature = "alloc")]
-pub(crate) fn batch_vec_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
+pub(crate) fn batch_vec_blind<'inputs, CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	mut inputs: impl Iterator<Item = &'inputs [&'inputs [u8]]>,
-) -> Result<BatchVecBlindResult<CS>, Error<R::Error>> {
+) -> Result<BatchVecBlindResult<CS>, Error<R::Error>>
+where
+	CS: CipherSuite,
+	R: ?Sized + TryCryptoRng,
+{
 	let (blinds, blinded_elements) = inputs.try_fold(
 		(Vec::new(), Vec::new()),
 		|(mut blinds, mut blinded_elements), input| {
