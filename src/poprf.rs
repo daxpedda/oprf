@@ -55,7 +55,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
-	pub fn batch_blind<const N: usize, R: TryCryptoRng>(
+	pub fn batch_blind<R: TryCryptoRng, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
 	) -> Result<PoprfBatchBlindResult<CS, N>, Error<R::Error>>
@@ -171,7 +171,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
 		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
 
-		internal::batch_finalize::<N, CS>(inputs, blinds, evaluation_elements, Some(info))
+		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, Some(info))
 	}
 
 	// `Finalize`

@@ -359,7 +359,7 @@ pub(crate) fn batch_vec_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
 // `Finalize`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 #[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, const N: usize, CS>(
+pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, CS, const N: usize>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	blinds: [NonZeroScalar<CS>; N],
 	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
