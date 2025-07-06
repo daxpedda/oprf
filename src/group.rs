@@ -102,7 +102,7 @@ pub trait Group {
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement>;
 
-	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element;
+	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

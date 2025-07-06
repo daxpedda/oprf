@@ -228,11 +228,11 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
 		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
 		let t = CS::Group::scalar_mul_by_generator(&m);
-		let element = (t + public_key.as_point())
+		let element = (t + public_key.as_element())
 			.try_into()
 			.map_err(|_| Error::InvalidInfo)?;
 
-		Ok(PublicKey::from_point(element))
+		Ok(PublicKey::from_element(element))
 	}
 }
 
@@ -264,7 +264,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			.map_err(|_| Error::InvalidInfoDanger)?;
 		let t_inverted = CS::Group::scalar_invert(&t);
 		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
-		let tweaked_key = PublicKey::from_point(tweaked_key);
+		let tweaked_key = PublicKey::from_element(tweaked_key);
 
 		Ok(Self {
 			key_pair,
@@ -580,7 +580,7 @@ where
 		let key_pair = KeyPair::from_secret_key(secret_key);
 		let t_inverted = CS::Group::scalar_invert(&t);
 		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
-		let tweaked_key = PublicKey::from_point(tweaked_key);
+		let tweaked_key = PublicKey::from_element(tweaked_key);
 
 		Ok(Self {
 			key_pair,

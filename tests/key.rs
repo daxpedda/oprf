@@ -48,8 +48,8 @@ fn basic<CS: CipherSuite>() {
 		&key_pair.secret_key().clone().into_scalar()
 	);
 	assert_eq!(
-		key_pair.public_key().as_point(),
-		&key_pair.public_key().clone().into_point()
+		key_pair.public_key().as_element(),
+		&key_pair.public_key().clone().into_element()
 	);
 }
 

@@ -127,8 +127,8 @@ where
 		ProjectivePoint::<C>::batch_normalize(elements).map(|point| point.to_bytes())
 	}
 
-	fn lincomb(points_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		ProjectivePoint::<C>::lincomb(&points_and_scalars)
+	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
+		ProjectivePoint::<C>::lincomb(&elements_and_scalars)
 	}
 }
 

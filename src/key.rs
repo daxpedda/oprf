@@ -148,12 +148,12 @@ pub struct PublicKey<G: Group> {
 }
 
 impl<G: Group> PublicKey<G> {
-	pub const fn as_point(&self) -> &G::NonIdentityElement {
+	pub const fn as_element(&self) -> &G::NonIdentityElement {
 		&self.element
 	}
 
 	#[must_use]
-	pub fn into_point(self) -> G::NonIdentityElement {
+	pub fn into_element(self) -> G::NonIdentityElement {
 		self.element
 	}
 
@@ -162,7 +162,7 @@ impl<G: Group> PublicKey<G> {
 		&self.repr
 	}
 
-	pub(crate) fn from_point(element: G::NonIdentityElement) -> Self {
+	pub(crate) fn from_element(element: G::NonIdentityElement) -> Self {
 		let [repr] = G::non_identity_element_batch_to_repr(array::from_ref(&element));
 
 		Self { element, repr }
@@ -170,7 +170,7 @@ impl<G: Group> PublicKey<G> {
 
 	#[must_use]
 	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
-		Self::from_point(G::non_zero_scalar_mul_by_generator(&secret_key.0))
+		Self::from_element(G::non_zero_scalar_mul_by_generator(&secret_key.0))
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {

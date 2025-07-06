@@ -105,7 +105,7 @@ impl<'element, CS: CipherSuite> From<&'element PublicKey<CS::Group>>
 {
 	fn from(public_key: &'element PublicKey<CS::Group>) -> Self {
 		Self {
-			element: public_key.as_point(),
+			element: public_key.as_element(),
 			repr: public_key.as_repr(),
 		}
 	}
