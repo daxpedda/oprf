@@ -359,8 +359,8 @@ pub(crate) fn batch_vec_blind<'inputs, CS: CipherSuite, R: TryCryptoRng>(
 // `Finalize`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 #[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_finalize<'inputs, 'evaluation_elements, CS, const N: usize>(
-	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+pub(crate) fn batch_finalize<'evaluation_elements, CS, const N: usize>(
+	inputs: &[&[&[u8]]; N],
 	blinds: [NonZeroScalar<CS>; N],
 	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
 	info: Option<Info<'_>>,
@@ -370,7 +370,6 @@ where
 		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	CS: CipherSuite,
 {
-	debug_assert_eq!(N, inputs.len(), "found unequal item length");
 	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
 
 	let inverted_blinds = CS::Group::scalar_batch_invert(blinds);
@@ -381,7 +380,7 @@ where
 		.collect_array::<N>();
 	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr(&n);
 
-	let mut outputs = internal_finalize::<CS>(inputs, &unblinded_elements, info);
+	let mut outputs = internal_finalize::<CS>(inputs.iter().copied(), &unblinded_elements, info);
 	// Using `Iterator::collect()` can panic!
 	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
 		outputs

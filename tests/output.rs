@@ -3,8 +3,6 @@
 #![cfg(test)]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
-use std::iter;
-
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf_test::{HelperClient, HelperServer, INFO, INPUT, test_ciphersuites};
@@ -51,9 +49,9 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on wrong input during `Finalize` and `Evaluate`.
 	let wrong_client_output = clients
-		.finalize_with::<1, _>(
+		.finalize_with::<1>(
 			server.public_key(),
-			iter::once::<&[&[u8]]>(&[b"wrong"]),
+			&[&[b"wrong"]],
 			server.evaluation_elements(),
 			server.proof(),
 			INFO,

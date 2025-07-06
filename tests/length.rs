@@ -146,9 +146,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	.unwrap();
 
 	// Failure on too large input.
-	let result = clients.finalize_with::<1, _>(
+	let result = clients.finalize_with::<1>(
 		server.public_key(),
-		iter::once::<&[&[u8]]>(&[&TEST]),
+		&[&[&TEST]],
 		server.evaluation_elements(),
 		server.proof(),
 		&TEST[..u16::MAX.into()],
@@ -157,9 +157,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = clients.finalize_with::<1, _>(
+		let result = clients.finalize_with::<1>(
 			server.public_key(),
-			iter::once::<&[&[u8]]>(&[&TEST]),
+			&[&[&TEST]],
 			server.evaluation_elements(),
 			server.proof(),
 			&TEST,
@@ -169,9 +169,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Success on maximum length of input and info.
 	let _ = clients
-		.finalize_with::<1, _>(
+		.finalize_with::<1>(
 			server.public_key(),
-			iter::once::<&[&[u8]]>(&[&TEST[..u16::MAX.into()]]),
+			&[&[&TEST[..u16::MAX.into()]]],
 			server.evaluation_elements(),
 			server.proof(),
 			&TEST[..u16::MAX.into()],

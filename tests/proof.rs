@@ -80,9 +80,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	let wrong_server = HelperServer::<CS>::batch::<1>(&client);
 
 	// Failure on wrong public key.
-	let result = client.finalize_with::<1, _>(
+	let result = client.finalize_with::<1>(
 		wrong_server.public_key(),
-		iter::once(INPUT),
+		&[INPUT],
 		server.evaluation_elements(),
 		server.proof(),
 		INFO,
@@ -90,9 +90,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
 	// Failure on wrong evaluation element.
-	let result = client.finalize_with::<1, _>(
+	let result = client.finalize_with::<1>(
 		server.public_key(),
-		iter::once(INPUT),
+		&[INPUT],
 		wrong_server.evaluation_elements(),
 		server.proof(),
 		INFO,
@@ -100,9 +100,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
 	// Failure on wrong proof.
-	let result = client.finalize_with::<1, _>(
+	let result = client.finalize_with::<1>(
 		server.public_key(),
-		iter::once(INPUT),
+		&[INPUT],
 		server.evaluation_elements(),
 		wrong_server.proof(),
 		INFO,
@@ -111,9 +111,9 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on wrong info.
 	if let Mode::Poprf = mode {
-		let result = client.finalize_with::<1, _>(
+		let result = client.finalize_with::<1>(
 			server.public_key(),
-			iter::once(INPUT),
+			&[INPUT],
 			server.evaluation_elements(),
 			server.proof(),
 			b"wrong",

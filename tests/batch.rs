@@ -31,34 +31,8 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 
 	let server = HelperServer::<CS>::batch::<1>(&clients);
 
-	// Failure on zero clients and evaluation elements.
-	let result = clients.finalize_with::<0, _>(
-		server.public_key(),
-		iter::once(INPUT),
-		&[],
-		server.proof(),
-		INFO,
-	);
-	assert_eq!(result.unwrap_err(), Error::Batch);
-
-	// Failure on zero inputs.
-	let result = clients.finalize_with::<1, _>(
-		server.public_key(),
-		iter::empty(),
-		server.evaluation_elements(),
-		server.proof(),
-		INFO,
-	);
-	assert_eq!(result.unwrap_err(), Error::Batch);
-
 	// Failure on equal but zero elements for all parameters.
-	let result = clients.finalize_with::<0, _>(
-		server.public_key(),
-		iter::empty(),
-		&[],
-		server.proof(),
-		INFO,
-	);
+	let result = clients.finalize_with::<0>(server.public_key(), &[], &[], server.proof(), INFO);
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	#[cfg(feature = "alloc")]
@@ -118,16 +92,6 @@ test_ciphersuites!(unequal, Poprf);
 fn unequal<CS: CipherSuite>(mode: Mode) {
 	let clients = HelperClient::<CS>::batch::<2>(mode);
 	let server = HelperServer::<CS>::batch::<2>(&clients);
-
-	// Failure on unequal inputs.
-	let result = clients.finalize_with::<2, _>(
-		server.public_key(),
-		iter::once(INPUT),
-		server.evaluation_elements(),
-		server.proof(),
-		INFO,
-	);
-	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	#[cfg(feature = "alloc")]
 	{

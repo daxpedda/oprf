@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::array;
 use core::fmt::{self, Debug, Formatter};
-use core::{array, iter};
 
 #[cfg(feature = "serde")]
 use ::serde::de::Error as _;
@@ -128,7 +128,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		let [output] = Self::batch_finalize(
 			array::from_ref(self),
 			public_key,
-			iter::once(input),
+			&[input],
 			array::from_ref(evaluation_element),
 			proof,
 		)?;
@@ -138,19 +138,18 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
-	pub fn batch_finalize<'inputs, I, const N: usize>(
+	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
 		public_key: &PublicKey<CS::Group>,
-		inputs: I,
+		inputs: &[&[&[u8]]; N],
 		evaluation_elements: &[EvaluationElement<CS>; N],
 		proof: &Proof<CS>,
 	) -> Result<[Output<CS::Hash>; N]>
 	where
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		if N == 0 || N != inputs.len() || N > u16::MAX.into() {
+		if N == 0 || N > u16::MAX.into() {
 			return Err(Error::Batch);
 		}
 

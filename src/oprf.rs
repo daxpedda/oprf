@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::array;
 use core::fmt::{self, Debug, Formatter};
-use core::{array, iter};
 
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -105,7 +105,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	) -> Result<Output<CS::Hash>> {
 		let [output] = Self::batch_finalize(
 			array::from_ref(self),
-			iter::once(input),
+			&[input],
 			array::from_ref(evaluation_element),
 		)?;
 		Ok(output)
@@ -113,20 +113,15 @@ impl<CS: CipherSuite> OprfClient<CS> {
 
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
-	pub fn batch_finalize<'inputs, const N: usize, I>(
+	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
-		inputs: I,
+		inputs: &[&[&[u8]]; N],
 		evaluation_elements: &[EvaluationElement<CS>; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		if N != inputs.len() {
-			return Err(Error::Batch);
-		}
-
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
 		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
 
@@ -215,7 +210,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		blinded_elements: I,
 	) -> Vec<EvaluationElement<CS>>
 	where
-		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
+		I: Iterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
 		let elements: Vec<_> = blinded_elements
 			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.element())

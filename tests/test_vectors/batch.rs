@@ -136,9 +136,9 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			// Finalize.
 			let outputs = clients
-				.finalize_with::<2, _>(
+				.finalize_with::<2>(
 					server.public_key(),
-					inputs.into_iter(),
+					&inputs,
 					server.evaluation_elements(),
 					server.proof(),
 					INFO,

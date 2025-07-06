@@ -377,9 +377,9 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
-		self.finalize_with::<N, _>(
+		self.finalize_with::<N>(
 			server.public_key(),
-			iter::repeat_n(INPUT, self.len()),
+			&vec![INPUT; self.len()],
 			server.evaluation_elements(),
 			server.proof(),
 			INFO,
@@ -387,10 +387,10 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 		.unwrap()
 	}
 
-	pub fn finalize_with<'inputs, const N: usize, II>(
+	pub fn finalize_with<const N: usize>(
 		&self,
 		public_key: Option<&PublicKey<CS::Group>>,
-		inputs: II,
+		inputs: &[&[&[u8]]],
 		evaluation_elements: &[EvaluationElement<CS>],
 		proof: Option<&Proof<CS>>,
 		info: &[u8],
@@ -398,25 +398,24 @@ impl<CS: CipherSuite> HelperClientBatch<CS> {
 	where
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
 		match &self.clients {
 			ClientBatch::Oprf(clients) => OprfClient::batch_finalize(
 				clients[..N].try_into().unwrap(),
-				inputs,
+				inputs.try_into().unwrap(),
 				evaluation_elements.try_into().unwrap(),
 			),
 			ClientBatch::Voprf(clients) => VoprfClient::batch_finalize(
 				clients[..N].try_into().unwrap(),
 				public_key.unwrap(),
-				inputs,
+				inputs.try_into().unwrap(),
 				evaluation_elements.try_into().unwrap(),
 				proof.unwrap(),
 			),
 			ClientBatch::Poprf(clients) => PoprfClient::batch_finalize(
 				clients[..N].try_into().unwrap(),
 				public_key.unwrap(),
-				inputs,
+				inputs.try_into().unwrap(),
 				evaluation_elements.try_into().unwrap(),
 				proof.unwrap(),
 				info,
