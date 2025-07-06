@@ -2,20 +2,26 @@
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+use core::array;
+use core::fmt::{self, Debug, Formatter};
 use core::ops::Deref;
 
+#[cfg(feature = "serde")]
+use ::serde::de::Error as _;
+#[cfg(feature = "serde")]
+use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
 use digest::{FixedOutput, Output, OutputSizeUser, Update};
 use hybrid_array::typenum::Unsigned;
 use hybrid_array::{Array, ArrayN, ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
+use zeroize::Zeroize;
 
 use crate::cipher_suite::{
 	CipherSuite, Element, ElementLength, NonIdentityElement, NonZeroScalar, Scalar,
 };
-use crate::common::{BlindedElement, EvaluationElement, Mode, Proof};
+use crate::common::{BlindedElement, Mode, Proof};
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
-use crate::key::PublicKey;
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
 pub(crate) struct BatchBlindResult<CS: CipherSuite, const N: usize> {
@@ -35,9 +41,9 @@ pub(crate) struct Info<'info> {
 	info: &'info [u8],
 }
 
-pub(crate) struct ElementWrapper<'element, CS: CipherSuite> {
-	element: &'element NonIdentityElement<CS>,
-	repr: &'element Array<u8, ElementLength<CS>>,
+pub(crate) struct ElementWrapper<G: Group> {
+	element: G::NonIdentityElement,
+	repr: Array<u8, G::ElementLength>,
 }
 
 struct Composites<CS: CipherSuite> {
@@ -62,52 +68,112 @@ impl<'info> Info<'info> {
 	}
 }
 
-#[cfg(feature = "alloc")]
-impl<'element, CS: CipherSuite> ElementWrapper<'element, CS> {
-	pub(crate) const fn element(self) -> &'element NonIdentityElement<CS> {
+impl<G: Group> ElementWrapper<G> {
+	pub(crate) fn new_batch<const N: usize>(
+		elements: &[G::NonIdentityElement; N],
+	) -> impl Iterator<Item = Self> {
+		let repr = G::non_identity_element_batch_to_repr(elements);
+
+		elements
+			.iter()
+			.copied()
+			.zip(repr)
+			.map(|(element, repr)| Self { element, repr })
+	}
+
+	#[cfg(feature = "alloc")]
+	pub(crate) fn new_batch_vec(
+		elements: Vec<G::NonIdentityElement>,
+	) -> impl Iterator<Item = Self> {
+		let repr = G::non_identity_element_batch_vec_to_repr(&elements);
+
+		elements
+			.into_iter()
+			.zip(repr)
+			.map(|(element, repr)| Self { element, repr })
+	}
+
+	pub(crate) fn into_element(self) -> G::NonIdentityElement {
 		self.element
+	}
+
+	pub(crate) const fn as_element(&self) -> &G::NonIdentityElement {
+		&self.element
+	}
+
+	pub(crate) const fn as_repr(&self) -> &Array<u8, G::ElementLength> {
+		&self.repr
+	}
+
+	pub(crate) fn from_element(element: G::NonIdentityElement) -> Self {
+		let [repr] = G::non_identity_element_batch_to_repr(array::from_ref(&element));
+
+		Self { element, repr }
+	}
+
+	pub(crate) fn from_repr(bytes: &[u8]) -> Result<Self> {
+		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
+	}
+
+	fn from_array(repr: Array<u8, G::ElementLength>) -> Result<Self> {
+		let element = G::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
+
+		Ok(Self { element, repr })
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for ElementWrapper<'_, CS> {
+impl<G: Group> Clone for ElementWrapper<G> {
 	fn clone(&self) -> Self {
-		*self
-	}
-}
-
-impl<CS: CipherSuite> Copy for ElementWrapper<'_, CS> {}
-
-impl<'element, CS: CipherSuite> From<&'element BlindedElement<CS>>
-	for ElementWrapper<'element, CS>
-{
-	fn from(blinded_element: &'element BlindedElement<CS>) -> Self {
 		Self {
-			element: blinded_element.element(),
-			repr: blinded_element.as_repr(),
+			element: self.element,
+			repr: self.repr.clone(),
 		}
 	}
 }
 
-impl<'element, CS: CipherSuite> From<&'element EvaluationElement<CS>>
-	for ElementWrapper<'element, CS>
-{
-	fn from(evaluation_element: &'element EvaluationElement<CS>) -> Self {
-		Self {
-			element: evaluation_element.element(),
-			repr: evaluation_element.as_repr(),
-		}
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> Debug for ElementWrapper<G> {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.debug_struct("ElementWrapper")
+			.field("element", &self.element)
+			.field("repr", &self.repr)
+			.finish()
 	}
 }
 
-impl<'element, CS: CipherSuite> From<&'element PublicKey<CS::Group>>
-	for ElementWrapper<'element, CS>
-{
-	fn from(public_key: &'element PublicKey<CS::Group>) -> Self {
-		Self {
-			element: public_key.as_element(),
-			repr: public_key.as_repr(),
-		}
+#[cfg(feature = "serde")]
+impl<'de, G: Group> Deserialize<'de> for ElementWrapper<G> {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		let mut array = Array::default();
+		serdect::array::deserialize_hex_or_bin(&mut array, deserializer)?;
+
+		Self::from_array(array).map_err(D::Error::custom)
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> Drop for ElementWrapper<G> {
+	fn drop(&mut self) {
+		self.element.zeroize();
+		self.repr.zeroize();
+	}
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<G: Group> PartialEq for ElementWrapper<G> {
+	fn eq(&self, other: &Self) -> bool {
+		self.repr.eq(&other.repr)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<G: Group> Serialize for ElementWrapper<G> {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serdect::array::serialize_hex_upper_or_bin(&self.repr, serializer)
 	}
 }
 
@@ -118,9 +184,9 @@ pub(crate) fn generate_proof<'items, CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	k: NonZeroScalar<CS>,
-	B: ElementWrapper<'items, CS>,
-	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
-	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
+	B: &ElementWrapper<CS::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
 ) -> Result<Proof<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
@@ -137,7 +203,7 @@ where
 	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
 	let t3 = r.into() * &M;
 
-	let c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2.into(), t3)
+	let c = compute_c::<CS>(mode, B.element.into(), M, Z, t2.into(), t3)
 		.map_err(Error::into_random::<R>)?;
 	let s = r.into() - &(c * k.deref());
 
@@ -148,9 +214,9 @@ where
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
 pub(crate) fn verify_proof<'items, CS>(
 	mode: Mode,
-	B: ElementWrapper<'items, CS>,
-	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
-	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
+	B: &ElementWrapper<CS::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
 	proof: &Proof<CS>,
 ) -> Result<()>
 where
@@ -163,13 +229,10 @@ where
 	let Composites::<CS> { M, Z } = compute_composites(mode, None, B, C, D)?;
 	let Proof { c, s } = proof;
 
-	let t2 = CS::Group::lincomb([
-		(CS::Group::element_generator(), *s),
-		((*B.element).into(), *c),
-	]);
+	let t2 = CS::Group::lincomb([(CS::Group::element_generator(), *s), (B.element.into(), *c)]);
 	let t3 = CS::Group::lincomb([(M, *s), (Z, *c)]);
 
-	let expected_c = compute_c::<CS>(mode, (*B.element).into(), M, Z, t2, t3)?;
+	let expected_c = compute_c::<CS>(mode, B.element.into(), M, Z, t2, t3)?;
 
 	if &expected_c == c {
 		Ok(())
@@ -216,9 +279,9 @@ fn compute_c<CS: CipherSuite>(
 fn compute_composites<'items, CS>(
 	mode: Mode,
 	k: Option<NonZeroScalar<CS>>,
-	B: ElementWrapper<'_, CS>,
-	C: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
-	D: impl ExactSizeIterator<Item = ElementWrapper<'items, CS>>,
+	B: &ElementWrapper<CS::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
 ) -> Result<Composites<CS>>
 where
 	CS: CipherSuite,
@@ -227,7 +290,7 @@ where
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
-	let Bm = B.repr;
+	let Bm = &B.repr;
 	let seed_dst = [b"Seed-".as_slice()].concat(create_context_string::<CS>(mode));
 	let seed = CS::Hash::default()
 		.chain(CS::I2OSP_ELEMENT_LEN)
@@ -247,9 +310,9 @@ where
 				&seed,
 				&i.i2osp(),
 				&CS::I2OSP_ELEMENT_LEN,
-				Ci.repr,
+				&Ci.repr,
 				&CS::I2OSP_ELEMENT_LEN,
-				Di.repr,
+				&Di.repr,
 				b"Composite",
 			],
 			None,

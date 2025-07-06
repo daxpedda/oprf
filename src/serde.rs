@@ -5,35 +5,8 @@ use alloc::string::String;
 use core::fmt::{self, Formatter};
 use core::marker::PhantomData;
 
-use hybrid_array::{Array, ArraySize};
 use serde::de::{DeserializeSeed, Error, MapAccess, SeqAccess, Unexpected, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serdect::array;
-
-pub(crate) struct DeserializeWrapper<U: ArraySize>(pub(crate) Array<u8, U>);
-
-impl<'de, U: ArraySize> Deserialize<'de> for DeserializeWrapper<U> {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let mut array = Array::default();
-		array::deserialize_hex_or_bin(&mut array, deserializer)?;
-
-		Ok(Self(array))
-	}
-}
-
-pub(crate) struct SerializeWrapper<'bytes>(pub(crate) &'bytes [u8]);
-
-impl Serialize for SerializeWrapper<'_> {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		array::serialize_hex_upper_or_bin(&self.0, serializer)
-	}
-}
+use serde::{Deserialize, Deserializer};
 
 pub(crate) fn newtype_struct<'de, D, T>(deserializer: D, name: &'static str) -> Result<T, D::Error>
 where

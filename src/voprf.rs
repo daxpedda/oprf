@@ -4,8 +4,6 @@ use core::array;
 use core::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
-use ::serde::de::Error as _;
-#[cfg(feature = "serde")]
 use ::serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -14,8 +12,6 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[cfg(feature = "serde")]
-use crate::cipher_suite::ElementLength;
 use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
 #[cfg(feature = "alloc")]
 use crate::common::BatchVecBlindEvaluateResult;
@@ -25,12 +21,14 @@ use crate::common::{
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
 use crate::internal::BatchVecBlindResult;
-use crate::internal::{self, BatchBlindResult, ElementWrapper};
+#[cfg(feature = "serde")]
+use crate::internal::ElementWrapper;
+use crate::internal::{self, BatchBlindResult};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
 #[cfg(feature = "serde")]
-use crate::serde::{self, DeserializeWrapper, SerializeWrapper};
+use crate::serde;
 use crate::util::CollectArray;
 
 pub struct VoprfClient<CS: CipherSuite> {
@@ -158,15 +156,15 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			return Err(Error::Batch);
 		}
 
-		let c = clients
-			.iter()
-			.map(|client| ElementWrapper::from(&client.blinded_element));
-		let d = evaluation_elements.iter().map(ElementWrapper::from);
+		let c = clients.iter().map(|client| client.blinded_element.as_ref());
+		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
-		internal::verify_proof(Mode::Voprf, public_key.into(), c, d, proof)?;
+		internal::verify_proof(Mode::Voprf, public_key.as_ref(), c, d, proof)?;
 
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
-		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
+		let evaluation_elements = evaluation_elements
+			.iter()
+			.map(EvaluationElement::as_element);
 
 		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, None)
 	}
@@ -198,19 +196,19 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		}
 
 		let (c, blinds): (Vec<_>, _) = clients
-			.map(|client| (ElementWrapper::from(&client.blinded_element), client.blind))
+			.map(|client| (client.blinded_element.as_ref(), client.blind))
 			.unzip();
-		let d: Vec<_> = evaluation_elements.map(ElementWrapper::from).collect();
+		let d: Vec<_> = evaluation_elements.map(EvaluationElement::as_ref).collect();
 
 		internal::verify_proof(
 			Mode::Voprf,
-			public_key.into(),
+			public_key.as_ref(),
 			c.into_iter(),
 			d.iter().copied(),
 			proof,
 		)?;
 
-		let evaluation_elements = d.into_iter().map(ElementWrapper::element);
+		let evaluation_elements = d.into_iter().map(ElementWrapper::as_element);
 
 		internal::batch_vec_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
@@ -288,18 +286,18 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			&blinded_elements
 				.iter()
 				.map(|blinded_element| {
-					self.key_pair.secret_key().to_scalar() * blinded_element.element()
+					self.key_pair.secret_key().to_scalar() * blinded_element.as_element()
 				})
 				.collect_array(),
 		);
-		let c = blinded_elements.iter().map(ElementWrapper::from);
-		let d = evaluation_elements.iter().map(ElementWrapper::from);
+		let c = blinded_elements.iter().map(BlindedElement::as_ref);
+		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
 		let proof = internal::generate_proof(
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
-			self.key_pair.public_key().into(),
+			self.key_pair.public_key().as_ref(),
 			c,
 			d,
 		)?;
@@ -329,19 +327,19 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let c: Vec<_> = blinded_elements.map(ElementWrapper::from).collect();
+		let c: Vec<_> = blinded_elements.map(BlindedElement::as_ref).collect();
 		let evaluation_elements = EvaluationElement::new_batch_vec(
 			c.iter()
-				.map(|element| self.key_pair.secret_key().to_scalar() * element.element())
+				.map(|element| self.key_pair.secret_key().to_scalar() * element.as_element())
 				.collect(),
 		);
-		let d = evaluation_elements.iter().map(ElementWrapper::from);
+		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
 		let proof = internal::generate_proof(
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
-			self.key_pair.public_key().into(),
+			self.key_pair.public_key().as_ref(),
 			c.into_iter(),
 			d,
 		)?;
@@ -436,10 +434,9 @@ where
 	NonZeroScalar<CS>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let (blind, DeserializeWrapper::<ElementLength<CS>>(blinded_element)) =
+		let (blind, wrapper): (_, ElementWrapper<CS::Group>) =
 			serde::struct_2(deserializer, "VoprfClient", &["blind", "blinded_element"])?;
-		let blinded_element =
-			BlindedElement::from_array(blinded_element).map_err(D::Error::custom)?;
+		let blinded_element = BlindedElement::from(wrapper);
 
 		Ok(Self {
 			blind,
@@ -476,10 +473,7 @@ where
 	{
 		let mut state = serializer.serialize_struct("VoprfClient", 2)?;
 		state.serialize_field("blind", &self.blind)?;
-		state.serialize_field(
-			"blinded_element",
-			&SerializeWrapper(self.blinded_element.as_repr()),
-		)?;
+		state.serialize_field("blinded_element", self.blinded_element.as_ref())?;
 		state.end()
 	}
 }

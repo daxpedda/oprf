@@ -1,4 +1,4 @@
-absolute-paths-allowed-crates = ["hex"]
+absolute-paths-allowed-crates = ["hex", "serdect"]
 allow-renamed-params-for = ["..", "core::fmt::Debug", "core::fmt::Display"]
 allow-unwrap-in-tests = true
 source-item-ordering = ["module"]

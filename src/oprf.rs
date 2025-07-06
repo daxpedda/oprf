@@ -124,7 +124,9 @@ impl<CS: CipherSuite> OprfClient<CS> {
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
-		let evaluation_elements = evaluation_elements.iter().map(EvaluationElement::element);
+		let evaluation_elements = evaluation_elements
+			.iter()
+			.map(EvaluationElement::as_element);
 
 		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, None)
 	}
@@ -149,7 +151,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		}
 
 		let blinds = clients.map(|client| client.blind).collect();
-		let evaluation_elements = evaluation_elements.map(EvaluationElement::element);
+		let evaluation_elements = evaluation_elements.map(EvaluationElement::as_element);
 
 		internal::batch_vec_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
@@ -200,7 +202,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	) -> [EvaluationElement<CS>; N] {
 		let elements = blinded_elements
 			.iter()
-			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.element())
+			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.as_element())
 			.collect_array();
 		EvaluationElement::new_batch(&elements)
 	}
@@ -217,7 +219,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		I: Iterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
 		let elements: Vec<_> = blinded_elements
-			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.element())
+			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.as_element())
 			.collect();
 		EvaluationElement::new_batch_vec(elements)
 	}

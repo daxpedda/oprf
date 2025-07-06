@@ -3,8 +3,6 @@ use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
 
 #[cfg(feature = "serde")]
-use ::serde::de::Error as _;
-#[cfg(feature = "serde")]
 use ::serde::ser::SerializeStruct;
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -15,8 +13,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
 use crate::error::{Error, Result};
 use crate::group::Group;
+use crate::internal::ElementWrapper;
 #[cfg(feature = "serde")]
-use crate::serde::{self, DeserializeWrapper, SerializeWrapper};
+use crate::serde;
 use crate::util::CollectArray;
 
 // https://www.rfc-editor.org/rfc/rfc9497.html#name-identifiers-for-protocol-va
@@ -42,15 +41,9 @@ impl Mode {
 	}
 }
 
-pub struct BlindedElement<CS: CipherSuite> {
-	element: NonIdentityElement<CS>,
-	repr: Array<u8, ElementLength<CS>>,
-}
+pub struct BlindedElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 
-pub struct EvaluationElement<CS: CipherSuite> {
-	element: NonIdentityElement<CS>,
-	repr: Array<u8, ElementLength<CS>>,
-}
+pub struct EvaluationElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 
 pub struct Proof<CS: CipherSuite> {
 	pub(crate) c: Scalar<CS>,
@@ -75,85 +68,51 @@ pub struct BatchVecBlindEvaluateResult<CS: CipherSuite> {
 
 impl<CS: CipherSuite> BlindedElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(elements: &[NonIdentityElement<CS>; N]) -> [Self; N] {
-		let repr = CS::Group::non_identity_element_batch_to_repr(elements);
-
-		elements
-			.iter()
-			.copied()
-			.zip(repr)
-			.map(|(element, repr)| Self { element, repr })
+		ElementWrapper::new_batch(elements)
+			.map(Self)
 			.collect_array()
 	}
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_vec(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		let repr = CS::Group::non_identity_element_batch_vec_to_repr(&elements);
-
-		elements
-			.into_iter()
-			.zip(repr)
-			.map(|(element, repr)| Self { element, repr })
-			.collect()
+		ElementWrapper::new_batch_vec(elements).map(Self).collect()
 	}
 
-	pub(crate) const fn element(&self) -> &NonIdentityElement<CS> {
-		&self.element
+	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
+		self.0.as_element()
 	}
 
 	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
-		&self.repr
+		self.0.as_repr()
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
-	}
-
-	pub(crate) fn from_array(repr: Array<u8, ElementLength<CS>>) -> Result<Self> {
-		let element = CS::Group::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
-
-		Ok(Self { element, repr })
+		ElementWrapper::from_repr(bytes).map(Self)
 	}
 }
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(elements: &[NonIdentityElement<CS>; N]) -> [Self; N] {
-		let repr = CS::Group::non_identity_element_batch_to_repr(elements);
-
-		elements
-			.iter()
-			.copied()
-			.zip(repr)
-			.map(|(element, repr)| Self { element, repr })
+		ElementWrapper::new_batch(elements)
+			.map(Self)
 			.collect_array()
 	}
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_vec(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		let repr = CS::Group::non_identity_element_batch_vec_to_repr(&elements);
-
-		elements
-			.into_iter()
-			.zip(repr)
-			.map(|(element, repr)| Self { element, repr })
-			.collect()
+		ElementWrapper::new_batch_vec(elements).map(Self).collect()
 	}
 
-	pub(crate) const fn element(&self) -> &NonIdentityElement<CS> {
-		&self.element
+	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
+		self.0.as_element()
 	}
 
 	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
-		&self.repr
+		self.0.as_repr()
 	}
 
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
-	}
-
-	pub(crate) fn from_array(repr: Array<u8, ElementLength<CS>>) -> Result<Self> {
-		let element = CS::Group::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
-
-		Ok(Self { element, repr })
+		ElementWrapper::from_repr(bytes).map(Self)
 	}
 }
 
@@ -182,50 +141,45 @@ impl<CS: CipherSuite> Proof<CS> {
 	}
 }
 
+impl<CS: CipherSuite> AsRef<ElementWrapper<CS::Group>> for BlindedElement<CS> {
+	fn as_ref(&self) -> &ElementWrapper<CS::Group> {
+		&self.0
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for BlindedElement<CS> {
 	fn clone(&self) -> Self {
-		Self {
-			element: self.element,
-			repr: self.repr.clone(),
-		}
+		Self(self.0.clone())
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for BlindedElement<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("BlindedElement")
-			.field("element", &self.element)
-			.field("repr", &self.repr)
-			.finish()
+		f.debug_tuple("BlindedElement").field(&self.0).finish()
 	}
 }
 
 #[cfg(feature = "serde")]
 impl<'de, CS: CipherSuite> Deserialize<'de> for BlindedElement<CS> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let DeserializeWrapper::<ElementLength<CS>>(repr) =
-			serde::newtype_struct(deserializer, "BlindedElement")?;
-
-		Self::from_array(repr).map_err(D::Error::custom)
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for BlindedElement<CS> {
-	fn drop(&mut self) {
-		self.element.zeroize();
-		self.repr.zeroize();
+		serde::newtype_struct(deserializer, "BlindedElement").map(Self)
 	}
 }
 
 impl<CS: CipherSuite> Eq for BlindedElement<CS> {}
 
+impl<CS: CipherSuite> From<ElementWrapper<CS::Group>> for BlindedElement<CS> {
+	fn from(value: ElementWrapper<CS::Group>) -> Self {
+		Self(value)
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for BlindedElement<CS> {
 	fn eq(&self, other: &Self) -> bool {
-		self.repr.eq(&other.repr)
+		self.0.eq(&other.0)
 	}
 }
 
@@ -235,47 +189,36 @@ impl<CS: CipherSuite> Serialize for BlindedElement<CS> {
 	where
 		S: Serializer,
 	{
-		serializer.serialize_newtype_struct("BlindedElement", &SerializeWrapper(&self.repr))
+		serializer.serialize_newtype_struct("BlindedElement", &self.0)
 	}
 }
 
 impl<CS: CipherSuite> ZeroizeOnDrop for BlindedElement<CS> {}
 
+impl<CS: CipherSuite> AsRef<ElementWrapper<CS::Group>> for EvaluationElement<CS> {
+	fn as_ref(&self) -> &ElementWrapper<CS::Group> {
+		&self.0
+	}
+}
+
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Clone for EvaluationElement<CS> {
 	fn clone(&self) -> Self {
-		Self {
-			element: self.element,
-			repr: self.repr.clone(),
-		}
+		Self(self.0.clone())
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> Debug for EvaluationElement<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("EvaluationElement")
-			.field("element", &self.element)
-			.field("repr", &self.repr)
-			.finish()
+		f.debug_tuple("EvaluationElement").field(&self.0).finish()
 	}
 }
 
 #[cfg(feature = "serde")]
 impl<'de, CS: CipherSuite> Deserialize<'de> for EvaluationElement<CS> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let DeserializeWrapper::<ElementLength<CS>>(repr) =
-			serde::newtype_struct(deserializer, "EvaluationElement")?;
-
-		Self::from_array(repr).map_err(D::Error::custom)
-	}
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for EvaluationElement<CS> {
-	fn drop(&mut self) {
-		self.element.zeroize();
-		self.repr.zeroize();
+		serde::newtype_struct(deserializer, "EvaluationElement").map(Self)
 	}
 }
 
@@ -284,7 +227,7 @@ impl<CS: CipherSuite> Eq for EvaluationElement<CS> {}
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<CS: CipherSuite> PartialEq for EvaluationElement<CS> {
 	fn eq(&self, other: &Self) -> bool {
-		self.repr.eq(&other.repr)
+		self.0.eq(&other.0)
 	}
 }
 
@@ -294,7 +237,7 @@ impl<CS: CipherSuite> Serialize for EvaluationElement<CS> {
 	where
 		S: Serializer,
 	{
-		serializer.serialize_newtype_struct("EvaluationElement", &SerializeWrapper(&self.repr))
+		serializer.serialize_newtype_struct("EvaluationElement", &self.0)
 	}
 }
 
