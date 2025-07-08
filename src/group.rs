@@ -1,3 +1,5 @@
+#[cfg(feature = "decaf448")]
+pub mod decaf448;
 #[cfg(feature = "primeorder")]
 mod primeorder;
 
@@ -6,7 +8,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::ops::{Add, Deref, Mul, Sub};
 
-use elliptic_curve::hash2curve::ExpandMsg;
+use hash2curve::ExpandMsg;
 use hybrid_array::typenum::{IsLess, True, U65536, Unsigned};
 use hybrid_array::{Array, ArraySize};
 use rand_core::TryCryptoRng;

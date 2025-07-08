@@ -11,6 +11,7 @@ alloc = []
 derive-where = { workspace = true }
 digest = { workspace = true }
 elliptic-curve = { workspace = true }
+hash2curve = { workspace = true }
 hybrid-array = { workspace = true }
 oprf = { workspace = true }
 rand = { workspace = true }

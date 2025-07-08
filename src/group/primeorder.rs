@@ -3,13 +3,13 @@ use alloc::vec::Vec;
 use core::ops::Add;
 
 use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::hash2curve::{ExpandMsg, GroupDigest};
 use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
 use elliptic_curve::point::NonIdentity;
 use elliptic_curve::sec1::{CompressedPointSize, ModulusSize};
 use elliptic_curve::{
-	BatchNormalize, FieldBytesSize, Group as _, NonZeroScalar, OprfParameters, PrimeField, Scalar,
+	BatchNormalize, FieldBytesSize, Group as _, NonZeroScalar, PrimeField, Scalar,
 };
+use hash2curve::{ExpandMsg, GroupDigest, OprfParameters};
 use hybrid_array::typenum::{IsLess, True, U65536};
 use hybrid_array::{Array, ArraySize};
 use primeorder::{AffinePoint, PrimeCurveParams, ProjectivePoint};
@@ -40,7 +40,15 @@ where
 	where
 		R: ?Sized + TryCryptoRng,
 	{
-		NonZeroScalar::try_from_rng(rng)
+		let mut bytes = Array::default();
+
+		loop {
+			rng.try_fill_bytes(&mut bytes)?;
+
+			if let Some(result) = NonZeroScalar::from_repr(bytes.clone()).into() {
+				break Ok(result);
+			}
+		}
 	}
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>

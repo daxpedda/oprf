@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 use core::ops::{Add, Deref, Mul, Sub};
 
-use elliptic_curve::hash2curve::ExpandMsg;
+use hash2curve::ExpandMsg;
 use hybrid_array::Array;
 use hybrid_array::typenum::U0;
 use oprf::group::{Dst, Group};

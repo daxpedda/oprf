@@ -10,6 +10,7 @@ use criterion::{BenchmarkGroup, Criterion};
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::group::Group;
+use oprf::group::decaf448::Decaf448;
 use oprf::key::{PublicKey, SecretKey};
 use oprf_test::{CommonClient, CommonServer, INFO, INPUT};
 use p256::NistP256;
@@ -89,6 +90,7 @@ fn group(mode: Mode) {
 	bench::<NistP256>(&mut group, mode);
 	bench::<NistP384>(&mut group, mode);
 	bench::<NistP521>(&mut group, mode);
+	bench::<Decaf448>(&mut group, mode);
 }
 
 fn main() {

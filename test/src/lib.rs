@@ -12,6 +12,8 @@ pub mod cipher_suite;
 pub mod common;
 mod rng;
 
+pub use oprf;
+
 pub use self::cipher_suite::MockCs;
 pub use self::common::{CommonClient, CommonServer};
 
@@ -52,6 +54,11 @@ macro_rules! test_ciphersuites {
 			#[test]
 			fn [<$prefixed_name _p521>]() {
 				$name::<::p521::NistP521>($(::oprf::common::Mode::$mode)?);
+			}
+
+			#[test]
+			fn [<$prefixed_name _decaf448>]() {
+				$name::<$crate::oprf::group::decaf448::Decaf448>($(::oprf::common::Mode::$mode)?);
 			}
 		}
 	};
