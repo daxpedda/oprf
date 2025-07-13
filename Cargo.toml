@@ -63,19 +63,19 @@ resolver = "3"
 criterion = { version = "0.6", default-features = false, features = ["cargo_bench_support"] }
 derive-where = "1"
 digest = { version = "=0.11.0-rc.0", default-features = false }
-ed448-goldilocks = { version = "=0.14.0-pre.1", default-features = false }
-elliptic-curve = { version = "=0.14.0-rc.8", features = ["hash2curve", "oprf", "sec1"] }
+ed448-goldilocks = { version = "=0.14.0-pre.2", default-features = false }
+elliptic-curve = "=0.14.0-rc.10"
 hash2curve = "=0.14.0-rc.0"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
 hybrid-array = "0.3"
 oprf = { path = "", features = ["primeorder"] }
 oprf-test = { path = "test" }
-p256 = { version = "=0.14.0-pre.8", default-features = false, features = ["oprf", "serde"] }
-p384 = { version = "=0.14.0-pre.8", default-features = false, features = ["oprf", "serde"] }
-p521 = { version = "=0.14.0-pre.8", default-features = false, features = ["oprf", "serde"] }
+p256 = { version = "=0.14.0-pre.9", default-features = false, features = ["oprf", "serde"] }
+p384 = { version = "=0.14.0-pre.9", default-features = false, features = ["oprf", "serde"] }
+p521 = { version = "=0.14.0-pre.9", default-features = false, features = ["oprf", "serde"] }
 paste = "1"
-primeorder = "=0.14.0-pre.6"
+primeorder = "=0.14.0-pre.7"
 rand = { version = "0.9", default-features = false, features = ["os_rng"] }
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false }
@@ -84,14 +84,6 @@ serde_test = { git = "https://github.com/daxpedda/test" }
 serdect = { version = "0.3", default-features = false }
 static_assertions = "1"
 zeroize = "1.5"
-
-[patch.crates-io]
-ed448-goldilocks = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "cc8372cca434c2aaef5b0760d541fdb8d4a932bb" }
-hash2curve = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "6a9d8f0ebe804181bb37f764978de05ddaaf4c08" }
-p256 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "6a9d8f0ebe804181bb37f764978de05ddaaf4c08" }
-p384 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "6a9d8f0ebe804181bb37f764978de05ddaaf4c08" }
-p521 = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "6a9d8f0ebe804181bb37f764978de05ddaaf4c08" }
-primefield = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "6a9d8f0ebe804181bb37f764978de05ddaaf4c08" }
 
 [workspace.lints.rust]
 # Rust groups.
