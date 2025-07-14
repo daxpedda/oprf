@@ -11,11 +11,17 @@
 pub mod cipher_suite;
 pub mod common;
 mod rng;
+#[cfg(feature = "serde")]
+mod serde;
+mod serialized;
 
 pub use oprf;
 
 pub use self::cipher_suite::MockCs;
 pub use self::common::{CommonClient, CommonServer};
+#[cfg(feature = "serde")]
+pub use self::serde::{ScalarRepr, TypeRepr};
+pub use self::serialized::*;
 
 /// Generates `#[test]` functions pre-fixed with the given `name` for all
 /// available [`CipherSuite`]s and passes the appropriate
