@@ -147,42 +147,59 @@ where
 	let scalar1 = scalar::<CS>();
 	let scalar2 = scalar::<CS>();
 	let wrong_scalar = wrong_scalar::<CS>();
+	let zero_scalar = zero_scalar::<CS>();
 
 	let element = element::<CS>();
 	let wrong_element = wrong_element::<CS>();
+	let identity_element = identity_element::<CS>();
 
 	let blinded_element = BlindedElement::from_repr(element).unwrap();
-	newtype_struct(blinded_element, "BlindedElement", element, wrong_element);
+	newtype_struct(
+		&blinded_element,
+		"BlindedElement",
+		element,
+		[wrong_element, identity_element],
+	);
 
 	let evaluation_element = EvaluationElement::from_repr(element).unwrap();
 	newtype_struct(
-		evaluation_element,
+		&evaluation_element,
 		"EvaluationElement",
 		element,
-		wrong_element,
+		[wrong_element, identity_element],
 	);
 
 	let proof_bytes = [scalar1, scalar2].concat();
 	let proof = Proof::<CS>::from_repr(&proof_bytes).unwrap();
 	struct_2(
-		proof,
+		&proof,
 		"Proof",
 		"c",
 		scalar1,
-		wrong_scalar,
+		[wrong_scalar],
 		"s",
 		scalar2,
-		wrong_scalar,
+		[wrong_scalar],
 	);
 
 	let key_pair = KeyPair::<CS::Group>::from_repr(scalar1).unwrap();
-	newtype_struct(key_pair, "KeyPair", scalar1, wrong_scalar);
+	newtype_struct(&key_pair, "KeyPair", scalar1, [wrong_scalar, zero_scalar]);
 
 	let secret_key = SecretKey::<CS::Group>::from_repr(scalar1).unwrap();
-	newtype_struct(secret_key, "SecretKey", scalar1, wrong_scalar);
+	newtype_struct(
+		&secret_key,
+		"SecretKey",
+		scalar1,
+		[wrong_scalar, zero_scalar],
+	);
 
 	let public_key = PublicKey::<CS::Group>::from_repr(element).unwrap();
-	newtype_struct(public_key, "PublicKey", element, wrong_element);
+	newtype_struct(
+		&public_key,
+		"PublicKey",
+		element,
+		[wrong_element, identity_element],
+	);
 }
 
 test_ciphersuites!(oprf);
@@ -195,6 +212,7 @@ where
 {
 	let scalar = scalar::<CS>();
 	let wrong_scalar = wrong_scalar::<CS>();
+	let zero_scalar = zero_scalar::<CS>();
 
 	let client = Compact::<OprfClient<CS>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(1) })
@@ -204,11 +222,11 @@ where
 	))
 	.unwrap()
 	.0;
-	newtype_struct(client, "OprfClient", scalar, wrong_scalar);
+	newtype_struct(&client, "OprfClient", scalar, [wrong_scalar, zero_scalar]);
 
 	let secret_key = SecretKey::from_repr(scalar).unwrap();
 	let server = OprfServer::<CS>::from_key(secret_key);
-	newtype_struct(server, "OprfServer", scalar, wrong_scalar);
+	newtype_struct(&server, "OprfServer", scalar, [wrong_scalar, zero_scalar]);
 }
 
 test_ciphersuites!(voprf);
@@ -221,9 +239,11 @@ where
 {
 	let scalar = scalar::<CS>();
 	let wrong_scalar = wrong_scalar::<CS>();
+	let zero_scalar = zero_scalar::<CS>();
 
 	let element = element::<CS>();
 	let wrong_element = wrong_element::<CS>();
+	let identity_element = identity_element::<CS>();
 
 	let client = Compact::<VoprfClient<CS>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(2) })
@@ -234,19 +254,19 @@ where
 	.unwrap()
 	.0;
 	struct_2(
-		client,
+		&client,
 		"VoprfClient",
 		"blind",
 		scalar,
-		wrong_scalar,
+		[wrong_scalar, zero_scalar],
 		"blinded_element",
 		element,
-		wrong_element,
+		[wrong_element, identity_element],
 	);
 
 	let secret_key = KeyPair::from_repr(scalar).unwrap();
 	let server = VoprfServer::<CS>::from_key_pair(secret_key);
-	newtype_struct(server, "VoprfServer", scalar, wrong_scalar);
+	newtype_struct(&server, "VoprfServer", scalar, [wrong_scalar, zero_scalar]);
 }
 
 test_ciphersuites!(poprf);
@@ -260,9 +280,11 @@ where
 	let scalar1 = scalar::<CS>();
 	let scalar2 = scalar::<CS>();
 	let wrong_scalar = wrong_scalar::<CS>();
+	let zero_scalar = zero_scalar::<CS>();
 
 	let element = element::<CS>();
 	let wrong_element = wrong_element::<CS>();
+	let identity_element = identity_element::<CS>();
 
 	let client = Compact::<PoprfClient<CS>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(2) })
@@ -273,14 +295,14 @@ where
 	.unwrap()
 	.0;
 	struct_2(
-		client,
+		&client,
 		"PoprfClient",
 		"blind",
 		scalar1,
-		wrong_scalar,
+		[wrong_scalar, zero_scalar],
 		"blinded_element",
 		element,
-		wrong_element,
+		[wrong_element, identity_element],
 	);
 
 	let server = Compact::<PoprfServer<CS>>::deserialize(&mut Deserializer::new(
@@ -293,14 +315,14 @@ where
 	.unwrap()
 	.0;
 	struct_2(
-		server,
+		&server,
 		"PoprfServer",
 		"secret_key",
 		scalar1,
-		wrong_scalar,
+		[wrong_scalar, zero_scalar],
 		"t",
 		scalar2,
-		wrong_scalar,
+		[wrong_scalar, zero_scalar],
 	);
 }
 
@@ -315,6 +337,11 @@ fn wrong_scalar<CS: CipherSuite>() -> &'static [u8] {
 	Box::leak(Box::new(scalar_bytes))
 }
 
+fn zero_scalar<CS: CipherSuite>() -> &'static [u8] {
+	let scalar_bytes = Array::<u8, <CS::Group as Group>::ScalarLength>::default();
+	Box::leak(Box::new(scalar_bytes))
+}
+
 fn element<CS: CipherSuite>() -> &'static [u8] {
 	let scalar = CS::Group::scalar_random(&mut OsRng).unwrap();
 	let element = CS::Group::scalar_mul_by_generator(&scalar);
@@ -323,7 +350,13 @@ fn element<CS: CipherSuite>() -> &'static [u8] {
 }
 
 fn wrong_element<CS: CipherSuite>() -> &'static [u8] {
-	let element_bytes = Array::<u8, <CS::Group as Group>::ElementLength>::default();
+	let element_bytes = Array::<u8, <CS::Group as Group>::ElementLength>::from_fn(|_| u8::MAX);
+	Box::leak(Box::new(element_bytes))
+}
+
+fn identity_element<CS: CipherSuite>() -> &'static [u8] {
+	let element = CS::Group::element_identity();
+	let [element_bytes] = CS::Group::element_batch_to_repr(array::from_ref(&element));
 	Box::leak(Box::new(element_bytes))
 }
 
@@ -331,10 +364,10 @@ fn wrong_element<CS: CipherSuite>() -> &'static [u8] {
 fn newtype_struct<
 	T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + TypeRepr + Serialize,
 >(
-	value: T,
+	value: &T,
 	name: &'static str,
 	bytes: &'static [u8],
-	wrong_bytes: &'static [u8],
+	wrong_bytes: impl IntoIterator<Item = &'static [u8]>,
 ) {
 	serde_test::assert_tokens(
 		&value.clone().compact(),
@@ -344,7 +377,7 @@ fn newtype_struct<
 	);
 
 	serde_test::assert_de_tokens(
-		&value.compact(),
+		&value.clone().compact(),
 		&iter::once(Token::Seq { len: Some(1) })
 			.chain(T::repr(0, bytes))
 			.chain(iter::once(Token::SeqEnd))
@@ -366,23 +399,25 @@ fn newtype_struct<
 		&format!("invalid type: map, expected tuple struct {name}"),
 	);
 
-	assert_de_tokens_error_partly::<Compact<T>>(
-		&[Token::NewtypeStruct { name }, Token::Bytes(wrong_bytes)],
-		"",
-	);
+	for wrong_bytes in wrong_bytes {
+		assert_de_tokens_error_partly::<Compact<T>>(
+			&[Token::NewtypeStruct { name }, Token::Bytes(wrong_bytes)],
+			"",
+		);
+	}
 }
 
 /// Test a struct with two fields.
 #[expect(clippy::too_many_arguments, clippy::too_many_lines, reason = "test")]
 fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + TypeRepr + Serialize>(
-	value: T,
+	value: &T,
 	name: &'static str,
 	field1: &'static str,
 	bytes1: &'static [u8],
-	wrong_bytes1: &'static [u8],
+	wrong_bytes1: impl Copy + IntoIterator<Item = &'static [u8]>,
 	field2: &'static str,
 	bytes2: &'static [u8],
-	wrong_bytes2: &'static [u8],
+	wrong_bytes2: impl Copy + IntoIterator<Item = &'static [u8]>,
 ) {
 	serde_test::assert_tokens(
 		&value.clone().compact(),
@@ -421,7 +456,7 @@ fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + TypeRepr 
 	);
 
 	serde_test::assert_de_tokens(
-		&value.compact(),
+		&value.clone().compact(),
 		&iter::once(Token::Seq { len: Some(2) })
 			.chain(T::repr(0, bytes1))
 			.chain(T::repr(1, bytes2))
@@ -525,38 +560,46 @@ fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + TypeRepr 
 		&format!("invalid type: newtype struct, expected struct {name}"),
 	);
 
-	assert_de_tokens_error_partly::<Compact<T>>(
-		&[
-			Token::Struct { name, len: 2 },
-			Token::Str(field1),
-			Token::Bytes(wrong_bytes1),
-		],
-		"",
-	);
+	for wrong_bytes in wrong_bytes1 {
+		assert_de_tokens_error_partly::<Compact<T>>(
+			&[
+				Token::Struct { name, len: 2 },
+				Token::Str(field1),
+				Token::Bytes(wrong_bytes),
+			],
+			"",
+		);
+	}
 
-	assert_de_tokens_error_partly::<Compact<T>>(
-		&[Token::Struct { name, len: 2 }, Token::Str(field1)]
-			.into_iter()
-			.chain(T::repr(0, bytes1))
-			.chain(iter::once(Token::Str(field2)))
-			.chain(T::repr(1, wrong_bytes2))
-			.collect::<Vec<_>>(),
-		"",
-	);
+	for wrong_bytes in wrong_bytes2 {
+		assert_de_tokens_error_partly::<Compact<T>>(
+			&[Token::Struct { name, len: 2 }, Token::Str(field1)]
+				.into_iter()
+				.chain(T::repr(0, bytes1))
+				.chain(iter::once(Token::Str(field2)))
+				.chain(T::repr(1, wrong_bytes))
+				.collect::<Vec<_>>(),
+			"",
+		);
+	}
 
-	assert_de_tokens_error_partly::<Compact<T>>(
-		&[Token::Seq { len: Some(2) }, Token::Bytes(wrong_bytes1)],
-		"",
-	);
+	for wrong_bytes in wrong_bytes1 {
+		assert_de_tokens_error_partly::<Compact<T>>(
+			&[Token::Seq { len: Some(2) }, Token::Bytes(wrong_bytes)],
+			"",
+		);
+	}
 
-	assert_de_tokens_error_partly::<Compact<T>>(
-		&[
-			Token::Seq { len: Some(2) },
-			Token::Bytes(bytes1),
-			Token::Bytes(wrong_bytes2),
-		],
-		"",
-	);
+	for wrong_bytes in wrong_bytes2 {
+		assert_de_tokens_error_partly::<Compact<T>>(
+			&[
+				Token::Seq { len: Some(2) },
+				Token::Bytes(bytes1),
+				Token::Bytes(wrong_bytes),
+			],
+			"",
+		);
+	}
 }
 
 /// Similar to [`serde_test::assert_de_tokens_error`] but only checks if start
