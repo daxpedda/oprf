@@ -32,7 +32,7 @@ pub struct NonIdentityElement;
 pub struct Element;
 
 impl Group for MockCurve {
-	type K = U0;
+	type SecurityLevel = U0;
 
 	type NonZeroScalar = NonZeroScalar;
 	type Scalar = Scalar;
@@ -51,7 +51,7 @@ impl Group for MockCurve {
 
 	fn hash_to_scalar<E>(_: &[&[u8]], _: Dst) -> Option<Self::Scalar>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		Some(Scalar)
 	}
@@ -90,7 +90,7 @@ impl Group for MockCurve {
 
 	fn hash_to_curve<E>(_: &[&[u8]], _: Dst) -> Option<Self::Element>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		Some(Element)
 	}

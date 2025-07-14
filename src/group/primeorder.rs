@@ -26,7 +26,7 @@ where
 	ProjectivePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 	AffinePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 {
-	type K = C::K;
+	type SecurityLevel = C::K;
 
 	type NonZeroScalar = NonZeroScalar<C>;
 	type Scalar = C::Scalar;
@@ -53,7 +53,7 @@ where
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		C::hash_to_scalar::<E>(input, dst.as_ref()).ok()
 	}
@@ -105,7 +105,7 @@ where
 
 	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		C::hash_from_bytes::<E>(input, dst.as_ref()).ok()
 	}

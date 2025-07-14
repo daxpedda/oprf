@@ -26,7 +26,7 @@ use crate::error::Result;
 pub struct Ristretto255;
 
 impl Group for Ristretto255 {
-	type K = U16;
+	type SecurityLevel = U16;
 
 	type NonZeroScalar = NonZeroScalar;
 	type Scalar = Scalar;
@@ -53,7 +53,7 @@ impl Group for Ristretto255 {
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		let mut uniform_bytes = [0; 64];
 		E::expand_message(
@@ -118,7 +118,7 @@ impl Group for Ristretto255 {
 
 	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		let mut uniform_bytes = [0; 64];
 		E::expand_message(

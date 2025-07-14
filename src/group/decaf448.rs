@@ -22,7 +22,7 @@ use crate::error::Result;
 pub struct Decaf448;
 
 impl Group for Decaf448 {
-	type K = U28;
+	type SecurityLevel = U28;
 
 	type NonZeroScalar = Decaf448NonZeroScalar;
 	type Scalar = DecafScalar;
@@ -49,7 +49,7 @@ impl Group for Decaf448 {
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		ed448_goldilocks::Decaf448::hash_to_scalar::<E>(input, dst.as_ref()).ok()
 	}
@@ -101,7 +101,7 @@ impl Group for Decaf448 {
 
 	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
 	where
-		E: ExpandMsg<Self::K>,
+		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		ed448_goldilocks::Decaf448::hash_from_bytes::<E>(input, dst.as_ref()).ok()
 	}

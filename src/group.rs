@@ -23,7 +23,7 @@ use crate::internal;
 use crate::util::{CollectArray, Concat};
 
 pub trait Group {
-	type K: Unsigned;
+	type SecurityLevel: Unsigned;
 
 	type NonZeroScalar: Copy
 		+ Debug
@@ -60,7 +60,7 @@ pub trait Group {
 
 	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
 	where
-		E: ExpandMsg<Self::K>;
+		E: ExpandMsg<Self::SecurityLevel>;
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement;
 
@@ -97,7 +97,7 @@ pub trait Group {
 
 	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
 	where
-		E: ExpandMsg<Self::K>;
+		E: ExpandMsg<Self::SecurityLevel>;
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
 
