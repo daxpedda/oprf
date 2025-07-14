@@ -56,9 +56,13 @@ impl Group for Ristretto255 {
 		E: ExpandMsg<Self::K>,
 	{
 		let mut uniform_bytes = [0; 64];
-		E::expand_message(input, &dst, 64.try_into().unwrap())
-			.ok()?
-			.fill_bytes(&mut uniform_bytes);
+		E::expand_message(
+			input,
+			&dst,
+			64.try_into().expect("`64` is smaller than `U16::MAX"),
+		)
+		.ok()?
+		.fill_bytes(&mut uniform_bytes);
 
 		Some(Scalar::from_bytes_mod_order_wide(&uniform_bytes))
 	}
@@ -117,9 +121,13 @@ impl Group for Ristretto255 {
 		E: ExpandMsg<Self::K>,
 	{
 		let mut uniform_bytes = [0; 64];
-		E::expand_message(input, &dst, 64.try_into().unwrap())
-			.ok()?
-			.fill_bytes(&mut uniform_bytes);
+		E::expand_message(
+			input,
+			&dst,
+			64.try_into().expect("`64` is smaller than `U16::MAX"),
+		)
+		.ok()?
+		.fill_bytes(&mut uniform_bytes);
 
 		Some(RistrettoPoint::from_uniform_bytes(&uniform_bytes))
 	}
