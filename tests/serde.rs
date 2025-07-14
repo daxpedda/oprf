@@ -4,27 +4,138 @@
 #![cfg(feature = "serde")]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
 
-use std::array;
 use std::fmt::Debug;
+use std::{array, iter};
 
 use hybrid_array::Array;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Proof};
 use oprf::group::Group;
+use oprf::group::decaf448::Decaf448;
+use oprf::group::ristretto255::Ristretto255;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfClient, OprfServer};
 use oprf::poprf::{PoprfClient, PoprfServer};
 use oprf::voprf::{VoprfClient, VoprfServer};
 use oprf_test::test_ciphersuites;
+use p256::NistP256;
+use p384::NistP384;
+use p521::NistP521;
 use rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_test::de::Deserializer;
 use serde_test::{Compact, Configure, Token};
 
+/// Defines how certain cipher suites differ in their serialization format of
+/// scalars. By default this assumes [`Token::Bytes`] is used.
+trait ScalarRepr {
+	/// The [`Token`] expected for the given field index of this type.
+	fn scalar_repr(bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		iter::once(Token::Bytes(bytes))
+	}
+}
+
+impl ScalarRepr for NistP256 {}
+
+impl ScalarRepr for NistP384 {}
+
+impl ScalarRepr for NistP521 {}
+
+impl ScalarRepr for Ristretto255 {
+	fn scalar_repr(bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		iter::once(Token::Tuple { len: bytes.len() })
+			.chain(bytes.iter().copied().map(Token::U8))
+			.chain(iter::once(Token::TupleEnd))
+	}
+}
+
+impl ScalarRepr for Decaf448 {}
+
+/// Defines how types differ in their serialization format of
+/// byte strings. By default this assumes [`Token::Bytes`] is used.
+trait TypeRepr {
+	/// The [`Token`] expected for the given field index of this type.
+	fn repr(_index: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		iter::once(Token::Bytes(bytes))
+	}
+}
+
+impl<CS: CipherSuite> TypeRepr for BlindedElement<CS> {}
+
+impl<CS: CipherSuite> TypeRepr for EvaluationElement<CS> {}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for Proof<CS> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		CS::scalar_repr(bytes)
+	}
+}
+
+impl<G: Group + ScalarRepr> TypeRepr for KeyPair<G> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		G::scalar_repr(bytes)
+	}
+}
+
+impl<G: Group + ScalarRepr> TypeRepr for SecretKey<G> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		G::scalar_repr(bytes)
+	}
+}
+
+impl<G: Group + ScalarRepr> TypeRepr for PublicKey<G> {}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for OprfClient<CS> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		CS::scalar_repr(bytes)
+	}
+}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for OprfServer<CS> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		CS::scalar_repr(bytes)
+	}
+}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for VoprfClient<CS> {
+	fn repr(index: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		#[expect(
+			clippy::iter_on_empty_collections,
+			clippy::iter_on_single_items,
+			reason = "required to produce type compatible output"
+		)]
+		match index {
+			0 => Some(CS::scalar_repr(bytes))
+				.into_iter()
+				.flatten()
+				.chain(None),
+			1 => None.into_iter().flatten().chain(Some(Token::Bytes(bytes))),
+			_ => unreachable!(),
+		}
+	}
+}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for VoprfServer<CS> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		CS::scalar_repr(bytes)
+	}
+}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for PoprfClient<CS> {
+	fn repr(index: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		VoprfClient::<CS>::repr(index, bytes)
+	}
+}
+
+impl<CS: CipherSuite + ScalarRepr> TypeRepr for PoprfServer<CS> {
+	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		CS::scalar_repr(bytes)
+	}
+}
+
 test_ciphersuites!(common);
 
 /// Test common types.
-fn common<CS: CipherSuite>()
+fn common<CS: CipherSuite<Group: ScalarRepr> + ScalarRepr>()
 where
 	BlindedElement<CS>: for<'de> Deserialize<'de> + Serialize,
 	EvaluationElement<CS>: for<'de> Deserialize<'de> + Serialize,
@@ -77,7 +188,7 @@ where
 test_ciphersuites!(oprf);
 
 /// Test OPRF types.
-fn oprf<CS: CipherSuite>()
+fn oprf<CS: CipherSuite + ScalarRepr>()
 where
 	OprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
 	OprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
@@ -85,11 +196,12 @@ where
 	let scalar = scalar::<CS>();
 	let wrong_scalar = wrong_scalar::<CS>();
 
-	let client = Compact::<OprfClient<CS>>::deserialize(&mut Deserializer::new(&[
-		Token::Seq { len: Some(1) },
-		Token::Bytes(scalar),
-		Token::SeqEnd,
-	]))
+	let client = Compact::<OprfClient<CS>>::deserialize(&mut Deserializer::new(
+		&iter::once(Token::Seq { len: Some(1) })
+			.chain(OprfClient::<CS>::repr(0, scalar))
+			.chain(iter::once(Token::SeqEnd))
+			.collect::<Vec<_>>(),
+	))
 	.unwrap()
 	.0;
 	newtype_struct(client, "OprfClient", scalar, wrong_scalar);
@@ -102,7 +214,7 @@ where
 test_ciphersuites!(voprf);
 
 /// Test VOPRF types.
-fn voprf<CS: CipherSuite>()
+fn voprf<CS: CipherSuite + ScalarRepr>()
 where
 	VoprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
 	VoprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
@@ -113,12 +225,12 @@ where
 	let element = element::<CS>();
 	let wrong_element = wrong_element::<CS>();
 
-	let client = Compact::<VoprfClient<CS>>::deserialize(&mut Deserializer::new(&[
-		Token::Seq { len: Some(2) },
-		Token::Bytes(scalar),
-		Token::Bytes(element),
-		Token::SeqEnd,
-	]))
+	let client = Compact::<VoprfClient<CS>>::deserialize(&mut Deserializer::new(
+		&iter::once(Token::Seq { len: Some(2) })
+			.chain(VoprfClient::<CS>::repr(0, scalar))
+			.chain([Token::Bytes(element), Token::SeqEnd])
+			.collect::<Vec<_>>(),
+	))
 	.unwrap()
 	.0;
 	struct_2(
@@ -140,7 +252,7 @@ where
 test_ciphersuites!(poprf);
 
 /// Test POPRF types.
-fn poprf<CS: CipherSuite>()
+fn poprf<CS: CipherSuite + ScalarRepr>()
 where
 	PoprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
 	PoprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
@@ -152,12 +264,12 @@ where
 	let element = element::<CS>();
 	let wrong_element = wrong_element::<CS>();
 
-	let client = Compact::<PoprfClient<CS>>::deserialize(&mut Deserializer::new(&[
-		Token::Seq { len: Some(2) },
-		Token::Bytes(scalar1),
-		Token::Bytes(element),
-		Token::SeqEnd,
-	]))
+	let client = Compact::<PoprfClient<CS>>::deserialize(&mut Deserializer::new(
+		&iter::once(Token::Seq { len: Some(2) })
+			.chain(PoprfClient::<CS>::repr(0, scalar1))
+			.chain([Token::Bytes(element), Token::SeqEnd])
+			.collect::<Vec<_>>(),
+	))
 	.unwrap()
 	.0;
 	struct_2(
@@ -171,12 +283,13 @@ where
 		wrong_element,
 	);
 
-	let server = Compact::<PoprfServer<CS>>::deserialize(&mut Deserializer::new(&[
-		Token::Seq { len: Some(2) },
-		Token::Bytes(scalar1),
-		Token::Bytes(scalar2),
-		Token::SeqEnd,
-	]))
+	let server = Compact::<PoprfServer<CS>>::deserialize(&mut Deserializer::new(
+		&iter::once(Token::Seq { len: Some(2) })
+			.chain(PoprfServer::<CS>::repr(0, scalar1))
+			.chain(PoprfServer::<CS>::repr(1, scalar2))
+			.chain(iter::once(Token::SeqEnd))
+			.collect::<Vec<_>>(),
+	))
 	.unwrap()
 	.0;
 	struct_2(
@@ -215,7 +328,9 @@ fn wrong_element<CS: CipherSuite>() -> &'static [u8] {
 }
 
 /// Test a newtype struct.
-fn newtype_struct<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Serialize>(
+fn newtype_struct<
+	T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + TypeRepr + Serialize,
+>(
 	value: T,
 	name: &'static str,
 	bytes: &'static [u8],
@@ -223,16 +338,17 @@ fn newtype_struct<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Ser
 ) {
 	serde_test::assert_tokens(
 		&value.clone().compact(),
-		&[Token::NewtypeStruct { name }, Token::Bytes(bytes)],
+		&iter::once(Token::NewtypeStruct { name })
+			.chain(T::repr(0, bytes))
+			.collect::<Vec<_>>(),
 	);
 
 	serde_test::assert_de_tokens(
 		&value.compact(),
-		&[
-			Token::Seq { len: Some(1) },
-			Token::Bytes(bytes),
-			Token::SeqEnd,
-		],
+		&iter::once(Token::Seq { len: Some(1) })
+			.chain(T::repr(0, bytes))
+			.chain(iter::once(Token::SeqEnd))
+			.collect::<Vec<_>>(),
 	);
 
 	assert_de_tokens_error_partly::<Compact<T>>(
@@ -258,7 +374,7 @@ fn newtype_struct<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Ser
 
 /// Test a struct with two fields.
 #[expect(clippy::too_many_arguments, clippy::too_many_lines, reason = "test")]
-fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Serialize>(
+fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + TypeRepr + Serialize>(
 	value: T,
 	name: &'static str,
 	field1: &'static str,
@@ -270,14 +386,13 @@ fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Serialize
 ) {
 	serde_test::assert_tokens(
 		&value.clone().compact(),
-		&[
-			Token::Struct { name, len: 2 },
-			Token::Str(field1),
-			Token::Bytes(bytes1),
-			Token::Str(field2),
-			Token::Bytes(bytes2),
-			Token::StructEnd,
-		],
+		&[Token::Struct { name, len: 2 }, Token::Str(field1)]
+			.into_iter()
+			.chain(T::repr(0, bytes1))
+			.chain(iter::once(Token::Str(field2)))
+			.chain(T::repr(1, bytes2))
+			.chain(iter::once(Token::StructEnd))
+			.collect::<Vec<_>>(),
 	);
 
 	serde_test::assert_de_tokens(
@@ -285,87 +400,78 @@ fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Serialize
 		&[
 			Token::Struct { name, len: 2 },
 			Token::Bytes(field1.as_bytes()),
-			Token::Bytes(bytes1),
-			Token::Bytes(field2.as_bytes()),
-			Token::Bytes(bytes2),
-			Token::StructEnd,
-		],
+		]
+		.into_iter()
+		.chain(T::repr(0, bytes1))
+		.chain(iter::once(Token::Bytes(field2.as_bytes())))
+		.chain(T::repr(1, bytes2))
+		.chain(iter::once(Token::StructEnd))
+		.collect::<Vec<_>>(),
 	);
 
 	serde_test::assert_de_tokens(
 		&value.clone().compact(),
-		&[
-			Token::Struct { name, len: 2 },
-			Token::U64(0),
-			Token::Bytes(bytes1),
-			Token::U64(1),
-			Token::Bytes(bytes2),
-			Token::StructEnd,
-		],
+		&[Token::Struct { name, len: 2 }, Token::U64(0)]
+			.into_iter()
+			.chain(T::repr(0, bytes1))
+			.chain(iter::once(Token::U64(1)))
+			.chain(T::repr(1, bytes2))
+			.chain(iter::once(Token::StructEnd))
+			.collect::<Vec<_>>(),
 	);
 
 	serde_test::assert_de_tokens(
 		&value.compact(),
-		&[
-			Token::Seq { len: Some(2) },
-			Token::Bytes(bytes1),
-			Token::Bytes(bytes2),
-			Token::SeqEnd,
-		],
+		&iter::once(Token::Seq { len: Some(2) })
+			.chain(T::repr(0, bytes1))
+			.chain(T::repr(1, bytes2))
+			.chain(iter::once(Token::SeqEnd))
+			.collect::<Vec<_>>(),
 	);
 
-	serde_test::assert_de_tokens_error::<Compact<T>>(
+	assert_de_tokens_error_partly::<Compact<T>>(
 		&[
 			Token::Struct { name, len: 2 },
 			Token::Str(field1),
 			Token::Unit,
 			Token::Str(field2),
 		],
-		&format!(
-			"invalid type: unit value, expected an array of length {}",
-			bytes1.len()
-		),
+		"invalid type: unit value, ",
 	);
 
 	serde_test::assert_de_tokens_error::<Compact<T>>(
-		&[
-			Token::Struct { name, len: 1 },
-			Token::Str(field1),
-			Token::Bytes(bytes1),
-			Token::StructEnd,
-		],
+		&[Token::Struct { name, len: 1 }, Token::Str(field1)]
+			.into_iter()
+			.chain(T::repr(0, bytes1))
+			.chain(iter::once(Token::StructEnd))
+			.collect::<Vec<_>>(),
 		&format!("missing field `{field2}`"),
 	);
 
 	serde_test::assert_de_tokens_error::<Compact<T>>(
-		&[
-			Token::Struct { name, len: 1 },
-			Token::Str(field2),
-			Token::Bytes(bytes2),
-			Token::StructEnd,
-		],
+		&[Token::Struct { name, len: 1 }, Token::Str(field2)]
+			.into_iter()
+			.chain(T::repr(1, bytes2))
+			.chain(iter::once(Token::StructEnd))
+			.collect::<Vec<_>>(),
 		&format!("missing field `{field1}`"),
 	);
 
 	serde_test::assert_de_tokens_error::<Compact<T>>(
-		&[
-			Token::Struct { name, len: 2 },
-			Token::Str(field1),
-			Token::Bytes(bytes1),
-			Token::Str(field1),
-			Token::Bytes(bytes1),
-		],
+		&[Token::Struct { name, len: 2 }, Token::Str(field1)]
+			.into_iter()
+			.chain(T::repr(0, bytes1))
+			.chain(iter::once(Token::Str(field1)))
+			.collect::<Vec<_>>(),
 		&format!("duplicate field `{field1}`"),
 	);
 
 	serde_test::assert_de_tokens_error::<Compact<T>>(
-		&[
-			Token::Struct { name, len: 2 },
-			Token::Str(field2),
-			Token::Bytes(bytes2),
-			Token::Str(field2),
-			Token::Bytes(bytes2),
-		],
+		&[Token::Struct { name, len: 2 }, Token::Str(field2)]
+			.into_iter()
+			.chain(T::repr(1, bytes2))
+			.chain(iter::once(Token::Str(field2)))
+			.collect::<Vec<_>>(),
 		&format!("duplicate field `{field2}`"),
 	);
 
@@ -375,11 +481,10 @@ fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Serialize
 	);
 
 	serde_test::assert_de_tokens_error::<Compact<T>>(
-		&[
-			Token::Seq { len: Some(1) },
-			Token::Bytes(bytes1),
-			Token::SeqEnd,
-		],
+		&iter::once(Token::Seq { len: Some(1) })
+			.chain(T::repr(0, bytes1))
+			.chain(iter::once(Token::SeqEnd))
+			.collect::<Vec<_>>(),
 		&format!("invalid length 1, expected struct {name} with 2 element"),
 	);
 
@@ -430,13 +535,12 @@ fn struct_2<T: Clone + Debug + for<'de> Deserialize<'de> + PartialEq + Serialize
 	);
 
 	assert_de_tokens_error_partly::<Compact<T>>(
-		&[
-			Token::Struct { name, len: 2 },
-			Token::Str(field1),
-			Token::Bytes(bytes1),
-			Token::Str(field2),
-			Token::Bytes(wrong_bytes2),
-		],
+		&[Token::Struct { name, len: 2 }, Token::Str(field1)]
+			.into_iter()
+			.chain(T::repr(0, bytes1))
+			.chain(iter::once(Token::Str(field2)))
+			.chain(T::repr(1, wrong_bytes2))
+			.collect::<Vec<_>>(),
 		"",
 	);
 

@@ -21,6 +21,7 @@ use oprf::common::{
 };
 use oprf::group::Dst;
 use oprf::group::decaf448::Decaf448;
+use oprf::group::ristretto255::Ristretto255;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
 use oprf::oprf::OprfBatchVecBlindResult;
@@ -87,6 +88,7 @@ macro_rules! test_ciphersuite {
 test_ciphersuite!(NistP256, p256);
 test_ciphersuite!(NistP384, p384);
 test_ciphersuite!(NistP521, p521);
+test_ciphersuite!(Ristretto255, ristretto255);
 test_ciphersuite!(Decaf448, decaf448);
 
 common!(Mode);

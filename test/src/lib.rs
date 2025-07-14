@@ -57,6 +57,11 @@ macro_rules! test_ciphersuites {
 			}
 
 			#[test]
+			fn [<$prefixed_name _ristretto255>]() {
+				$name::<$crate::oprf::group::ristretto255::Ristretto255>($(::oprf::common::Mode::$mode)?);
+			}
+
+			#[test]
 			fn [<$prefixed_name _decaf448>]() {
 				$name::<$crate::oprf::group::decaf448::Decaf448>($(::oprf::common::Mode::$mode)?);
 			}

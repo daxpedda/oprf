@@ -2,6 +2,8 @@
 pub mod decaf448;
 #[cfg(feature = "primeorder")]
 mod primeorder;
+#[cfg(feature = "ristretto255")]
+pub mod ristretto255;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
