@@ -2,7 +2,6 @@
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-use core::array;
 use core::fmt::{self, Debug, Formatter};
 use core::ops::Deref;
 
@@ -106,9 +105,10 @@ impl<G: Group> ElementWrapper<G> {
 	}
 
 	pub(crate) fn from_element(element: G::NonIdentityElement) -> Self {
-		let [repr] = G::non_identity_element_batch_to_repr(array::from_ref(&element));
-
-		Self { element, repr }
+		Self {
+			element,
+			repr: G::element_to_repr(&element),
+		}
 	}
 
 	pub(crate) fn from_repr(bytes: &[u8]) -> Result<Self> {

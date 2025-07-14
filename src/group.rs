@@ -20,7 +20,7 @@ use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar
 use crate::common::Mode;
 use crate::error::{Error, Result};
 use crate::internal;
-use crate::util::Concat;
+use crate::util::{CollectArray, Concat};
 
 pub trait Group {
 	type K: Unsigned;
@@ -70,10 +70,18 @@ pub trait Group {
 
 	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
-	) -> [Self::NonZeroScalar; N];
+	) -> [Self::NonZeroScalar; N] {
+		scalars.map(|scalar| Self::scalar_invert(&scalar))
+	}
 
+	#[must_use]
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar>;
+	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+		scalars
+			.into_iter()
+			.map(|scalar| Self::scalar_invert(&scalar))
+			.collect()
+	}
 
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
@@ -91,24 +99,44 @@ pub trait Group {
 	where
 		E: ExpandMsg<Self::K>;
 
+	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
+
 	fn non_identity_element_batch_to_repr<const N: usize>(
 		elements: &[Self::NonIdentityElement; N],
-	) -> [Array<u8, Self::ElementLength>; N];
+	) -> [Array<u8, Self::ElementLength>; N] {
+		elements
+			.iter()
+			.map(|element| Self::element_to_repr(element))
+			.collect_array()
+	}
 
 	#[cfg(feature = "alloc")]
 	fn non_identity_element_batch_vec_to_repr(
 		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>>;
+	) -> Vec<Array<u8, Self::ElementLength>> {
+		elements
+			.iter()
+			.map(|element| Self::element_to_repr(element))
+			.collect()
+	}
 
 	fn element_batch_to_repr<const N: usize>(
 		elements: &[Self::Element; N],
-	) -> [Array<u8, Self::ElementLength>; N];
+	) -> [Array<u8, Self::ElementLength>; N] {
+		elements.iter().map(Self::element_to_repr).collect_array()
+	}
 
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement>;
 
-	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element;
+	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
+		elements_and_scalars
+			.into_iter()
+			.map(|(element, scalar)| scalar * &element)
+			.reduce(|acc, element| acc + &element)
+			.expect("array is not empty")
+	}
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

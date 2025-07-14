@@ -31,8 +31,7 @@ pub fn zero_scalar<CS: CipherSuite>() -> Array<u8, <CS::Group as Group>::ScalarL
 pub fn element<CS: CipherSuite>() -> Array<u8, <CS::Group as Group>::ElementLength> {
 	let scalar = CS::Group::scalar_random(&mut OsRng).unwrap();
 	let element = CS::Group::scalar_mul_by_generator(&scalar);
-	let [bytes] = CS::Group::element_batch_to_repr(&[element]);
-	bytes
+	CS::Group::element_to_repr(&element)
 }
 
 /// Returns a non-reduced element.
@@ -45,6 +44,5 @@ pub fn invalid_element<CS: CipherSuite>() -> Array<u8, <CS::Group as Group>::Ele
 #[must_use]
 pub fn identity_element<CS: CipherSuite>() -> Array<u8, <CS::Group as Group>::ElementLength> {
 	let element = CS::Group::element_identity();
-	let [bytes] = CS::Group::element_batch_to_repr(&[element]);
-	bytes
+	CS::Group::element_to_repr(&element)
 }

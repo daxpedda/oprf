@@ -17,7 +17,6 @@ use super::{Dst, Group};
 use crate::CipherSuite;
 use crate::cipher_suite::Id;
 use crate::error::Result;
-use crate::util::CollectArray;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Decaf448;
@@ -107,23 +106,8 @@ impl Group for Decaf448 {
 		ed448_goldilocks::Decaf448::hash_from_bytes::<E>(input, dst.as_ref()).ok()
 	}
 
-	fn non_identity_element_batch_to_repr<const N: usize>(
-		elements: &[Self::NonIdentityElement; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		elements.iter().map(NonIdentity::to_bytes).collect_array()
-	}
-
-	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_vec_to_repr(
-		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>> {
-		elements.iter().map(NonIdentity::to_bytes).collect()
-	}
-
-	fn element_batch_to_repr<const N: usize>(
-		elements: &[Self::Element; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		elements.iter().map(DecafPoint::to_bytes).collect_array()
+	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
+		element.to_bytes()
 	}
 
 	fn non_identity_element_from_repr(

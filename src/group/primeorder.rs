@@ -70,14 +70,14 @@ where
 		scalar.invert()
 	}
 
-	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
-		NonZeroScalar::<C>::batch_invert(scalars)
-	}
-
 	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N] {
+		NonZeroScalar::<C>::batch_invert(scalars)
+	}
+
+	#[cfg(feature = "alloc")]
+	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		NonZeroScalar::<C>::batch_invert(scalars)
 	}
 
@@ -110,10 +110,14 @@ where
 		C::hash_from_bytes::<E>(input, dst.as_ref()).ok()
 	}
 
-	fn non_identity_element_from_repr(
-		bytes: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement> {
-		NonIdentity::<ProjectivePoint<C>>::from_repr(bytes).into_option()
+	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
+		element.to_bytes()
+	}
+
+	fn non_identity_element_batch_to_repr<const N: usize>(
+		elements: &[Self::NonIdentityElement; N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements).map(|point| point.to_bytes())
 	}
 
 	#[cfg(feature = "alloc")]
@@ -126,16 +130,16 @@ where
 			.collect()
 	}
 
-	fn non_identity_element_batch_to_repr<const N: usize>(
-		elements: &[Self::NonIdentityElement; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements).map(|point| point.to_bytes())
-	}
-
 	fn element_batch_to_repr<const N: usize>(
 		elements: &[Self::Element; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
 		ProjectivePoint::<C>::batch_normalize(elements).map(|point| point.to_bytes())
+	}
+
+	fn non_identity_element_from_repr(
+		bytes: &Array<u8, Self::ElementLength>,
+	) -> Option<Self::NonIdentityElement> {
+		NonIdentity::<ProjectivePoint<C>>::from_repr(bytes).into_option()
 	}
 
 	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {

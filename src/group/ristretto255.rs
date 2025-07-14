@@ -6,18 +6,21 @@ use curve25519_dalek::{RistrettoPoint, Scalar};
 use elliptic_curve::Group as _;
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::subtle::{ConstantTimeEq, CtOption};
+#[cfg(feature = "ristretto255-ciphersuite")]
+use hash2curve::ExpandMsgXmd;
 use hash2curve::{ExpandMsg, Expander};
 use hybrid_array::Array;
 use hybrid_array::typenum::{U16, U32};
 use rand_core::TryCryptoRng;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(feature = "ristretto255-ciphersuite")]
+use sha2::Sha512;
 use zeroize::Zeroize;
 
 use super::{Dst, Group};
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::Result;
-use crate::util::CollectArray;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ristretto255;
@@ -121,45 +124,14 @@ impl Group for Ristretto255 {
 		Some(RistrettoPoint::from_uniform_bytes(&uniform_bytes))
 	}
 
-	fn non_identity_element_batch_to_repr<const N: usize>(
-		elements: &[Self::NonIdentityElement; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		elements
-			.iter()
-			.map(|element| element.to_bytes().into())
-			.collect_array()
-	}
-
-	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_vec_to_repr(
-		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>> {
-		elements
-			.iter()
-			.map(|element| element.to_bytes().into())
-			.collect()
-	}
-
-	fn element_batch_to_repr<const N: usize>(
-		elements: &[Self::Element; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		elements
-			.iter()
-			.map(|element| element.compress().0.into())
-			.collect_array()
+	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
+		element.to_bytes().into()
 	}
 
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {
 		NonIdentityElement::from_repr(bytes).into_option()
-	}
-
-	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		elements_and_scalars
-			.into_iter()
-			.map(|(element, scalar)| element * scalar)
-			.sum()
 	}
 }
 
@@ -168,8 +140,8 @@ impl CipherSuite for Ristretto255 {
 	const ID: Id = Id::new(b"ristretto255-SHA512").unwrap();
 
 	type Group = Self;
-	type Hash = sha2::Sha512;
-	type ExpandMsg = hash2curve::ExpandMsgXmd<sha2::Sha512>;
+	type Hash = Sha512;
+	type ExpandMsg = ExpandMsgXmd<Sha512>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

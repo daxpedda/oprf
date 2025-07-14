@@ -95,44 +95,14 @@ impl Group for MockCurve {
 		Some(Element)
 	}
 
-	fn scalar_batch_invert<const N: usize>(
-		scalars: [Self::NonZeroScalar; N],
-	) -> [Self::NonZeroScalar; N] {
-		scalars
-	}
-
-	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
-		scalars
-	}
-
-	fn non_identity_element_batch_to_repr<const N: usize>(
-		_: &[Self::NonIdentityElement; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		[Array::default(); N]
-	}
-
-	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_vec_to_repr(
-		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>> {
-		vec![Array::default(); elements.len()]
-	}
-
-	fn element_batch_to_repr<const N: usize>(
-		_: &[Self::Element; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		[Array::default(); N]
+	fn element_to_repr(_: &Self::Element) -> Array<u8, Self::ElementLength> {
+		Array::default()
 	}
 
 	fn non_identity_element_from_repr(
 		_: &Array<u8, Self::ElementLength>,
 	) -> Option<Self::NonIdentityElement> {
 		Some(NonIdentityElement)
-	}
-
-	fn lincomb(_: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		Element
 	}
 }
 
