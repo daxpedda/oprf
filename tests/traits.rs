@@ -35,6 +35,8 @@ use p256::NistP256;
 use p384::NistP384;
 use p521::NistP521;
 use paste::paste;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use static_assertions::assert_impl_all;
 use zeroize::ZeroizeOnDrop;
 
@@ -118,6 +120,8 @@ macro_rules! api {
 	($type:ty) => {
 		common!($type);
 		assert_impl_all!($type: ZeroizeOnDrop);
+		#[cfg(feature = "serde")]
+		assert_impl_all!($type: Deserialize<'static>, Serialize);
 	};
 }
 

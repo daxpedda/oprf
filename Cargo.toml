@@ -7,7 +7,7 @@ version = "0.0.0"
 alloc = ["elliptic-curve/alloc", "primeorder?/alloc", "oprf-test/alloc"]
 decaf448 = ["dep:ed448-goldilocks"]
 primeorder = ["dep:primeorder"]
-serde = ["dep:serde", "dep:serdect", "ed448-goldilocks?/serde", "primeorder?/serde"]
+serde = ["dep:serde", "dep:serdect", "ed448-goldilocks?/serde"]
 
 [dependencies]
 digest = { workspace = true }
