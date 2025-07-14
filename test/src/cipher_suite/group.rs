@@ -72,7 +72,7 @@ impl Group for MockCurve {
 		Array::default()
 	}
 
-	fn non_zero_scalar_from_repr(_: &Array<u8, Self::ScalarLength>) -> Option<Self::NonZeroScalar> {
+	fn non_zero_scalar_from_repr(_: Array<u8, Self::ScalarLength>) -> Option<Self::NonZeroScalar> {
 		Some(NonZeroScalar)
 	}
 

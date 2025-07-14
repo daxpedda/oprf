@@ -78,7 +78,7 @@ pub trait Group {
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
 	fn non_zero_scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		bytes: Array<u8, Self::ScalarLength>,
 	) -> Option<Self::NonZeroScalar>;
 
 	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar>;

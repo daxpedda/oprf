@@ -92,9 +92,9 @@ impl Group for Ristretto255 {
 	}
 
 	fn non_zero_scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		bytes: Array<u8, Self::ScalarLength>,
 	) -> Option<Self::NonZeroScalar> {
-		NonZeroScalar::from_repr(*bytes).into_option()
+		NonZeroScalar::from_repr(bytes).into_option()
 	}
 
 	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {

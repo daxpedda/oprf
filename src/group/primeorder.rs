@@ -86,9 +86,9 @@ where
 	}
 
 	fn non_zero_scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		bytes: Array<u8, Self::ScalarLength>,
 	) -> Option<Self::NonZeroScalar> {
-		NonZeroScalar::<C>::from_repr(bytes.clone()).into_option()
+		NonZeroScalar::<C>::from_repr(bytes).into_option()
 	}
 
 	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
