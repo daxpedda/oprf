@@ -132,12 +132,12 @@ test_ciphersuites!(batch_alloc, Poprf);
 /// methods with alloc.
 #[cfg(feature = "alloc")]
 fn batch_alloc<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::batch_vec(mode, 1);
-	let server = CommonServer::<CS>::batch_vec(&client);
-	let wrong_server = CommonServer::<CS>::batch_vec(&client);
+	let client = CommonClient::<CS>::batch_alloc(mode, 1);
+	let server = CommonServer::<CS>::batch_alloc(&client);
+	let wrong_server = CommonServer::<CS>::batch_alloc(&client);
 
 	// Failure on wrong public key.
-	let result = client.finalize_vec_with(
+	let result = client.finalize_alloc_with(
 		..,
 		wrong_server.public_key(),
 		iter::once(INPUT),
@@ -148,7 +148,7 @@ fn batch_alloc<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
 	// Failure on wrong evaluation element.
-	let result = client.finalize_vec_with(
+	let result = client.finalize_alloc_with(
 		..,
 		server.public_key(),
 		iter::once(INPUT),
@@ -159,7 +159,7 @@ fn batch_alloc<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
 	// Failure on wrong proof.
-	let result = client.finalize_vec_with(
+	let result = client.finalize_alloc_with(
 		..,
 		server.public_key(),
 		iter::once(INPUT),
@@ -171,7 +171,7 @@ fn batch_alloc<CS: CipherSuite>(mode: Mode) {
 
 	// Failure on wrong info.
 	if let Mode::Poprf = mode {
-		let result = client.finalize_vec_with(
+		let result = client.finalize_alloc_with(
 			..,
 			server.public_key(),
 			iter::once(INPUT),

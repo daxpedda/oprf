@@ -76,7 +76,7 @@ pub trait Group {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+	fn scalar_batch_alloc_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		scalars
 			.into_iter()
 			.map(|scalar| Self::scalar_invert(&scalar))
@@ -111,7 +111,7 @@ pub trait Group {
 	}
 
 	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_vec_to_repr(
+	fn non_identity_element_batch_alloc_to_repr(
 		elements: &[Self::NonIdentityElement],
 	) -> Vec<Array<u8, Self::ElementLength>> {
 		elements

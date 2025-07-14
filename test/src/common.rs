@@ -22,20 +22,20 @@ use digest::Output;
 use hybrid_array::{ArraySize, AssocArraySize};
 use oprf::cipher_suite::CipherSuite;
 #[cfg(feature = "alloc")]
-use oprf::common::BatchVecBlindEvaluateResult;
+use oprf::common::BatchAllocBlindEvaluateResult;
 use oprf::common::{
 	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
 };
 use oprf::group::Group;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
-use oprf::oprf::OprfBatchVecBlindResult;
+use oprf::oprf::OprfBatchAllocBlindResult;
 use oprf::oprf::{OprfBatchBlindResult, OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
-use oprf::poprf::PoprfBatchVecBlindResult;
+use oprf::poprf::PoprfBatchAllocBlindResult;
 use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfServer};
 #[cfg(feature = "alloc")]
-use oprf::voprf::VoprfBatchVecBlindResult;
+use oprf::voprf::VoprfBatchAllocBlindResult;
 use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
 use oprf::{Error, Result};
 use rand::TryRngCore;
@@ -234,12 +234,12 @@ impl<CS: CipherSuite> CommonClient<CS> {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec(mode: Mode, count: usize) -> CommonClientBatch<CS> {
-		Self::batch_vec_with(mode, None, iter::repeat_n(INPUT, count)).unwrap()
+	pub fn batch_alloc(mode: Mode, count: usize) -> CommonClientBatch<CS> {
+		Self::batch_alloc_with(mode, None, iter::repeat_n(INPUT, count)).unwrap()
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_with<'input, I>(
+	pub fn batch_alloc_with<'input, I>(
 		mode: Mode,
 		blinds: Option<&[&[u8]]>,
 		inputs: I,
@@ -257,10 +257,10 @@ impl<CS: CipherSuite> CommonClient<CS> {
 
 		match mode {
 			Mode::Oprf => {
-				let OprfBatchVecBlindResult {
+				let OprfBatchAllocBlindResult {
 					clients,
 					blinded_elements,
-				} = OprfClient::batch_vec_blind(&mut rng, inputs)?;
+				} = OprfClient::batch_alloc_blind(&mut rng, inputs)?;
 
 				Ok(CommonClientBatch {
 					clients: ClientBatch::Oprf(clients),
@@ -268,10 +268,10 @@ impl<CS: CipherSuite> CommonClient<CS> {
 				})
 			}
 			Mode::Voprf => {
-				let VoprfBatchVecBlindResult {
+				let VoprfBatchAllocBlindResult {
 					clients,
 					blinded_elements,
-				} = VoprfClient::batch_vec_blind(&mut rng, inputs)?;
+				} = VoprfClient::batch_alloc_blind(&mut rng, inputs)?;
 
 				Ok(CommonClientBatch {
 					clients: ClientBatch::Voprf(clients),
@@ -279,10 +279,10 @@ impl<CS: CipherSuite> CommonClient<CS> {
 				})
 			}
 			Mode::Poprf => {
-				let PoprfBatchVecBlindResult {
+				let PoprfBatchAllocBlindResult {
 					clients,
 					blinded_elements,
-				} = PoprfClient::batch_vec_blind(&mut rng, inputs)?;
+				} = PoprfClient::batch_alloc_blind(&mut rng, inputs)?;
 
 				Ok(CommonClientBatch {
 					clients: ClientBatch::Poprf(clients),
@@ -423,8 +423,8 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn finalize_vec(&self, server: &CommonServerBatch<CS>) -> Vec<Output<CS::Hash>> {
-		self.finalize_vec_with(
+	pub fn finalize_alloc(&self, server: &CommonServerBatch<CS>) -> Vec<Output<CS::Hash>> {
+		self.finalize_alloc_with(
 			..,
 			server.public_key(),
 			iter::repeat_n(INPUT, self.len()),
@@ -436,7 +436,7 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn finalize_vec_with<'inputs, 'evaluation_elements, CI, II, IEE>(
+	pub fn finalize_alloc_with<'inputs, 'evaluation_elements, CI, II, IEE>(
 		&self,
 		index: CI,
 		public_key: Option<&PublicKey<CS::Group>>,
@@ -453,19 +453,19 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
 	{
 		match &self.clients {
-			ClientBatch::Oprf(clients) => OprfClient::batch_vec_finalize(
+			ClientBatch::Oprf(clients) => OprfClient::batch_alloc_finalize(
 				clients[index].iter(),
 				inputs,
 				evaluation_elements.into_iter(),
 			),
-			ClientBatch::Voprf(clients) => VoprfClient::batch_vec_finalize(
+			ClientBatch::Voprf(clients) => VoprfClient::batch_alloc_finalize(
 				clients[index].iter(),
 				public_key.unwrap(),
 				inputs,
 				evaluation_elements,
 				proof.unwrap(),
 			),
-			ClientBatch::Poprf(clients) => PoprfClient::batch_vec_finalize(
+			ClientBatch::Poprf(clients) => PoprfClient::batch_alloc_finalize(
 				clients[index].iter(),
 				public_key.unwrap(),
 				inputs,
@@ -654,12 +654,12 @@ impl<CS: CipherSuite> CommonServer<CS> {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec(clients: &CommonClientBatch<CS>) -> CommonServerBatch<CS> {
-		Self::batch_vec_with(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
+	pub fn batch_alloc(clients: &CommonClientBatch<CS>) -> CommonServerBatch<CS> {
+		Self::batch_alloc_with(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_with(
+	pub fn batch_alloc_with(
 		mode: Mode,
 		secret_key: Option<SecretKey<CS::Group>>,
 		blinded_elements: &[BlindedElement<CS>],
@@ -676,7 +676,7 @@ impl<CS: CipherSuite> CommonServer<CS> {
 					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let evaluation_elements = server.batch_vec_blind_evaluate(blinded_elements.iter());
+				let evaluation_elements = server.batch_alloc_blind_evaluate(blinded_elements.iter());
 
 				Ok(CommonServerBatch {
 					server: Server::Oprf(server),
@@ -690,10 +690,10 @@ impl<CS: CipherSuite> CommonServer<CS> {
 					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let BatchVecBlindEvaluateResult {
+				let BatchAllocBlindEvaluateResult {
 					evaluation_elements,
 					proof,
-				} = server.batch_vec_blind_evaluate(&mut rng, blinded_elements.iter())?;
+				} = server.batch_alloc_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
 				Ok(CommonServerBatch {
 					server: Server::Voprf { server, proof },
@@ -708,10 +708,10 @@ impl<CS: CipherSuite> CommonServer<CS> {
 					PoprfServer::new(&mut OsRng, info)?
 				};
 
-				let BatchVecBlindEvaluateResult {
+				let BatchAllocBlindEvaluateResult {
 					evaluation_elements,
 					proof,
-				} = server.batch_vec_blind_evaluate(&mut rng, blinded_elements.iter())?;
+				} = server.batch_alloc_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
 				Ok(CommonServerBatch {
 					server: Server::Poprf { server, proof },
@@ -801,21 +801,21 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn evaluate_vec(&self) -> Vec<Output<CS::Hash>> {
-		self.evaluate_vec_with(&vec![INPUT; self.evaluation_elements.len()], INFO)
+	pub fn evaluate_alloc(&self) -> Vec<Output<CS::Hash>> {
+		self.evaluate_alloc_with(&vec![INPUT; self.evaluation_elements.len()], INFO)
 			.unwrap()
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn evaluate_vec_with(
+	pub fn evaluate_alloc_with(
 		&self,
 		inputs: &[&[&[u8]]],
 		info: &[u8],
 	) -> Result<Vec<Output<CS::Hash>>> {
 		match &self.server {
-			Server::Oprf(server) => server.batch_vec_evaluate(inputs),
-			Server::Voprf { server, .. } => server.batch_vec_evaluate(inputs),
-			Server::Poprf { server, .. } => server.batch_vec_evaluate(inputs, info),
+			Server::Oprf(server) => server.batch_alloc_evaluate(inputs),
+			Server::Voprf { server, .. } => server.batch_alloc_evaluate(inputs),
+			Server::Poprf { server, .. } => server.batch_alloc_evaluate(inputs, info),
 		}
 	}
 }

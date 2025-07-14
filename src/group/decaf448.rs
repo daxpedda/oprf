@@ -73,7 +73,7 @@ impl Group for Decaf448 {
 	}
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+	fn scalar_batch_alloc_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		Decaf448NonZeroScalar::batch_invert(scalars)
 	}
 

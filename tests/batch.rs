@@ -39,7 +39,7 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 	#[cfg(feature = "alloc")]
 	{
 		// Failure on zero clients with `alloc`.
-		let result = clients.finalize_vec_with(
+		let result = clients.finalize_alloc_with(
 			..0,
 			server.public_key(),
 			iter::once(INPUT),
@@ -50,7 +50,7 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 		assert_eq!(result.unwrap_err(), Error::Batch);
 
 		// Failure on zero inputs with `alloc`.
-		let result = clients.finalize_vec_with(
+		let result = clients.finalize_alloc_with(
 			..,
 			server.public_key(),
 			iter::empty(),
@@ -61,7 +61,7 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 		assert_eq!(result.unwrap_err(), Error::Batch);
 
 		// Failure on zero evaluation elements with `alloc`.
-		let result = clients.finalize_vec_with(
+		let result = clients.finalize_alloc_with(
 			..,
 			server.public_key(),
 			iter::once(INPUT),
@@ -72,7 +72,7 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 		assert_eq!(result.unwrap_err(), Error::Batch);
 
 		// Failure on equal but zero elements for all parameters with `alloc`.
-		let result = clients.finalize_vec_with(
+		let result = clients.finalize_alloc_with(
 			..0,
 			server.public_key(),
 			iter::empty(),
@@ -100,7 +100,7 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 	let server = CommonServer::<CS>::batch::<2>(&clients);
 
 	// Failure on unequal clients.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..1,
 		server.public_key(),
 		iter::repeat_n(INPUT, 2),
@@ -111,7 +111,7 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on unequal inputs.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..,
 		server.public_key(),
 		iter::once(INPUT),
@@ -122,7 +122,7 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on unequal evaluation elements.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..,
 		server.public_key(),
 		iter::repeat_n(INPUT, 2),
@@ -133,7 +133,7 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on unequal clients and inputs.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..1,
 		server.public_key(),
 		iter::once(INPUT),
@@ -144,7 +144,7 @@ fn unequal<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on unequal clients and evaluation elements.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..1,
 		server.public_key(),
 		iter::repeat_n(INPUT, 2),
@@ -175,11 +175,11 @@ fn max(mode: Mode) {
 	let clients = CommonClient::<MockCs>::batch_clone(mode, usize::from(u16::MAX) + 1);
 
 	// Failure on overflowing blinded elements with `alloc`.
-	let result = CommonServer::batch_vec_with(mode, None, clients.blinded_elements(), None, INFO);
+	let result = CommonServer::batch_alloc_with(mode, None, clients.blinded_elements(), None, INFO);
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Success on maximum number of elements.
-	let mut server = CommonServer::batch_vec_with(
+	let mut server = CommonServer::batch_alloc_with(
 		mode,
 		None,
 		&clients.blinded_elements()[..u16::MAX.into()],
@@ -190,7 +190,7 @@ fn max(mode: Mode) {
 	server.push(server.evaluation_elements()[0].clone());
 
 	// Failure on overflowing clients.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..,
 		server.public_key(),
 		iter::repeat_n(INPUT, u16::MAX.into()),
@@ -201,7 +201,7 @@ fn max(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on overflowing inputs.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..u16::MAX.into(),
 		server.public_key(),
 		iter::repeat_n(INPUT, usize::from(u16::MAX) + 1),
@@ -212,7 +212,7 @@ fn max(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on unequal overflowing elements.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..u16::MAX.into(),
 		server.public_key(),
 		iter::repeat_n(INPUT, u16::MAX.into()),
@@ -223,7 +223,7 @@ fn max(mode: Mode) {
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	// Failure on overflowing elements for all parameters.
-	let result = clients.finalize_vec_with(
+	let result = clients.finalize_alloc_with(
 		..,
 		server.public_key(),
 		iter::repeat_n(INPUT, usize::from(u16::MAX) + 1),
@@ -235,7 +235,7 @@ fn max(mode: Mode) {
 
 	// Success on maximum number of elements for all parameters.
 	let outputs = clients
-		.finalize_vec_with(
+		.finalize_alloc_with(
 			..u16::MAX.into(),
 			server.public_key(),
 			iter::repeat_n(INPUT, u16::MAX.into()),

@@ -29,7 +29,7 @@ pub(crate) struct BatchBlindResult<CS: CipherSuite, const N: usize> {
 }
 
 #[cfg(feature = "alloc")]
-pub(crate) struct BatchVecBlindResult<CS: CipherSuite> {
+pub(crate) struct BatchAllocBlindResult<CS: CipherSuite> {
 	pub(crate) blinds: Vec<NonZeroScalar<CS>>,
 	pub(crate) blinded_elements: Vec<BlindedElement<CS>>,
 }
@@ -81,10 +81,10 @@ impl<G: Group> ElementWrapper<G> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch_vec(
+	pub(crate) fn new_batch_alloc(
 		elements: Vec<G::NonIdentityElement>,
 	) -> impl Iterator<Item = Self> {
-		let repr = G::non_identity_element_batch_vec_to_repr(&elements);
+		let repr = G::non_identity_element_batch_alloc_to_repr(&elements);
 
 		elements
 			.into_iter()
@@ -177,7 +177,7 @@ impl<G: Group> Serialize for ElementWrapper<G> {
 	}
 }
 
-// `A` is alway the generator element.
+// `A` is always the generator element.
 // `GenerateProof`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
 pub(crate) fn generate_proof<'items, CS, R>(
@@ -388,11 +388,11 @@ where
 // `Blind`.
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
 #[cfg(feature = "alloc")]
-pub(crate) fn batch_vec_blind<'inputs, CS, R>(
+pub(crate) fn batch_alloc_blind<'inputs, CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	mut inputs: impl Iterator<Item = &'inputs [&'inputs [u8]]>,
-) -> Result<BatchVecBlindResult<CS>, Error<R::Error>>
+) -> Result<BatchAllocBlindResult<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
 	R: ?Sized + TryCryptoRng,
@@ -417,9 +417,9 @@ where
 		},
 	)?;
 
-	let blinded_elements = BlindedElement::new_batch_vec(blinded_elements);
+	let blinded_elements = BlindedElement::new_batch_alloc(blinded_elements);
 
-	Ok(BatchVecBlindResult {
+	Ok(BatchAllocBlindResult {
 		blinds,
 		blinded_elements,
 	})
@@ -464,7 +464,7 @@ where
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 #[cfg(feature = "alloc")]
 #[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_vec_finalize<'inputs, 'evaluation_elements, CS>(
+pub(crate) fn batch_alloc_finalize<'inputs, 'evaluation_elements, CS>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	blinds: Vec<NonZeroScalar<CS>>,
 	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
@@ -480,13 +480,13 @@ where
 		"found unequal item length"
 	);
 
-	let inverted_blinds = CS::Group::scalar_batch_vec_invert(blinds);
+	let inverted_blinds = CS::Group::scalar_batch_alloc_invert(blinds);
 	let n: Vec<_> = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
 		.collect();
-	let unblinded_elements = CS::Group::non_identity_element_batch_vec_to_repr(&n);
+	let unblinded_elements = CS::Group::non_identity_element_batch_alloc_to_repr(&n);
 
 	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
 }
@@ -565,7 +565,7 @@ where
 // `Evaluate`
 // https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
 #[cfg(feature = "alloc")]
-pub(crate) fn batch_vec_evaluate<CS: CipherSuite>(
+pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
 	mode: Mode,
 	secret_key: NonZeroScalar<CS>,
 	inputs: &[&[&[u8]]],
@@ -578,7 +578,7 @@ pub(crate) fn batch_vec_evaluate<CS: CipherSuite>(
 			Ok(secret_key * &input_element)
 		})
 		.collect::<Result<Vec<_>>>()?;
-	let issued_elements = CS::Group::non_identity_element_batch_vec_to_repr(&evaluation_elements);
+	let issued_elements = CS::Group::non_identity_element_batch_alloc_to_repr(&evaluation_elements);
 
 	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
 }

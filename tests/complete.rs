@@ -36,19 +36,19 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 }
 
 #[cfg(feature = "alloc")]
-test_ciphersuites!(batch_vec, Oprf);
+test_ciphersuites!(batch_alloc, Oprf);
 #[cfg(feature = "alloc")]
-test_ciphersuites!(batch_vec, Voprf);
+test_ciphersuites!(batch_alloc, Voprf);
 #[cfg(feature = "alloc")]
-test_ciphersuites!(batch_vec, Poprf);
+test_ciphersuites!(batch_alloc, Poprf);
 
 /// Tests complete protocol when using batching methods with `alloc`.
 #[cfg(feature = "alloc")]
-fn batch_vec<CS: CipherSuite>(mode: Mode) {
-	let clients = CommonClient::<CS>::batch_vec(mode, 2);
-	let server = CommonServer::batch_vec(&clients);
-	let client_outputs = clients.finalize_vec(&server);
-	let server_output = server.evaluate_vec();
+fn batch_alloc<CS: CipherSuite>(mode: Mode) {
+	let clients = CommonClient::<CS>::batch_alloc(mode, 2);
+	let server = CommonServer::batch_alloc(&clients);
+	let client_outputs = clients.finalize_alloc(&server);
+	let server_output = server.evaluate_alloc();
 
 	assert_eq!(client_outputs, server_output);
 }

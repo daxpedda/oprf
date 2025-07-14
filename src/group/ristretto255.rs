@@ -88,7 +88,7 @@ impl Group for Ristretto255 {
 	}
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+	fn scalar_batch_alloc_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		let mut scalars: Vec<_> = scalars.into_iter().map(|scalar| scalar.0).collect();
 		Scalar::batch_alloc_invert(&mut scalars);
 		scalars.into_iter().map(NonZeroScalar).collect()

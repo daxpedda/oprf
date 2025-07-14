@@ -61,7 +61,7 @@ pub struct BatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
 }
 
 #[cfg(feature = "alloc")]
-pub struct BatchVecBlindEvaluateResult<CS: CipherSuite> {
+pub struct BatchAllocBlindEvaluateResult<CS: CipherSuite> {
 	pub evaluation_elements: Vec<EvaluationElement<CS>>,
 	pub proof: Proof<CS>,
 }
@@ -74,8 +74,8 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch_vec(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		ElementWrapper::new_batch_vec(elements).map(Self).collect()
+	pub(crate) fn new_batch_alloc(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
+		ElementWrapper::new_batch_alloc(elements).map(Self).collect()
 	}
 
 	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
@@ -99,8 +99,8 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch_vec(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		ElementWrapper::new_batch_vec(elements).map(Self).collect()
+	pub(crate) fn new_batch_alloc(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
+		ElementWrapper::new_batch_alloc(elements).map(Self).collect()
 	}
 
 	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
@@ -340,9 +340,9 @@ impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for BatchBlindEvaluateResult
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for BatchVecBlindEvaluateResult<CS> {
+impl<CS: CipherSuite> Debug for BatchAllocBlindEvaluateResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("BatchVecBlindEvaluateResult")
+		f.debug_struct("BatchAllocBlindEvaluateResult")
 			.field("evaluation_elements", &self.evaluation_elements)
 			.field("proof", &self.proof)
 			.finish()
@@ -350,4 +350,4 @@ impl<CS: CipherSuite> Debug for BatchVecBlindEvaluateResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for BatchVecBlindEvaluateResult<CS> {}
+impl<CS: CipherSuite> ZeroizeOnDrop for BatchAllocBlindEvaluateResult<CS> {}

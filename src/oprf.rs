@@ -14,7 +14,7 @@ use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
-use crate::internal::BatchVecBlindResult;
+use crate::internal::BatchAllocBlindResult;
 use crate::internal::{self, BatchBlindResult};
 use crate::key::SecretKey;
 #[cfg(feature = "serde")]
@@ -76,22 +76,22 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_blind<'inputs, R, I>(
+	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
 		inputs: I,
-	) -> Result<OprfBatchVecBlindResult<CS>, Error<R::Error>>
+	) -> Result<OprfBatchAllocBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		let BatchVecBlindResult {
+		let BatchAllocBlindResult {
 			blinds,
 			blinded_elements,
-		} = internal::batch_vec_blind(Mode::Oprf, rng, inputs)?;
+		} = internal::batch_alloc_blind(Mode::Oprf, rng, inputs)?;
 
 		let clients = blinds.into_iter().map(|blind| Self { blind }).collect();
 
-		Ok(OprfBatchVecBlindResult {
+		Ok(OprfBatchAllocBlindResult {
 			clients,
 			blinded_elements,
 		})
@@ -134,7 +134,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	// `Finalize`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
+	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: IC,
 		inputs: II,
 		evaluation_elements: IEE,
@@ -153,7 +153,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		let blinds = clients.map(|client| client.blind).collect();
 		let evaluation_elements = evaluation_elements.map(EvaluationElement::as_element);
 
-		internal::batch_vec_finalize::<CS>(inputs, blinds, evaluation_elements, None)
+		internal::batch_alloc_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
 }
 
@@ -211,7 +211,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_blind_evaluate<'blinded_elements, I>(
+	pub fn batch_alloc_blind_evaluate<'blinded_elements, I>(
 		&self,
 		blinded_elements: I,
 	) -> Vec<EvaluationElement<CS>>
@@ -221,7 +221,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		let elements: Vec<_> = blinded_elements
 			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.as_element())
 			.collect();
-		EvaluationElement::new_batch_vec(elements)
+		EvaluationElement::new_batch_alloc(elements)
 	}
 
 	// `Evaluate`
@@ -250,8 +250,8 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
-		internal::batch_vec_evaluate::<CS>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
+	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
+		internal::batch_alloc_evaluate::<CS>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
 	}
 }
 
@@ -266,7 +266,7 @@ pub struct OprfBatchBlindResult<CS: CipherSuite, const N: usize> {
 }
 
 #[cfg(feature = "alloc")]
-pub struct OprfBatchVecBlindResult<CS: CipherSuite> {
+pub struct OprfBatchAllocBlindResult<CS: CipherSuite> {
 	pub clients: Vec<OprfClient<CS>>,
 	pub blinded_elements: Vec<BlindedElement<CS>>,
 }
@@ -412,9 +412,9 @@ impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for OprfBatchBlindResult<CS,
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for OprfBatchVecBlindResult<CS> {
+impl<CS: CipherSuite> Debug for OprfBatchAllocBlindResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OprfBatchVecBlindResult")
+		f.debug_struct("OprfBatchAllocBlindResult")
 			.field("clients", &self.clients)
 			.field("blinded_elements", &self.blinded_elements)
 			.finish()
@@ -422,4 +422,4 @@ impl<CS: CipherSuite> Debug for OprfBatchVecBlindResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for OprfBatchVecBlindResult<CS> {}
+impl<CS: CipherSuite> ZeroizeOnDrop for OprfBatchAllocBlindResult<CS> {}

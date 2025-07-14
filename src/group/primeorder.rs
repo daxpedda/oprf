@@ -77,7 +77,7 @@ where
 	}
 
 	#[cfg(feature = "alloc")]
-	fn scalar_batch_vec_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
+	fn scalar_batch_alloc_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		NonZeroScalar::<C>::batch_invert(scalars)
 	}
 
@@ -121,7 +121,7 @@ where
 	}
 
 	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_vec_to_repr(
+	fn non_identity_element_batch_alloc_to_repr(
 		elements: &[Self::NonIdentityElement],
 	) -> Vec<Array<u8, Self::ElementLength>> {
 		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements)

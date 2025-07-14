@@ -15,7 +15,7 @@ use std::{error, io};
 use oprf::Error;
 use oprf::cipher_suite::{CipherSuite, Id};
 #[cfg(feature = "alloc")]
-use oprf::common::BatchVecBlindEvaluateResult;
+use oprf::common::BatchAllocBlindEvaluateResult;
 use oprf::common::{
 	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
 };
@@ -24,13 +24,13 @@ use oprf::group::decaf448::Decaf448;
 use oprf::group::ristretto255::Ristretto255;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
-use oprf::oprf::OprfBatchVecBlindResult;
+use oprf::oprf::OprfBatchAllocBlindResult;
 use oprf::oprf::{OprfBatchBlindResult, OprfBlindResult, OprfClient, OprfServer};
 #[cfg(feature = "alloc")]
-use oprf::poprf::PoprfBatchVecBlindResult;
+use oprf::poprf::PoprfBatchAllocBlindResult;
 use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfServer};
 #[cfg(feature = "alloc")]
-use oprf::voprf::VoprfBatchVecBlindResult;
+use oprf::voprf::VoprfBatchAllocBlindResult;
 use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
 use p256::NistP256;
 use p384::NistP384;
@@ -54,7 +54,7 @@ macro_rules! test_ciphersuite {
 				result!(BlindEvaluateResult<$cs>);
 				result!(BatchBlindEvaluateResult<$cs, 1>);
 				#[cfg(feature = "alloc")]
-				result!(BatchVecBlindEvaluateResult<$cs>);
+				result!(BatchAllocBlindEvaluateResult<$cs>);
 
 				api!(KeyPair<<$cs as CipherSuite>::Group>);
 				api!(SecretKey<<$cs as CipherSuite>::Group>);
@@ -65,21 +65,21 @@ macro_rules! test_ciphersuite {
 				result!(OprfBlindResult<$cs>);
 				result!(OprfBatchBlindResult<$cs, 1>);
 				#[cfg(feature = "alloc")]
-				result!(OprfBatchVecBlindResult<$cs>);
+				result!(OprfBatchAllocBlindResult<$cs>);
 
 				api!(VoprfClient<$cs>);
 				api!(VoprfServer<$cs>);
 				result!(VoprfBlindResult<$cs>);
 				result!(VoprfBatchBlindResult<$cs, 1>);
 				#[cfg(feature = "alloc")]
-				result!(VoprfBatchVecBlindResult<$cs>);
+				result!(VoprfBatchAllocBlindResult<$cs>);
 
 				api!(PoprfClient<$cs>);
 				api!(PoprfServer<$cs>);
 				result!(PoprfBlindResult<$cs>);
 				result!(PoprfBatchBlindResult<$cs, 1>);
 				#[cfg(feature = "alloc")]
-				result!(PoprfBatchVecBlindResult<$cs>);
+				result!(PoprfBatchAllocBlindResult<$cs>);
 			}
 		}
 	};

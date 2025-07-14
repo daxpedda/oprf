@@ -44,7 +44,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_clients = CommonClient::<CS>::batch_vec_with(
+				let alloc_clients = CommonClient::<CS>::batch_alloc_with(
 					mode,
 					Some(vector.blinds.each_ref().map(Vec::as_slice).as_slice()),
 					inputs.into_iter(),
@@ -122,7 +122,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_server = CommonServer::batch_vec_with(
+				let alloc_server = CommonServer::batch_alloc_with(
 					mode,
 					Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
 					clients.blinded_elements(),
@@ -158,7 +158,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let outputs = server.evaluate_vec_with(&inputs, INFO).unwrap();
+				let outputs = server.evaluate_alloc_with(&inputs, INFO).unwrap();
 
 				for (output, vector_output) in outputs.into_iter().zip(&vector.outputs) {
 					assert_eq!(vector_output, output.as_slice());

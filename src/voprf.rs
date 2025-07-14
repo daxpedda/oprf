@@ -14,13 +14,13 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
 #[cfg(feature = "alloc")]
-use crate::common::BatchVecBlindEvaluateResult;
+use crate::common::BatchAllocBlindEvaluateResult;
 use crate::common::{
 	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
 };
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
-use crate::internal::BatchVecBlindResult;
+use crate::internal::BatchAllocBlindResult;
 #[cfg(feature = "serde")]
 use crate::internal::ElementWrapper;
 use crate::internal::{self, BatchBlindResult};
@@ -91,18 +91,18 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	// `Blind`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-1
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_blind<'inputs, R, I>(
+	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
 		inputs: I,
-	) -> Result<VoprfBatchVecBlindResult<CS>, Error<R::Error>>
+	) -> Result<VoprfBatchAllocBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		let BatchVecBlindResult {
+		let BatchAllocBlindResult {
 			blinds,
 			blinded_elements,
-		} = internal::batch_vec_blind(Mode::Voprf, rng, inputs)?;
+		} = internal::batch_alloc_blind(Mode::Voprf, rng, inputs)?;
 
 		let clients = blinds
 			.into_iter()
@@ -113,7 +113,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			})
 			.collect();
 
-		Ok(VoprfBatchVecBlindResult {
+		Ok(VoprfBatchAllocBlindResult {
 			clients,
 			blinded_elements,
 		})
@@ -173,7 +173,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
+	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: IC,
 		public_key: &PublicKey<CS::Group>,
 		inputs: II,
@@ -210,7 +210,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 
 		let evaluation_elements = d.into_iter().map(ElementWrapper::as_element);
 
-		internal::batch_vec_finalize::<CS>(inputs, blinds, evaluation_elements, None)
+		internal::batch_alloc_finalize::<CS>(inputs, blinds, evaluation_elements, None)
 	}
 }
 
@@ -312,11 +312,11 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-3
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_blind_evaluate<'blinded_elements, R, I>(
+	pub fn batch_alloc_blind_evaluate<'blinded_elements, R, I>(
 		&self,
 		rng: &mut R,
 		blinded_elements: I,
-	) -> Result<BatchVecBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BatchAllocBlindEvaluateResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
@@ -328,7 +328,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		}
 
 		let c: Vec<_> = blinded_elements.map(BlindedElement::as_ref).collect();
-		let evaluation_elements = EvaluationElement::new_batch_vec(
+		let evaluation_elements = EvaluationElement::new_batch_alloc(
 			c.iter()
 				.map(|element| self.key_pair.secret_key().to_scalar() * element.as_element())
 				.collect(),
@@ -344,7 +344,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			d,
 		)?;
 
-		Ok(BatchVecBlindEvaluateResult {
+		Ok(BatchAllocBlindEvaluateResult {
 			evaluation_elements,
 			proof,
 		})
@@ -381,8 +381,8 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	// `Evaluate`
 	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
 	#[cfg(feature = "alloc")]
-	pub fn batch_vec_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
-		internal::batch_vec_evaluate::<CS>(
+	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
+		internal::batch_alloc_evaluate::<CS>(
 			Mode::Voprf,
 			self.key_pair.secret_key().to_scalar(),
 			inputs,
@@ -402,7 +402,7 @@ pub struct VoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
 }
 
 #[cfg(feature = "alloc")]
-pub struct VoprfBatchVecBlindResult<CS: CipherSuite> {
+pub struct VoprfBatchAllocBlindResult<CS: CipherSuite> {
 	pub clients: Vec<VoprfClient<CS>>,
 	pub blinded_elements: Vec<BlindedElement<CS>>,
 }
@@ -563,9 +563,9 @@ impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for VoprfBatchBlindResult<CS
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for VoprfBatchVecBlindResult<CS> {
+impl<CS: CipherSuite> Debug for VoprfBatchAllocBlindResult<CS> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("VoprfBatchVecBlindResult")
+		f.debug_struct("VoprfBatchAllocBlindResult")
 			.field("clients", &self.clients)
 			.field("blinded_elements", &self.blinded_elements)
 			.finish()
@@ -573,4 +573,4 @@ impl<CS: CipherSuite> Debug for VoprfBatchVecBlindResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBatchVecBlindResult<CS> {}
+impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBatchAllocBlindResult<CS> {}
