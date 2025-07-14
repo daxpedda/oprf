@@ -58,7 +58,7 @@ pub trait Group {
 	where
 		R: ?Sized + TryCryptoRng;
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::SecurityLevel>;
 
@@ -95,7 +95,7 @@ pub trait Group {
 
 	fn element_generator() -> Self::Element;
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::SecurityLevel>;
 
@@ -139,33 +139,6 @@ pub trait Group {
 	}
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Dst([&'static [u8]; 5]);
-
-impl Dst {
-	fn new<CS: CipherSuite>(mode: Mode, pre_concat: &'static [u8]) -> Self {
-		let context_string = internal::create_context_string::<CS>(mode);
-		debug_assert_ne!(
-			context_string
-				.iter()
-				.map(|slice| slice.len())
-				.sum::<usize>(),
-			0,
-			"found empty context string",
-		);
-
-		Self([pre_concat].concat(context_string))
-	}
-}
-
-impl Deref for Dst {
-	type Target = [&'static [u8]];
-
-	fn deref(&self) -> &[&'static [u8]] {
-		&self.0
-	}
-}
-
 pub(crate) trait InternalGroup: CipherSuite {
 	const I2OSP_ELEMENT_LEN: [u8; 2];
 
@@ -188,15 +161,19 @@ impl<CS: CipherSuite> InternalGroup for CS {
 	) -> Result<Scalar<Self>> {
 		CS::Group::hash_to_scalar::<CS::ExpandMsg>(
 			input,
-			Dst::new::<CS>(mode, dst_pre_concat.unwrap_or(b"HashToScalar-")),
+			&dst::<CS>(mode, dst_pre_concat.unwrap_or(b"HashToScalar-")),
 		)
 		.ok_or(Error::InvalidCipherSuite)
 	}
 
 	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>> {
-		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, Dst::new::<CS>(mode, b"HashToGroup-"))
+		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, &dst::<CS>(mode, b"HashToGroup-"))
 			.ok_or(Error::InvalidCipherSuite)?
 			.try_into()
 			.map_err(|_| Error::InvalidInput)
 	}
+}
+
+fn dst<CS: CipherSuite>(mode: Mode, pre_concat: &'static [u8]) -> [&'static [u8]; 5] {
+	[pre_concat].concat(internal::create_context_string::<CS>(mode))
 }

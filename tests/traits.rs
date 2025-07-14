@@ -19,7 +19,6 @@ use oprf::common::BatchAllocBlindEvaluateResult;
 use oprf::common::{
 	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
 };
-use oprf::group::Dst;
 use oprf::group::decaf448::Decaf448;
 use oprf::group::ristretto255::Ristretto255;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
@@ -104,9 +103,6 @@ assert_impl_all!(Error<io::Error>: Display, error::Error);
 
 common!(Id);
 assert_impl_all!(Mode: Copy, Hash);
-
-common!(Dst);
-assert_impl_all!(Dst: Copy);
 
 /// Check for all common traits.
 #[macro_export]

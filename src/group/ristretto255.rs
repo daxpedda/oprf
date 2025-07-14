@@ -18,7 +18,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha512;
 use zeroize::Zeroize;
 
-use super::{Dst, Group};
+use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::Result;
 
@@ -51,14 +51,14 @@ impl Group for Ristretto255 {
 		}
 	}
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		let mut uniform_bytes = [0; 64];
 		E::expand_message(
 			input,
-			&dst,
+			dst,
 			64.try_into().expect("`64` is smaller than `U16::MAX"),
 		)
 		.ok()?
@@ -116,14 +116,14 @@ impl Group for Ristretto255 {
 		RistrettoPoint::generator()
 	}
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
 		let mut uniform_bytes = [0; 64];
 		E::expand_message(
 			input,
-			&dst,
+			dst,
 			64.try_into().expect("`64` is smaller than `U16::MAX"),
 		)
 		.ok()?

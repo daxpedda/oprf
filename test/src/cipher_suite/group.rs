@@ -6,7 +6,7 @@ use core::ops::{Add, Deref, Mul, Sub};
 use hash2curve::ExpandMsg;
 use hybrid_array::Array;
 use hybrid_array::typenum::U0;
-use oprf::group::{Dst, Group};
+use oprf::group::Group;
 use rand::TryCryptoRng;
 use zeroize::Zeroize;
 
@@ -49,7 +49,7 @@ impl Group for MockCurve {
 		Ok(NonZeroScalar)
 	}
 
-	fn hash_to_scalar<E>(_: &[&[u8]], _: Dst) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(_: &[&[u8]], _: &[&[u8]]) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
@@ -88,7 +88,7 @@ impl Group for MockCurve {
 		Element
 	}
 
-	fn hash_to_curve<E>(_: &[&[u8]], _: Dst) -> Option<Self::Element>
+	fn hash_to_curve<E>(_: &[&[u8]], _: &[&[u8]]) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{

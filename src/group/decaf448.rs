@@ -13,7 +13,7 @@ use hybrid_array::Array;
 use hybrid_array::typenum::{U28, U56, U64};
 use rand_core::TryCryptoRng;
 
-use super::{Dst, Group};
+use super::Group;
 use crate::CipherSuite;
 use crate::cipher_suite::Id;
 use crate::error::Result;
@@ -47,11 +47,11 @@ impl Group for Decaf448 {
 		}
 	}
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		ed448_goldilocks::Decaf448::hash_to_scalar::<E>(input, dst.as_ref()).ok()
+		ed448_goldilocks::Decaf448::hash_to_scalar::<E>(input, dst).ok()
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -99,11 +99,11 @@ impl Group for Decaf448 {
 		DecafPoint::GENERATOR
 	}
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: Dst) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		ed448_goldilocks::Decaf448::hash_from_bytes::<E>(input, dst.as_ref()).ok()
+		ed448_goldilocks::Decaf448::hash_from_bytes::<E>(input, dst).ok()
 	}
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
