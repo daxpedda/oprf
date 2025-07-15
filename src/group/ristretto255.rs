@@ -4,6 +4,7 @@
 use alloc::vec::Vec;
 use core::ops::{Deref, Mul};
 
+use curve25519_dalek::traits::MultiscalarMul;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use elliptic_curve::Group as _;
 use elliptic_curve::group::GroupEncoding;
@@ -162,6 +163,13 @@ impl Group for Ristretto255 {
 		NonIdentityElement::from_repr(bytes)
 			.into_option()
 			.ok_or(InternalError)
+	}
+
+	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
+		RistrettoPoint::multiscalar_mul(
+			&[elements_and_scalars[0].1, elements_and_scalars[1].1],
+			&[elements_and_scalars[0].0, elements_and_scalars[1].0],
+		)
 	}
 }
 
