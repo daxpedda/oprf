@@ -18,7 +18,7 @@ use zeroize::Zeroize;
 
 use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar};
 use crate::common::Mode;
-use crate::error::{Error, Result};
+use crate::error::{Error, InternalError, Result};
 use crate::internal;
 use crate::util::{CollectArray, Concat};
 
@@ -58,7 +58,7 @@ pub trait Group {
 	where
 		R: ?Sized + TryCryptoRng;
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>;
 
@@ -87,15 +87,17 @@ pub trait Group {
 
 	fn non_zero_scalar_from_repr(
 		bytes: Array<u8, Self::ScalarLength>,
-	) -> Option<Self::NonZeroScalar>;
+	) -> Result<Self::NonZeroScalar, InternalError>;
 
-	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar>;
+	fn scalar_from_repr(
+		bytes: &Array<u8, Self::ScalarLength>,
+	) -> Result<Self::Scalar, InternalError>;
 
 	fn element_identity() -> Self::Element;
 
 	fn element_generator() -> Self::Element;
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Element, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>;
 
@@ -128,7 +130,7 @@ pub trait Group {
 
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement>;
+	) -> Result<Self::NonIdentityElement, InternalError>;
 
 	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
 		elements_and_scalars
@@ -163,12 +165,12 @@ impl<CS: CipherSuite> InternalGroup for CS {
 			input,
 			&dst::<CS>(mode, dst_pre_concat.unwrap_or(b"HashToScalar-")),
 		)
-		.ok_or(Error::InvalidCipherSuite)
+		.map_err(|_| Error::InvalidCipherSuite)
 	}
 
 	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>> {
 		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, &dst::<CS>(mode, b"HashToGroup-"))
-			.ok_or(Error::InvalidCipherSuite)?
+			.map_err(|_| Error::InvalidCipherSuite)?
 			.try_into()
 			.map_err(|_| Error::InvalidInput)
 	}

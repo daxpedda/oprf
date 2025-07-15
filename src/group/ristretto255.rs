@@ -20,7 +20,7 @@ use zeroize::Zeroize;
 
 use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
-use crate::error::Result;
+use crate::error::{InternalError, Result};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ristretto255;
@@ -51,7 +51,7 @@ impl Group for Ristretto255 {
 		}
 	}
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
@@ -61,10 +61,10 @@ impl Group for Ristretto255 {
 			dst,
 			64.try_into().expect("`64` is smaller than `U16::MAX"),
 		)
-		.ok()?
+		.map_err(|_| InternalError)?
 		.fill_bytes(&mut uniform_bytes);
 
-		Some(Scalar::from_bytes_mod_order_wide(&uniform_bytes))
+		Ok(Scalar::from_bytes_mod_order_wide(&uniform_bytes))
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -100,12 +100,18 @@ impl Group for Ristretto255 {
 
 	fn non_zero_scalar_from_repr(
 		bytes: Array<u8, Self::ScalarLength>,
-	) -> Option<Self::NonZeroScalar> {
-		NonZeroScalar::from_repr(bytes).into_option()
+	) -> Result<Self::NonZeroScalar, InternalError> {
+		NonZeroScalar::from_repr(bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
-	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
-		Scalar::from_canonical_bytes(bytes.0).into_option()
+	fn scalar_from_repr(
+		bytes: &Array<u8, Self::ScalarLength>,
+	) -> Result<Self::Scalar, InternalError> {
+		Scalar::from_canonical_bytes(bytes.0)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
 	fn element_identity() -> Self::Element {
@@ -116,7 +122,7 @@ impl Group for Ristretto255 {
 		RistrettoPoint::generator()
 	}
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Element, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
@@ -126,10 +132,10 @@ impl Group for Ristretto255 {
 			dst,
 			64.try_into().expect("`64` is smaller than `U16::MAX"),
 		)
-		.ok()?
+		.map_err(|_| InternalError)?
 		.fill_bytes(&mut uniform_bytes);
 
-		Some(RistrettoPoint::from_uniform_bytes(&uniform_bytes))
+		Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes))
 	}
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
@@ -138,8 +144,10 @@ impl Group for Ristretto255 {
 
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement> {
-		NonIdentityElement::from_repr(bytes).into_option()
+	) -> Result<Self::NonIdentityElement, InternalError> {
+		NonIdentityElement::from_repr(bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 }
 

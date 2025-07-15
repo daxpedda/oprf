@@ -6,6 +6,7 @@ use core::ops::{Add, Deref, Mul, Sub};
 use hash2curve::ExpandMsg;
 use hybrid_array::Array;
 use hybrid_array::typenum::U0;
+use oprf::error::InternalError;
 use oprf::group::Group;
 use rand::TryCryptoRng;
 use zeroize::Zeroize;
@@ -49,11 +50,11 @@ impl Group for MockCurve {
 		Ok(NonZeroScalar)
 	}
 
-	fn hash_to_scalar<E>(_: &[&[u8]], _: &[&[u8]]) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(_: &[&[u8]], _: &[&[u8]]) -> Result<Self::Scalar, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		Some(Scalar)
+		Ok(Scalar)
 	}
 
 	fn non_zero_scalar_mul_by_generator(_: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -72,12 +73,14 @@ impl Group for MockCurve {
 		Array::default()
 	}
 
-	fn non_zero_scalar_from_repr(_: Array<u8, Self::ScalarLength>) -> Option<Self::NonZeroScalar> {
-		Some(NonZeroScalar)
+	fn non_zero_scalar_from_repr(
+		_: Array<u8, Self::ScalarLength>,
+	) -> Result<Self::NonZeroScalar, InternalError> {
+		Ok(NonZeroScalar)
 	}
 
-	fn scalar_from_repr(_: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
-		Some(Scalar)
+	fn scalar_from_repr(_: &Array<u8, Self::ScalarLength>) -> Result<Self::Scalar, InternalError> {
+		Ok(Scalar)
 	}
 
 	fn element_identity() -> Self::Element {
@@ -88,11 +91,11 @@ impl Group for MockCurve {
 		Element
 	}
 
-	fn hash_to_curve<E>(_: &[&[u8]], _: &[&[u8]]) -> Option<Self::Element>
+	fn hash_to_curve<E>(_: &[&[u8]], _: &[&[u8]]) -> Result<Self::Element, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		Some(Element)
+		Ok(Element)
 	}
 
 	fn element_to_repr(_: &Self::Element) -> Array<u8, Self::ElementLength> {
@@ -101,8 +104,8 @@ impl Group for MockCurve {
 
 	fn non_identity_element_from_repr(
 		_: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement> {
-		Some(NonIdentityElement)
+	) -> Result<Self::NonIdentityElement, InternalError> {
+		Ok(NonIdentityElement)
 	}
 }
 

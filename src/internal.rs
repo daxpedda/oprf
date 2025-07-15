@@ -116,7 +116,7 @@ impl<G: Group> ElementWrapper<G> {
 	}
 
 	fn from_array(repr: Array<u8, G::ElementLength>) -> Result<Self> {
-		let element = G::non_identity_element_from_repr(&repr).ok_or(Error::FromRepr)?;
+		let element = G::non_identity_element_from_repr(&repr).map_err(|_| Error::FromRepr)?;
 
 		Ok(Self { element, repr })
 	}

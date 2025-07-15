@@ -16,7 +16,7 @@ use rand_core::TryCryptoRng;
 use super::Group;
 use crate::CipherSuite;
 use crate::cipher_suite::Id;
-use crate::error::Result;
+use crate::error::{InternalError, Result};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Decaf448;
@@ -47,11 +47,11 @@ impl Group for Decaf448 {
 		}
 	}
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		ed448_goldilocks::Decaf448::hash_to_scalar::<E>(input, dst).ok()
+		ed448_goldilocks::Decaf448::hash_to_scalar::<E>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -83,12 +83,18 @@ impl Group for Decaf448 {
 
 	fn non_zero_scalar_from_repr(
 		bytes: Array<u8, Self::ScalarLength>,
-	) -> Option<Self::NonZeroScalar> {
-		Decaf448NonZeroScalar::from_repr(bytes).into_option()
+	) -> Result<Self::NonZeroScalar, InternalError> {
+		Decaf448NonZeroScalar::from_repr(bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
-	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
-		DecafScalar::from_repr(*bytes).into_option()
+	fn scalar_from_repr(
+		bytes: &Array<u8, Self::ScalarLength>,
+	) -> Result<Self::Scalar, InternalError> {
+		DecafScalar::from_repr(*bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
 	fn element_identity() -> Self::Element {
@@ -99,11 +105,11 @@ impl Group for Decaf448 {
 		DecafPoint::GENERATOR
 	}
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Element, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		ed448_goldilocks::Decaf448::hash_from_bytes::<E>(input, dst).ok()
+		ed448_goldilocks::Decaf448::hash_from_bytes::<E>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
@@ -112,8 +118,10 @@ impl Group for Decaf448 {
 
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement> {
-		NonIdentity::from_repr(bytes).into_option()
+	) -> Result<Self::NonIdentityElement, InternalError> {
+		NonIdentity::from_repr(bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
 	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {

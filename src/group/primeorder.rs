@@ -17,6 +17,7 @@ use rand_core::TryCryptoRng;
 
 use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
+use crate::error::{InternalError, Result};
 
 impl<C> Group for C
 where
@@ -51,11 +52,11 @@ where
 		}
 	}
 
-	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Scalar>
+	fn hash_to_scalar<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Scalar, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		C::hash_to_scalar::<E>(input, dst).ok()
+		C::hash_to_scalar::<E>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -87,12 +88,18 @@ where
 
 	fn non_zero_scalar_from_repr(
 		bytes: Array<u8, Self::ScalarLength>,
-	) -> Option<Self::NonZeroScalar> {
-		NonZeroScalar::<C>::from_repr(bytes).into_option()
+	) -> Result<Self::NonZeroScalar, InternalError> {
+		NonZeroScalar::<C>::from_repr(bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
-	fn scalar_from_repr(bytes: &Array<u8, Self::ScalarLength>) -> Option<Self::Scalar> {
-		Scalar::<C>::from_repr(bytes.clone()).into_option()
+	fn scalar_from_repr(
+		bytes: &Array<u8, Self::ScalarLength>,
+	) -> Result<Self::Scalar, InternalError> {
+		Scalar::<C>::from_repr(bytes.clone())
+			.into_option()
+			.ok_or(InternalError)
 	}
 
 	fn element_identity() -> Self::Element {
@@ -103,11 +110,11 @@ where
 		ProjectivePoint::<C>::generator()
 	}
 
-	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Option<Self::Element>
+	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Element, InternalError>
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		C::hash_from_bytes::<E>(input, dst).ok()
+		C::hash_from_bytes::<E>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
@@ -138,8 +145,10 @@ where
 
 	fn non_identity_element_from_repr(
 		bytes: &Array<u8, Self::ElementLength>,
-	) -> Option<Self::NonIdentityElement> {
-		NonIdentity::<ProjectivePoint<C>>::from_repr(bytes).into_option()
+	) -> Result<Self::NonIdentityElement, InternalError> {
+		NonIdentity::<ProjectivePoint<C>>::from_repr(bytes)
+			.into_option()
+			.ok_or(InternalError)
 	}
 
 	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {

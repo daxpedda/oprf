@@ -127,7 +127,7 @@ impl<CS: CipherSuite> Proof<CS> {
 			bytes
 				.try_into()
 				.ok()
-				.and_then(G::scalar_from_repr)
+				.and_then(|bytes| G::scalar_from_repr(bytes).ok())
 				.ok_or(Error::FromRepr)
 		}
 

@@ -20,7 +20,7 @@ extern crate std;
 
 pub mod cipher_suite;
 pub mod common;
-mod error;
+pub mod error;
 pub mod group;
 mod internal;
 pub mod key;

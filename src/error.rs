@@ -69,3 +69,15 @@ impl<E: Display> Display for Error<E> {
 }
 
 impl<E: error::Error> error::Error for Error<E> {}
+
+/// Used to return an error from [`Group`](crate::group::Group) methods.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct InternalError;
+
+impl Display for InternalError {
+	fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+		formatter.write_str("internal ORPF error")
+	}
+}
+
+impl error::Error for InternalError {}

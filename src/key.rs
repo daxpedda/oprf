@@ -141,7 +141,7 @@ impl<G: Group> SecretKey<G> {
 		bytes
 			.try_into()
 			.ok()
-			.and_then(G::non_zero_scalar_from_repr)
+			.and_then(|bytes| G::non_zero_scalar_from_repr(bytes).ok())
 			.ok_or(Error::FromRepr)
 			.map(Self)
 	}
