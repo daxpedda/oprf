@@ -51,6 +51,10 @@ struct Composites<CS: CipherSuite> {
 }
 
 impl<'info> Info<'info> {
+	/// # Errors
+	///
+	/// Returns [`Error::InfoLength`] if `info` exceeds a length of
+	/// [`u16::MAX`].
 	pub(crate) fn new(info: &'info [u8]) -> Result<Self> {
 		Ok(Self {
 			i2osp: info.i2osp_length().ok_or(Error::InfoLength)?,
@@ -111,6 +115,9 @@ impl<G: Group> ElementWrapper<G> {
 		}
 	}
 
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub(crate) fn from_repr(bytes: &[u8]) -> Result<Self> {
 		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
 	}
@@ -177,9 +184,15 @@ impl<G: Group> Serialize for ElementWrapper<G> {
 	}
 }
 
-// `A` is always the generator element.
-// `GenerateProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
+/// Corresponds to
+/// [`GenerateProof()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3).
+///
+/// # Errors
+///
+/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+///   are incompatible.
+/// - [`Error::Random`] if the given `rng` fails.
 pub(crate) fn generate_proof<'items, CS, R>(
 	mode: Mode,
 	rng: &mut R,
@@ -200,6 +213,7 @@ where
 		compute_composites(mode, Some(k), B, C, D).map_err(Error::into_random::<R>)?;
 
 	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?;
+	// `A` is always the generator element.
 	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
 	let t3 = r.into() * &M;
 
@@ -210,8 +224,15 @@ where
 	Ok(Proof { c, s })
 }
 
-// `VerifyProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
+/// Corresponds to
+/// [`VerifyProof()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2).
+///
+/// # Errors
+///
+/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+///   are incompatible.
+/// - [`Error::Proof`] if the [`Proof`] is invalid.
 pub(crate) fn verify_proof<'items, CS>(
 	mode: Mode,
 	B: &ElementWrapper<CS::Group>,
@@ -241,9 +262,16 @@ where
 	}
 }
 
-// Shared code between `GenerateProof` and `VerifyProof`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2
+/// Shared code between
+/// [`GenerateProof()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3)
+/// and
+/// [`VerifyProof()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2).
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+/// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+/// are incompatible.
 fn compute_c<CS: CipherSuite>(
 	mode: Mode,
 	B: Element<CS>,
@@ -273,9 +301,16 @@ fn compute_c<CS: CipherSuite>(
 	)
 }
 
-// `ComputeComposites` and `ComputeCompositesFast`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-5
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-4
+/// Corresponds to
+/// [`ComputeComposites()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-5)
+/// and
+/// [`ComputeCompositesFast()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-4).
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+/// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+/// are incompatible.
 fn compute_composites<'items, CS>(
 	mode: Mode,
 	k: Option<NonZeroScalar<CS>>,
@@ -332,14 +367,24 @@ where
 	Ok(Composites { M, Z })
 }
 
-// `CreateContextString`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.1-5
+/// Corresponds to
+/// [`CreateContextString()` in RFC 9497 § 3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.1-5).
 pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> [&'static [u8]; 4] {
 	[b"OPRFV1-", mode.i2osp(), b"-", &CS::ID]
 }
 
-// `Blind`.
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+/// Corresponds to
+/// [`Blind()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2).
+///
+/// # Errors
+///
+/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
+/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+///   are incompatible.
+/// - [`Error::InvalidInput`] if a given input can never produce a valid
+///   [`BlindedElement`].
+/// - [`Error::Random`] if the given `rng` fails.
 pub(crate) fn batch_blind<CS, R, const N: usize>(
 	mode: Mode,
 	rng: &mut R,
@@ -385,8 +430,18 @@ where
 	})
 }
 
-// `Blind`.
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+/// Corresponds to
+/// [`Blind()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2).
+///
+/// # Errors
+///
+/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
+/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+///   are incompatible.
+/// - [`Error::InvalidInput`] if a given input can never produce a valid
+///   [`BlindedElement`].
+/// - [`Error::Random`] if the given `rng` fails.
 #[cfg(feature = "alloc")]
 pub(crate) fn batch_alloc_blind<'inputs, CS, R>(
 	mode: Mode,
@@ -425,8 +480,13 @@ where
 	})
 }
 
-// `Finalize`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+/// Corresponds to
+/// [`Finalize()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7).
+///
+/// # Errors
+///
+/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// [`u16::MAX`].
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) fn batch_finalize<'evaluation_elements, CS, const N: usize>(
 	inputs: &[&[&[u8]]; N],
@@ -460,8 +520,13 @@ where
 	Ok(outputs.0)
 }
 
-// `Finalize`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+/// Corresponds to
+/// [`Finalize()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7).
+///
+/// # Errors
+///
+/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// [`u16::MAX`].
 #[cfg(feature = "alloc")]
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) fn batch_alloc_finalize<'inputs, 'evaluation_elements, CS>(
@@ -491,8 +556,13 @@ where
 	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
 }
 
-// `Finalize`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+/// Corresponds to
+/// [`Finalize()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7).
+///
+/// # Errors
+///
+/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// [`u16::MAX`].
 fn internal_finalize<'inputs, CS: CipherSuite>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	unblinded_elements: &[Array<u8, ElementLength<CS>>],
@@ -524,8 +594,16 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 		})
 }
 
-// `Evaluate`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+/// Corresponds to
+/// [`Evaluate()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9).
+///
+/// # Errors
+///
+/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+///   are incompatible.
+/// - [`Error::InvalidInput`] if a given input can never produce a valid output.
+/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
 pub(crate) fn batch_evaluate<CS, const N: usize>(
 	mode: Mode,
 	secret_key: NonZeroScalar<CS>,
@@ -562,8 +640,16 @@ where
 	Ok(outputs.0)
 }
 
-// `Evaluate`
-// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+/// Corresponds to
+/// [`Evaluate()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9).
+///
+/// # Errors
+///
+/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+///   are incompatible.
+/// - [`Error::InvalidInput`] if a given input can never produce a valid output.
+/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
 #[cfg(feature = "alloc")]
 pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
 	mode: Mode,
@@ -583,6 +669,13 @@ pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
 	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
 }
 
+/// Corresponds to
+/// [`Evaluate()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9).
+///
+/// # Errors
+///
+/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// [`u16::MAX`].
 fn internal_evaluate<CS: CipherSuite>(
 	inputs: &[&[&[u8]]],
 	issued_elements: &[Array<u8, ElementLength<CS>>],

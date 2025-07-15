@@ -1,3 +1,6 @@
+//! VOPRF implementation as per
+//! [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::array;
@@ -31,14 +34,30 @@ use crate::key::{KeyPair, PublicKey};
 use crate::serde;
 use crate::util::CollectArray;
 
+/// VOPRF client.
+///
+/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
 pub struct VoprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
 	blinded_element: BlindedElement<CS>,
 }
 
 impl<CS: CipherSuite> VoprfClient<CS> {
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-1
+	/// Blinds the given `input`.
+	///
+	/// Corresponds to
+	/// [`Blind()` in RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<VoprfBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -54,8 +73,21 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		})
 	}
 
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-1
+	/// Batch blinds the given `inputs` *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind()`](Self::blind)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
@@ -88,8 +120,21 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		})
 	}
 
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-1
+	/// Batch blinds the given `inputs`.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind()`](Self::blind)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
@@ -119,8 +164,19 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		})
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
+	/// Completes the evaluation.
+	///
+	/// Corresponds to
+	/// [`Finalize()` in RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Proof`] if the [`Proof`] is invalid.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn finalize(
 		&self,
 		public_key: &PublicKey<CS::Group>,
@@ -138,9 +194,22 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		Ok(output)
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
+	/// Batch completes evaluations with a combined [`Proof`] *without
+	/// allocation*.
+	///
+	/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
+	///   `evaluation_elements` are zero, don't match or exceed a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Proof`] if the [`Proof`] is invalid.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
 		public_key: &PublicKey<CS::Group>,
@@ -169,9 +238,21 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, None)
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-5
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6
+	/// Batch completes evaluations with a combined [`Proof`].
+	///
+	/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-6).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
+	///   `evaluation_elements` are zero, don't match or exceed a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Proof`] if the [`Proof`] is invalid.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: IC,
@@ -214,11 +295,19 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	}
 }
 
+/// VOPRF server.
+///
+/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
 pub struct VoprfServer<CS: CipherSuite> {
 	key_pair: KeyPair<CS::Group>,
 }
 
 impl<CS: CipherSuite> VoprfServer<CS> {
+	/// Creates a new [`VoprfServer`] by generating a random [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::Random`] if the given `rng` fails.
 	pub fn new<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -228,26 +317,52 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		})
 	}
 
+	/// Creates a new [`VoprfServer`] by deterministically mapping the input to
+	/// a [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if `info` exceeds a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
+	///   the given input.
 	pub fn from_seed(seed: &[u8; 32], info: &[u8]) -> Result<Self> {
 		Ok(Self {
 			key_pair: KeyPair::derive::<CS>(Mode::Voprf, seed, info)?,
 		})
 	}
 
+	/// Creates a new [`VoprfServer`] from the given [`KeyPair`].
+	#[must_use]
 	pub const fn from_key_pair(key_pair: KeyPair<CS::Group>) -> Self {
 		Self { key_pair }
 	}
 
+	/// Returns the [`KeyPair`].
+	#[must_use]
 	pub const fn key_pair(&self) -> &KeyPair<CS::Group> {
 		&self.key_pair
 	}
 
+	/// Returns the [`PublicKey`].
+	#[must_use]
 	pub const fn public_key(&self) -> &PublicKey<CS::Group> {
 		self.key_pair.public_key()
 	}
 
-	// `BlindEvaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2
+	/// Process the [`BlindedElement`].
+	///
+	/// Corresponds to
+	/// [`BlindEvaluate()` in RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
@@ -267,9 +382,19 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		})
 	}
 
-	// `BlindEvaluate` batched
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-3
+	/// Process the [`BlindedElement`] computing a combined [`Proof`] *without
+	/// allocation*.
+	///
+	/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-3).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `blinded_elements` is zero
+	///   or exceed a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn batch_blind_evaluate<R, const N: usize>(
 		&self,
 		rng: &mut R,
@@ -308,9 +433,18 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		})
 	}
 
-	// `BlindEvaluate` batched
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-2
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-3
+	/// Process the [`BlindedElement`] computing a combined [`Proof`].
+	///
+	/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-3).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `blinded_elements` is zero
+	///   or exceed a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Random`] if the given `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind_evaluate<'blinded_elements, R, I>(
 		&self,
@@ -350,15 +484,39 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		})
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	/// Completes the evaluation.
+	///
+	/// Corresponds to
+	/// [`Evaluate()` in RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<CS::Hash>> {
 		let [output] = self.batch_evaluate(&[input])?;
 		Ok(output)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	/// Batch Completes evaluations *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`evaluate()`](Self::evaluate)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	pub fn batch_evaluate<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]; N],
@@ -378,8 +536,20 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	/// Batch Completes evaluations.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`evaluate()`](Self::evaluate)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
 		internal::batch_alloc_evaluate::<CS>(
@@ -391,19 +561,30 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	}
 }
 
+/// Returned from [`VoprfClient::blind()`].
 pub struct VoprfBlindResult<CS: CipherSuite> {
+	/// The [`VoprfClient`].
 	pub client: VoprfClient<CS>,
+	/// The [`BlindedElement`].
 	pub blinded_element: BlindedElement<CS>,
 }
 
+/// Returned from [`VoprfClient::batch_blind()`].
 pub struct VoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
+	/// The [`VoprfClient`]s.
 	pub clients: [VoprfClient<CS>; N],
+	/// The [`BlindedElement`]s each corresponding to a [`VoprfClient`] in
+	/// order.
 	pub blinded_elements: [BlindedElement<CS>; N],
 }
 
+/// Returned from [`VoprfClient::batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
 pub struct VoprfBatchAllocBlindResult<CS: CipherSuite> {
+	/// The [`VoprfClient`]s.
 	pub clients: Vec<VoprfClient<CS>>,
+	/// The [`BlindedElement`]s each corresponding to a [`VoprfClient`] in
+	/// order.
 	pub blinded_elements: Vec<BlindedElement<CS>>,
 }
 

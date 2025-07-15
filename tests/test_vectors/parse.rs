@@ -116,7 +116,7 @@ struct RawVector {
 }
 
 impl TestVector {
-	/// De-serializes a [`RawTestVector`] into a [`TestVector`].
+	/// Deserializes a [`RawTestVector`] into a [`TestVector`].
 	fn deserialize(raw_test_vector: RawTestVector) -> Self {
 		let RawTestVector {
 			hash,
@@ -204,7 +204,7 @@ impl TestVector {
 	}
 }
 
-/// Serde de-serialize implementation for deserializing batched test vectors.
+/// Serde deserialize implementation for deserializing batched test vectors.
 /// They are represented as multiple hexadecimal values in a string separated by
 /// a comma.
 fn deserialize_batch<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
@@ -220,7 +220,7 @@ where
 	Ok(batch)
 }
 
-/// Serde de-serialize implementation for deserializing an optional string
+/// Serde deserialize implementation for deserializing an optional string
 /// containing a hexadecimal value.
 fn deserialize_hex_opt<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
 where

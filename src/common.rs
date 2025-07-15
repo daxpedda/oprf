@@ -1,3 +1,5 @@
+//! Common types between protocols.
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
@@ -18,11 +20,23 @@ use crate::internal::ElementWrapper;
 use crate::serde;
 use crate::util::CollectArray;
 
-// https://www.rfc-editor.org/rfc/rfc9497.html#name-identifiers-for-protocol-va
+/// Protocol mode. Only used in
+/// [`SecretKey::derive()`](crate::key::SecretKey::derive).
+///
+/// See [RFC 9497 § 3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-identifiers-for-protocol-va).
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Mode {
+	/// OPRF.
+	///
+	/// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
 	Oprf,
+	/// VOPRF.
+	///
+	/// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
 	Voprf,
+	/// POPRF.
+	///
+	/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
 	Poprf,
 }
 
@@ -41,28 +55,61 @@ impl Mode {
 	}
 }
 
+/// Returned by [`*Client::blind()`]. Sent to the server to be
+/// [`*Server::blind_evaluate()`]d.
+///
+/// [`*Client::blind()`]: crate::oprf::OprfClient::blind
+/// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
 pub struct BlindedElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 
+/// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be
+/// [`*Client::finalize()`]d.
+///
+/// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
+/// [`*Client::finalize()`]: crate::oprf::OprfClient::finalize
 pub struct EvaluationElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 
+/// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be verified
+/// by [`*Client::finalize()`].
+///
+/// [`*Server::blind_evaluate()`]: crate::voprf::VoprfServer::blind_evaluate
+/// [`*Client::finalize()`]: crate::voprf::VoprfClient::finalize
 pub struct Proof<CS: CipherSuite> {
 	pub(crate) c: Scalar<CS>,
 	pub(crate) s: Scalar<CS>,
 }
 
+/// Returned by [`*Server::blind_evaluate()`]. Contains the
+/// [`EvaluationElement`] and [`Proof`].
+///
+/// [`*Server::blind_evaluate()`]: crate::voprf::VoprfServer::blind_evaluate
 pub struct BlindEvaluateResult<CS: CipherSuite> {
+	/// The [`EvaluationElement`].
 	pub evaluation_element: EvaluationElement<CS>,
+	/// The [`Proof`].
 	pub proof: Proof<CS>,
 }
 
+/// Returned by [`*Server::batch_blind_evaluate()`]. Contains the
+/// [`EvaluationElement`]s and [`Proof`].
+///
+/// [`*Server::batch_blind_evaluate()`]: crate::voprf::VoprfServer::batch_blind_evaluate
 pub struct BatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
+	/// The [`EvaluationElement`]s.
 	pub evaluation_elements: [EvaluationElement<CS>; N],
+	/// The [`Proof`].
 	pub proof: Proof<CS>,
 }
 
+/// Returned by [`*Server::batch_alloc_blind_evaluate()`]. Contains the
+/// [`EvaluationElement`]s and [`Proof`].
+///
+/// [`*Server::batch_alloc_blind_evaluate()`]: crate::voprf::VoprfServer::batch_alloc_blind_evaluate
 #[cfg(feature = "alloc")]
 pub struct BatchAllocBlindEvaluateResult<CS: CipherSuite> {
+	/// The [`EvaluationElement`]s.
 	pub evaluation_elements: Vec<EvaluationElement<CS>>,
+	/// The [`Proof`].
 	pub proof: Proof<CS>,
 }
 
@@ -75,17 +122,26 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		ElementWrapper::new_batch_alloc(elements).map(Self).collect()
+		ElementWrapper::new_batch_alloc(elements)
+			.map(Self)
+			.collect()
 	}
 
 	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
 		self.0.as_element()
 	}
 
+	/// Serializes this [`BlindedElement`].
+	#[must_use]
 	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
 		self.0.as_repr()
 	}
 
+	/// Deserializes the given `bytes` to a [`BlindedElement`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		ElementWrapper::from_repr(bytes).map(Self)
 	}
@@ -100,28 +156,43 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		ElementWrapper::new_batch_alloc(elements).map(Self).collect()
+		ElementWrapper::new_batch_alloc(elements)
+			.map(Self)
+			.collect()
 	}
 
 	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
 		self.0.as_element()
 	}
 
+	/// Serializes this [`EvaluationElement`].
+	#[must_use]
 	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
 		self.0.as_repr()
 	}
 
+	/// Deserializes the given `bytes` to a [`EvaluationElement`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		ElementWrapper::from_repr(bytes).map(Self)
 	}
 }
 
 impl<CS: CipherSuite> Proof<CS> {
+	/// Serializes this [`Proof`].
 	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, Sum<ScalarLength<CS>, ScalarLength<CS>>> {
 		CS::Group::scalar_to_repr(&self.c).concat(CS::Group::scalar_to_repr(&self.s))
 	}
 
+	/// Deserializes the given `bytes` to a [`Proof`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		fn scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
 			bytes

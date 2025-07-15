@@ -1,3 +1,5 @@
+//! [`Ristretto255`] implementation.
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::ops::{Deref, Mul};
@@ -22,8 +24,20 @@ use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
 
+/// Implementation for Decaf448.
+///
+/// See [RFC 9497 § 4.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprfristretto255-sha-512).
 #[derive(Clone, Copy, Debug)]
 pub struct Ristretto255;
+
+#[cfg(feature = "ristretto255-ciphersuite")]
+impl CipherSuite for Ristretto255 {
+	const ID: Id = Id::new(b"ristretto255-SHA512").unwrap();
+
+	type Group = Self;
+	type Hash = Sha512;
+	type ExpandMsg = ExpandMsgXmd<Sha512>;
+}
 
 impl Group for Ristretto255 {
 	type SecurityLevel = U16;
@@ -151,24 +165,21 @@ impl Group for Ristretto255 {
 	}
 }
 
-#[cfg(feature = "ristretto255-ciphersuite")]
-impl CipherSuite for Ristretto255 {
-	const ID: Id = Id::new(b"ristretto255-SHA512").unwrap();
-
-	type Group = Self;
-	type Hash = Sha512;
-	type ExpandMsg = ExpandMsgXmd<Sha512>;
-}
-
+/// Analogous to [`elliptic_curve::NonZeroScalar`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NonZeroScalar(Scalar);
 
 impl NonZeroScalar {
+	/// Creates a [`NonZeroScalar`]. Returns [`None`] if the given [`Scalar`] is
+	/// the zero-scalar.
 	#[must_use]
 	pub fn new(scalar: Scalar) -> CtOption<Self> {
 		CtOption::new(Self(scalar), !scalar.ct_eq(&Scalar::ZERO))
 	}
 
+	/// Returns the deserialized [`NonZeroScalar`]. Returns [`None`] if the
+	/// resulting [`Scalar`] is the zero-scalar or not a canonical
+	/// representation.
 	pub fn from_repr(repr: Array<u8, U32>) -> CtOption<Self> {
 		Scalar::from_canonical_bytes(repr.0).and_then(Self::new)
 	}
@@ -236,15 +247,21 @@ impl Zeroize for NonZeroScalar {
 	}
 }
 
+/// Analogous to [`elliptic_curve::point::NonIdentity`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NonIdentityElement(RistrettoPoint);
 
 impl NonIdentityElement {
+	/// Creates a [`NonIdentityElement`]. Returns [`None`] if the given
+	/// [`RistrettoPoint`] is the identity point.
 	#[must_use]
 	pub fn new(point: RistrettoPoint) -> CtOption<Self> {
 		CtOption::new(Self(point), !RistrettoPoint::is_identity(&point))
 	}
 
+	/// Returns the deserialized [`NonIdentityElement`]. Returns [`None`] if the
+	/// resulting [`RistrettoPoint`] is the identity point or not a canonical
+	/// representation.
 	pub fn from_repr(repr: &Array<u8, U32>) -> CtOption<Self> {
 		RistrettoPoint::from_bytes(&repr.0).and_then(Self::new)
 	}

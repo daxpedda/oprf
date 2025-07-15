@@ -676,7 +676,8 @@ impl<CS: CipherSuite> CommonServer<CS> {
 					OprfServer::new(&mut OsRng).map_err(Error::Random)?
 				};
 
-				let evaluation_elements = server.batch_alloc_blind_evaluate(blinded_elements.iter());
+				let evaluation_elements =
+					server.batch_alloc_blind_evaluate(blinded_elements.iter());
 
 				Ok(CommonServerBatch {
 					server: Server::Oprf(server),

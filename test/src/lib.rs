@@ -17,7 +17,7 @@ mod serialized;
 
 pub use oprf;
 
-pub use self::cipher_suite::MockCs;
+pub use self::cipher_suite::{MockCs, MockCurve, MockExpandMsg, MockHash};
 pub use self::common::{CommonClient, CommonServer};
 #[cfg(feature = "serde")]
 pub use self::serde::{ScalarRepr, TypeRepr};

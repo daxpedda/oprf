@@ -40,7 +40,8 @@ use serde::{Deserialize, Serialize};
 use static_assertions::assert_impl_all;
 use zeroize::ZeroizeOnDrop;
 
-/// TODO
+/// Asserts that public types implement expected traits with different
+/// [`CipherSuite`]s.
 #[macro_export]
 macro_rules! test_ciphersuite {
 	($cs:ident, $prefix:ident) => {

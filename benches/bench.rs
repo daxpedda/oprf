@@ -1,4 +1,4 @@
-//! TODO
+//! Basic benchmark.
 
 #![expect(clippy::cargo_common_metadata, clippy::unwrap_used, reason = "tests")]
 

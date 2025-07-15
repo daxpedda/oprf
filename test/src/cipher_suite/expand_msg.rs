@@ -1,15 +1,17 @@
-//! [`ExpandMsgMock`] implementation.
+//! [`MockExpandMsg`] implementation.
 
+use std::marker::PhantomData;
 use std::num::NonZero;
 
+use derive_where::derive_where;
 use elliptic_curve::Error;
 use hash2curve::{ExpandMsg, Expander};
 
 /// A mock [`ExpandMsg`] for testing purposes. It is no-op.
-#[derive(Clone, Copy, Debug)]
-pub struct ExpandMsgMock;
+#[derive_where(Clone, Copy, Debug)]
+pub struct MockExpandMsg<H>(PhantomData<H>);
 
-impl<K> ExpandMsg<K> for ExpandMsgMock {
+impl<H, K> ExpandMsg<K> for MockExpandMsg<H> {
 	type Expander<'dst> = Self;
 
 	fn expand_message<'dst>(
@@ -17,10 +19,10 @@ impl<K> ExpandMsg<K> for ExpandMsgMock {
 		_: &'dst [&[u8]],
 		_: NonZero<u16>,
 	) -> Result<Self::Expander<'dst>, Error> {
-		Ok(Self)
+		Ok(Self(PhantomData))
 	}
 }
 
-impl Expander for ExpandMsgMock {
+impl<H> Expander for MockExpandMsg<H> {
 	fn fill_bytes(&mut self, _: &mut [u8]) {}
 }

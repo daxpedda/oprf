@@ -1,3 +1,5 @@
+//! [`KeyPair`] and corresponding types.
+
 use core::fmt::{self, Debug, Formatter};
 use core::slice;
 
@@ -16,14 +18,22 @@ use crate::internal::ElementWrapper;
 use crate::serde;
 use crate::util::{Concat, I2ospLength};
 
+/// Holds a [`SecretKey`] and its corresponding [`PublicKey`].
 pub struct KeyPair<G: Group> {
 	secret_key: SecretKey<G>,
 	public_key: PublicKey<G>,
 }
 
 impl<G: Group> KeyPair<G> {
-	// `GenerateKeyPair`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2
+	/// Generates a random [`SecretKey`] and its corresponding [`PublicKey`].
+	///
+	/// Corresponds to
+	/// [`GenerateKeyPair()` in RFC 9497 § 3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2).
+	///
+	/// # Errors
+	///
+	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the given
+	/// `rng` fails.
 	pub fn generate<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -31,8 +41,20 @@ impl<G: Group> KeyPair<G> {
 		SecretKey::generate(rng).map(Self::from_secret_key)
 	}
 
-	// `DeriveKeyPair`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2.1-2
+	/// Deterministically maps the input to a [`SecretKey`] and its
+	/// corresponding [`PublicKey`].
+	///
+	/// Corresponds to
+	/// [`DeriveKeyPair()` in RFC 9497 § 3.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2.1-2).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if `info` exceeds a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
+	///   the given input.
 	pub fn derive<CS: CipherSuite<Group = G>>(
 		mode: Mode,
 		seed: &[u8; 32],
@@ -41,6 +63,8 @@ impl<G: Group> KeyPair<G> {
 		SecretKey::derive::<CS>(mode, seed, info).map(Self::from_secret_key)
 	}
 
+	/// Returns a [`KeyPair`] with the given [`SecretKey`] and the its
+	/// corresponding derived [`PublicKey`].
 	#[must_use]
 	pub fn from_secret_key(secret_key: SecretKey<G>) -> Self {
 		let public_key = PublicKey::from_secret_key(&secret_key);
@@ -51,34 +75,60 @@ impl<G: Group> KeyPair<G> {
 		}
 	}
 
+	/// Returns the [`SecretKey`].
+	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<G> {
 		&self.secret_key
 	}
 
+	/// Returns the [`PublicKey`].
+	#[must_use]
 	pub const fn public_key(&self) -> &PublicKey<G> {
 		&self.public_key
 	}
 
+	/// Returns the [`SecretKey`] and its corresponding [`PublicKey`].
 	#[must_use]
 	pub fn into_keys(self) -> (SecretKey<G>, PublicKey<G>) {
 		(self.secret_key, self.public_key)
 	}
 
+	/// Serializes this [`KeyPair`] as a [`SecretKey`].
+	///
+	/// # ⚠️ Warning
+	///
+	/// This value is key material.
+	///
+	/// Please treat it with the care it deserves!
 	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
 		self.secret_key.to_repr()
 	}
 
+	/// Deserializes the given `bytes` to a [`SecretKey`], deriving its
+	/// corresponding [`PublicKey`] and creating a [`KeyPair`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		SecretKey::from_repr(bytes).map(Self::from_secret_key)
 	}
 }
 
+/// A secret key.
 pub struct SecretKey<G: Group>(G::NonZeroScalar);
 
 impl<G: Group> SecretKey<G> {
-	// `GenerateKeyPair` without public key
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2
+	/// Generates a random [`SecretKey`].
+	///
+	/// Corresponds to
+	/// [`GenerateKeyPair()` in RFC 9497 § 3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2).
+	///
+	/// # Errors
+	///
+	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the given
+	/// `rng` fails.
 	pub fn generate<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -86,8 +136,19 @@ impl<G: Group> SecretKey<G> {
 		G::scalar_random(rng).map(Self)
 	}
 
-	// `DeriveKeyPair` without public key
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2.1-2
+	/// Deterministically maps the input to a [`SecretKey`].
+	///
+	/// Corresponds to
+	/// [`DeriveKeyPair()` in RFC 9497 § 3.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2.1-2).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if `info` exceeds a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
+	///   the given input.
 	pub fn derive<CS: CipherSuite<Group = G>>(
 		mode: Mode,
 		seed: &[u8; 32],
@@ -119,6 +180,8 @@ impl<G: Group> SecretKey<G> {
 		Self(scalar)
 	}
 
+	/// Returns the corresponding [`NonZeroScalar`](Group::NonZeroScalar).
+	#[must_use]
 	pub const fn as_scalar(&self) -> &G::NonZeroScalar {
 		&self.0
 	}
@@ -127,16 +190,29 @@ impl<G: Group> SecretKey<G> {
 		self.0
 	}
 
+	/// Returns the corresponding [`NonZeroScalar`](Group::NonZeroScalar).
 	#[must_use]
 	pub fn into_scalar(self) -> G::NonZeroScalar {
 		self.0
 	}
 
+	/// Serializes this [`SecretKey`].
+	///
+	/// # ⚠️ Warning
+	///
+	/// This value is key material.
+	///
+	/// Please treat it with the care it deserves!
 	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
 		G::scalar_to_repr(&self.0)
 	}
 
+	/// Deserializes the given `bytes` to a [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		bytes
 			.try_into()
@@ -147,18 +223,25 @@ impl<G: Group> SecretKey<G> {
 	}
 }
 
+/// A public key.
 pub struct PublicKey<G: Group>(ElementWrapper<G>);
 
 impl<G: Group> PublicKey<G> {
+	/// Returns the corresponding
+	/// [`NonIdentityElement`](Group::NonIdentityElement).
+	#[must_use]
 	pub const fn as_element(&self) -> &G::NonIdentityElement {
 		self.0.as_element()
 	}
 
+	/// Returns the corresponding
+	/// [`NonIdentityElement`](Group::NonIdentityElement).
 	#[must_use]
 	pub fn into_element(self) -> G::NonIdentityElement {
 		self.0.into_element()
 	}
 
+	/// Serializes this [`PublicKey`].
 	#[must_use]
 	pub const fn as_repr(&self) -> &Array<u8, G::ElementLength> {
 		self.0.as_repr()
@@ -168,11 +251,17 @@ impl<G: Group> PublicKey<G> {
 		Self(ElementWrapper::from_element(element))
 	}
 
+	/// Derives the corresponding [`PublicKey`] from the given [`SecretKey`].
 	#[must_use]
 	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
 		Self::from_element(G::non_zero_scalar_mul_by_generator(&secret_key.0))
 	}
 
+	/// Deserializes the given `bytes` to a [`PublicKey`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		ElementWrapper::from_repr(bytes).map(Self)
 	}

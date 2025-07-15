@@ -1,3 +1,5 @@
+//! [`CipherSuite`] and other related types.
+
 use core::ops::Deref;
 
 use digest::{FixedOutput, Update};
@@ -6,20 +8,60 @@ use hybrid_array::typenum::{IsLess, True, U65536};
 
 use crate::group::Group;
 
+/// OPRF cipher suite. You can find default ciphersuites by enabling the
+/// corresponding [crate features](crate#features).
+///
+/// See [RFC 9497 § 4](https://www.rfc-editor.org/rfc/rfc9497.html#name-ciphersuites).
+///
+/// # Examples
+///
+/// ```
+/// # use digest::XofFixedWrapper;
+/// # use hybrid_array::typenum::U64;
+/// # use oprf::cipher_suite::{CipherSuite, Id};
+/// # use oprf_test::{MockCurve as Ristretto255, MockHash as Shake256, MockExpandMsg as ExpandMsgXof};
+/// #
+/// struct CustomRistretto255;
+///
+/// impl CipherSuite for CustomRistretto255 {
+/// 	const ID: Id = Id::new(b"ristretto255-SHAKE256").unwrap();
+///
+/// 	type Group = Ristretto255;
+/// 	type Hash = XofFixedWrapper<Shake256, U64>;
+/// 	type ExpandMsg = ExpandMsgXof<Shake256>;
+/// }
+/// ```
 pub trait CipherSuite: 'static {
+	/// The ID of this [`CipherSuite`].
+	///
+	/// See [RFC 9497 § 3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.1-3).
 	const ID: Id;
 
+	/// The prime-order [`Group`] of this [`CipherSuite`].
 	type Group: Group;
+
+	/// The hash of this [`CipherSuite`].
+	///
+	/// See [RFC 9497 § 4](https://www.rfc-editor.org/rfc/rfc9497.html#section-4-3.4).
 	type Hash: Default + FixedOutput<OutputSize: IsLess<U65536, Output = True>> + Update;
+
+	/// The [`ExpandMsg`] to use with this [`Group`](CipherSuite::Group).
 	type ExpandMsg: ExpandMsg<<Self::Group as Group>::SecurityLevel>;
 }
 
+/// Typedef to [`CipherSuite::Group`].
 type CsGroup<CS> = <CS as CipherSuite>::Group;
+/// Typedef to [`Group::NonZeroScalar`] via [`CipherSuite`].
 pub(crate) type NonZeroScalar<CS> = <CsGroup<CS> as Group>::NonZeroScalar;
+/// Typedef to [`Group::Scalar`] via [`CipherSuite`].
 pub(crate) type Scalar<CS> = <CsGroup<CS> as Group>::Scalar;
+/// Typedef to [`Group::ScalarLength`] via [`CipherSuite`].
 pub(crate) type ScalarLength<CS> = <CsGroup<CS> as Group>::ScalarLength;
+/// Typedef to [`Group::NonIdentityElement`] via [`CipherSuite`].
 pub(crate) type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
+/// Typedef to [`Group::Element`] via [`CipherSuite`].
 pub(crate) type Element<CS> = <CsGroup<CS> as Group>::Element;
+/// Typedef to [`Group::ElementLength`] via [`CipherSuite`].
 pub(crate) type ElementLength<CS> = <CsGroup<CS> as Group>::ElementLength;
 
 /// A valid [`CipherSuite::ID`].

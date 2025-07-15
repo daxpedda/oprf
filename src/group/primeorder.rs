@@ -1,3 +1,5 @@
+//! NIST curves implementation.
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::ops::Add;
@@ -18,6 +20,17 @@ use rand_core::TryCryptoRng;
 use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
+
+impl<G> CipherSuite for G
+where
+	G: Group<SecurityLevel = <G as GroupDigest>::K> + OprfParameters,
+{
+	const ID: Id = Id::new(G::ID).unwrap();
+
+	type Group = G;
+	type Hash = G::Hash;
+	type ExpandMsg = G::ExpandMsg;
+}
 
 impl<C> Group for C
 where
@@ -154,15 +167,4 @@ where
 	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
 		ProjectivePoint::<C>::lincomb(&elements_and_scalars)
 	}
-}
-
-impl<G> CipherSuite for G
-where
-	G: Group<K = <G as GroupDigest>::K> + OprfParameters,
-{
-	const ID: Id = Id::new(G::ID).unwrap();
-
-	type Group = G;
-	type Hash = G::Hash;
-	type ExpandMsg = G::ExpandMsg;
 }

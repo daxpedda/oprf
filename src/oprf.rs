@@ -1,3 +1,6 @@
+//! OPRF implementation as per
+//! [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::array;
@@ -21,13 +24,29 @@ use crate::key::SecretKey;
 use crate::serde;
 use crate::util::CollectArray;
 
+/// OPRF client.
+///
+/// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
 pub struct OprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
 }
 
 impl<CS: CipherSuite> OprfClient<CS> {
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+	/// Blinds the given `input`.
+	///
+	/// Corresponds to
+	/// [`Blind()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<OprfBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -43,8 +62,21 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		})
 	}
 
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+	/// Batch blinds the given `inputs` *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind()`](Self::blind)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
@@ -73,8 +105,21 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		})
 	}
 
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2
+	/// Batch blinds the given `inputs`.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind()`](Self::blind)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
@@ -97,8 +142,15 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		})
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+	/// Completes the evaluation.
+	///
+	/// Corresponds to
+	/// [`Finalize()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7).
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::InputLength`] if the given `input` exceeds a length of
+	/// [`u16::MAX`].
 	pub fn finalize(
 		&self,
 		input: &[&[u8]],
@@ -112,8 +164,15 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		Ok(output)
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+	/// Batch completes evaluations *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`finalize()`](Self::finalize)ing a single [`EvaluationElement`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::InputLength`] if a given input exceeds a length of
+	/// [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
 		inputs: &[&[&[u8]]; N],
@@ -131,8 +190,17 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, None)
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-7
+	/// Batch completes evaluations.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`finalize()`](Self::finalize)ing a single [`EvaluationElement`].
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
+	///   `evaluation_elements` don't match.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: IC,
@@ -157,11 +225,19 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	}
 }
 
+/// OPRF server.
+///
+/// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
 pub struct OprfServer<CS: CipherSuite> {
 	secret_key: SecretKey<CS::Group>,
 }
 
 impl<CS: CipherSuite> OprfServer<CS> {
+	/// Creates a new [`OprfServer`] by generating a random [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::Random`] if the given `rng` fails.
 	pub fn new<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -171,30 +247,50 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		})
 	}
 
+	/// Creates a new [`OprfServer`] by deterministically mapping the input to a
+	/// [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if `info` exceeds a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
+	///   the given input.
 	pub fn from_seed(seed: &[u8; 32], info: &[u8]) -> Result<Self> {
 		Ok(Self {
 			secret_key: SecretKey::derive::<CS>(Mode::Oprf, seed, info)?,
 		})
 	}
 
+	/// Creates a new [`OprfServer`] from the given [`SecretKey`].
+	#[must_use]
 	pub const fn from_key(secret_key: SecretKey<CS::Group>) -> Self {
 		Self { secret_key }
 	}
 
+	/// Returns the [`SecretKey`].
+	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
 		&self.secret_key
 	}
 
-	// `BlindEvaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
+	/// Process the [`BlindedElement`].
+	///
+	/// Corresponds to
+	/// [`BlindEvaluate()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4).
 	#[must_use]
 	pub fn blind_evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
 		let [evaluation_element] = self.batch_blind_evaluate(array::from_ref(blinded_element));
 		evaluation_element
 	}
 
-	// `BlindEvaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
+	/// Batch process the [`BlindedElement`]s *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind_evaluate()`](Self::blind_evaluate)ing a single
+	/// [`BlindedElement`].
 	#[must_use]
 	pub fn batch_blind_evaluate<const N: usize>(
 		&self,
@@ -207,8 +303,11 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		EvaluationElement::new_batch(&elements)
 	}
 
-	// `BlindEvaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4
+	/// Batch process the [`BlindedElement`]s.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind_evaluate()`](Self::blind_evaluate)ing a single
+	/// [`BlindedElement`].
 	#[must_use]
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind_evaluate<'blinded_elements, I>(
@@ -224,15 +323,39 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		EvaluationElement::new_batch_alloc(elements)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+	/// Completes the evaluation.
+	///
+	/// Corresponds to
+	/// [`Evaluate()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<CS::Hash>> {
 		let [output] = self.batch_evaluate(&[input])?;
 		Ok(output)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+	/// Batch Completes evaluations *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`evaluate()`](Self::evaluate)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	pub fn batch_evaluate<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]; N],
@@ -247,27 +370,48 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		internal::batch_evaluate::<CS, N>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-9
+	/// Batch Completes evaluations.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`evaluate()`](Self::evaluate)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
 		internal::batch_alloc_evaluate::<CS>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
 	}
 }
 
+/// Returned from [`OprfClient::blind()`].
 pub struct OprfBlindResult<CS: CipherSuite> {
+	/// The [`OprfClient`].
 	pub client: OprfClient<CS>,
+	/// The [`BlindedElement`].
 	pub blinded_element: BlindedElement<CS>,
 }
 
+/// Returned from [`OprfClient::batch_blind()`].
 pub struct OprfBatchBlindResult<CS: CipherSuite, const N: usize> {
+	/// The [`OprfClient`]s.
 	pub clients: [OprfClient<CS>; N],
+	/// The [`BlindedElement`]s each corresponding to a [`OprfClient`] in order.
 	pub blinded_elements: [BlindedElement<CS>; N],
 }
 
+/// Returned from [`OprfClient::batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
 pub struct OprfBatchAllocBlindResult<CS: CipherSuite> {
+	/// The [`OprfClient`]s.
 	pub clients: Vec<OprfClient<CS>>,
+	/// The [`BlindedElement`]s each corresponding to a [`OprfClient`] in order.
 	pub blinded_elements: Vec<BlindedElement<CS>>,
 }
 

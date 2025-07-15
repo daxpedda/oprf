@@ -1,3 +1,5 @@
+//! [`Decaf448`] implementation.
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
@@ -18,8 +20,19 @@ use crate::CipherSuite;
 use crate::cipher_suite::Id;
 use crate::error::{InternalError, Result};
 
+/// Implementation for Decaf448.
+///
+/// See [RFC 9497 § 4.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprfdecaf448-shake-256).
 #[derive(Clone, Copy, Debug)]
 pub struct Decaf448;
+
+impl CipherSuite for Decaf448 {
+	const ID: Id = Id::new(b"decaf448-SHAKE256").unwrap();
+
+	type Group = Self;
+	type Hash = XofFixedWrapper<Shake256, U64>;
+	type ExpandMsg = ExpandMsgXof<Shake256>;
+}
 
 impl Group for Decaf448 {
 	type SecurityLevel = U28;
@@ -127,12 +140,4 @@ impl Group for Decaf448 {
 	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
 		DecafPoint::lincomb(&elements_and_scalars)
 	}
-}
-
-impl CipherSuite for Decaf448 {
-	const ID: Id = Id::new(b"decaf448-SHAKE256").unwrap();
-
-	type Group = Self;
-	type Hash = XofFixedWrapper<Shake256, U64>;
-	type ExpandMsg = ExpandMsgXof<Shake256>;
 }

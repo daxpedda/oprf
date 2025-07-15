@@ -1,3 +1,6 @@
+//! POPRF implementation as per
+//! [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
+
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::array;
@@ -32,14 +35,30 @@ use crate::key::{KeyPair, PublicKey};
 use crate::serde;
 use crate::util::CollectArray;
 
+/// POPRF client.
+///
+/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
 pub struct PoprfClient<CS: CipherSuite> {
 	blind: NonZeroScalar<CS>,
 	blinded_element: BlindedElement<CS>,
 }
 
 impl<CS: CipherSuite> PoprfClient<CS> {
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
+	/// Blinds the given `input`.
+	///
+	/// Corresponds to
+	/// [`Blind()` in RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<PoprfBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -55,8 +74,21 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		})
 	}
 
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
+	/// Batch blinds the given `inputs` *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind()`](Self::blind)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
@@ -89,8 +121,21 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		})
 	}
 
-	// `Blind`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2
+	/// Batch blinds the given `inputs`.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`blind()`](Self::blind)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   [`BlindedElement`].
+	/// - [`Error::Random`] if the given `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
@@ -120,8 +165,21 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		})
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
+	/// Completes the evaluation.
+	///
+	/// Corresponds to
+	/// [`Finalize()` in RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Proof`] if the [`Proof`] is invalid.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn finalize(
 		&self,
 		public_key: &PublicKey<CS::Group>,
@@ -141,9 +199,26 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		Ok(output)
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
+	/// Batch completes evaluations with a combined [`Proof`] *without
+	/// allocation*.
+	///
+	/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
+	///   `evaluation_elements` are zero, don't match or exceed a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
+	///   output.
+	/// - [`Error::Proof`] if the [`Proof`] is invalid.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
 		public_key: &PublicKey<CS::Group>,
@@ -176,9 +251,25 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, Some(info))
 	}
 
-	// `Finalize`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-8
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9
+	/// Batch completes evaluations with a combined [`Proof`].
+	///
+	/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-9).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
+	///   `evaluation_elements` are zero, don't match or exceed a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
+	///   output.
+	/// - [`Error::Proof`] if the [`Proof`] is invalid.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
 		clients: IC,
@@ -224,6 +315,13 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		internal::batch_alloc_finalize::<CS>(inputs, blinds, evaluation_elements, Some(info))
 	}
 
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
+	///   output.
 	fn tweaked_key(
 		public_key: &PublicKey<CS::Group>,
 		info: Info<'_>,
@@ -239,6 +337,9 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	}
 }
 
+/// POPRF server.
+///
+/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
 pub struct PoprfServer<CS: CipherSuite> {
 	key_pair: KeyPair<CS::Group>,
 	t: NonZeroScalar<CS>,
@@ -247,6 +348,19 @@ pub struct PoprfServer<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> PoprfServer<CS> {
+	/// Creates a new [`PoprfServer`] by generating a random [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
+	///   [`SecretKey`] of the server, the client can be assumed to know it and
+	///   it should be replaced.
 	pub fn new<R>(rng: &mut R, info: &[u8]) -> Result<Self, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -255,11 +369,38 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		Self::from_key_pair(key_pair, info).map_err(Error::into_random::<R>)
 	}
 
+	/// Creates a new [`PoprfServer`] by deterministically mapping the input to
+	/// a [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if `key_info` or `info` exceed a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
+	///   the given input.
+	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
+	///   [`SecretKey`] of the server, the client can be assumed to know it and
+	///   it should be replaced.
 	pub fn from_seed(seed: &[u8; 32], key_info: &[u8], info: &[u8]) -> Result<Self> {
 		let key_pair = KeyPair::derive::<CS>(Mode::Poprf, seed, key_info)?;
 		Self::from_key_pair(key_pair, info)
 	}
 
+	/// Creates a new [`PoprfServer`] from the given [`KeyPair`].
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
+	///   [`SecretKey`] of the server, the client can be assumed to know it and
+	///   it should be replaced.
 	pub fn from_key_pair(key_pair: KeyPair<CS::Group>, info: &[u8]) -> Result<Self> {
 		let info = Info::new(info)?;
 		let framed_info = [b"Info".as_slice(), info.i2osp(), info.info()];
@@ -280,16 +421,27 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		})
 	}
 
+	/// Returns the [`KeyPair`].
 	pub const fn key_pair(&self) -> &KeyPair<CS::Group> {
 		&self.key_pair
 	}
 
+	/// Returns the [`PublicKey`].
 	pub const fn public_key(&self) -> &PublicKey<CS::Group> {
 		self.key_pair.public_key()
 	}
 
-	// `BlindEvaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
+	/// Process the [`BlindedElement`].
+	///
+	/// Corresponds to
+	/// [`BlindEvaluate()` in RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
@@ -309,9 +461,19 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		})
 	}
 
-	// `BlindEvaluate` batched
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5
+	/// Process the [`BlindedElement`] computing a combined [`Proof`] *without
+	/// allocation*.
+	///
+	/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `blinded_elements` is zero
+	///   or exceed a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Random`] if the given `rng` fails.
 	pub fn batch_blind_evaluate<R, const N: usize>(
 		&self,
 		rng: &mut R,
@@ -342,9 +504,18 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		})
 	}
 
-	// `BlindEvaluate` batched
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-4
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5
+	/// Process the [`BlindedElement`] computing a combined [`Proof`].
+	///
+	/// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-5).
+	///
+	/// # Errors
+	///
+	/// - [`Error::Batch`] if the number of items in `blinded_elements` is zero
+	///   or exceed a length of [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::Random`] if the given `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind_evaluate<'blinded_elements, R, I>(
 		&self,
@@ -384,15 +555,43 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		})
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-11
+	/// Completes the evaluation.
+	///
+	/// Corresponds to
+	/// [`Evaluate()` in RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-11).
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	///   [`u16::MAX`].
 	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
 		let [output] = self.batch_evaluate(&[input], info)?;
 		Ok(output)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	/// Batch Completes evaluations *without allocation*.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`evaluate()`](Self::evaluate)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	pub fn batch_evaluate<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]; N],
@@ -413,8 +612,22 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		)
 	}
 
-	// `Evaluate`
-	// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.2-7
+	/// Batch Completes evaluations.
+	///
+	/// It is expected that a part of the computation is as efficient as
+	/// [`evaluate()`](Self::evaluate)ing a single `input`.
+	///
+	/// # Errors
+	///
+	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	///   [`u16::MAX`].
+	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+	///   [`Group`](CipherSuite::Group) and
+	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
+	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	///   output.
+	/// - [`Error::InputLength`] if a given input exceeds a length of
+	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_evaluate(
 		&self,
@@ -430,19 +643,30 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	}
 }
 
+/// Returned from [`PoprfClient::blind()`].
 pub struct PoprfBlindResult<CS: CipherSuite> {
+	/// The [`PoprfClient`].
 	pub client: PoprfClient<CS>,
+	/// The [`BlindedElement`].
 	pub blinded_element: BlindedElement<CS>,
 }
 
+/// Returned from [`PoprfClient::batch_blind()`].
 pub struct PoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
+	/// The [`PoprfClient`]s.
 	pub clients: [PoprfClient<CS>; N],
+	/// The [`BlindedElement`]s each corresponding to a [`PoprfClient`] in
+	/// order.
 	pub blinded_elements: [BlindedElement<CS>; N],
 }
 
+/// Returned from [`PoprfClient::batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
 pub struct PoprfBatchAllocBlindResult<CS: CipherSuite> {
+	/// The [`PoprfClient`]s.
 	pub clients: Vec<PoprfClient<CS>>,
+	/// The [`BlindedElement`]s each corresponding to a [`PoprfClient`] in
+	/// order.
 	pub blinded_elements: Vec<BlindedElement<CS>>,
 }
 

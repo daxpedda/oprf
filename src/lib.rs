@@ -1,16 +1,9 @@
 //! TODO
+//!
+//! # Features
 
 #![no_std]
-#![expect(
-	clippy::cargo_common_metadata,
-	clippy::missing_errors_doc,
-	missing_docs,
-	reason = "todo"
-)]
-#![cfg_attr(
-	not(test),
-	expect(clippy::missing_docs_in_private_items, reason = "todo")
-)]
+#![expect(clippy::cargo_common_metadata, reason = "todo")]
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 #[cfg(feature = "alloc")]
