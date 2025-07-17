@@ -9,7 +9,13 @@ decaf448 = ["dep:ed448-goldilocks"]
 primeorder = ["dep:primeorder"]
 ristretto255 = ["dep:curve25519-dalek"]
 ristretto255-ciphersuite = ["ristretto255", "dep:sha2"]
-serde = ["dep:serde", "dep:serdect", "ed448-goldilocks?/serde", "curve25519-dalek?/serde", "oprf-test/serde"]
+serde = [
+	"dep:serde",
+	"dep:serdect",
+	"ed448-goldilocks?/serde",
+	"curve25519-dalek?/serde",
+	"oprf-test/serde",
+]
 
 [dependencies]
 curve25519-dalek = { workspace = true, optional = true }
