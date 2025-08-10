@@ -125,6 +125,10 @@ impl Mul<&NonIdentityElement> for NonZeroScalar {
 	}
 }
 
+#[expect(
+	clippy::infallible_try_from,
+	reason = "required for `Group` implementation"
+)]
 impl TryFrom<Scalar> for NonZeroScalar {
 	type Error = Infallible;
 
@@ -179,6 +183,10 @@ impl Deref for NonIdentityElement {
 	}
 }
 
+#[expect(
+	clippy::infallible_try_from,
+	reason = "required for `Group` implementation"
+)]
 impl TryFrom<Element> for NonIdentityElement {
 	type Error = Infallible;
 
