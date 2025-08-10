@@ -217,8 +217,7 @@ where
 	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
 	let t3 = r.into() * &M;
 
-	let c = compute_c::<CS>(mode, B.element.into(), M, Z, t2.into(), t3)
-		.map_err(Error::into_random::<R>)?;
+	let c = compute_c::<CS>(mode, B, M, Z, t2.into(), t3).map_err(Error::into_random::<R>)?;
 	let s = r.into() - &(c * k.deref());
 
 	Ok(Proof { c, s })
@@ -253,7 +252,7 @@ where
 	let t2 = CS::Group::lincomb([(CS::Group::element_generator(), *s), (B.element.into(), *c)]);
 	let t3 = CS::Group::lincomb([(M, *s), (Z, *c)]);
 
-	let expected_c = compute_c::<CS>(mode, B.element.into(), M, Z, t2, t3)?;
+	let expected_c = compute_c::<CS>(mode, B, M, Z, t2, t3)?;
 
 	if &expected_c == c {
 		Ok(())
@@ -274,19 +273,20 @@ where
 /// are incompatible.
 fn compute_c<CS: CipherSuite>(
 	mode: Mode,
-	B: Element<CS>,
+	B: &ElementWrapper<CS::Group>,
 	M: Element<CS>,
 	Z: Element<CS>,
 	t2: Element<CS>,
 	t3: Element<CS>,
 ) -> Result<Scalar<CS>> {
-	let [Bm, a0, a1, a2, a3] = CS::Group::element_batch_to_repr(&[B, M, Z, t2, t3]);
+	let Bm = &B.repr;
+	let [a0, a1, a2, a3] = CS::Group::element_batch_to_repr(&[M, Z, t2, t3]);
 
 	CS::hash_to_scalar(
 		mode,
 		&[
 			&CS::I2OSP_ELEMENT_LEN,
-			&Bm,
+			Bm,
 			&CS::I2OSP_ELEMENT_LEN,
 			&a0,
 			&CS::I2OSP_ELEMENT_LEN,
