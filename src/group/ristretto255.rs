@@ -163,7 +163,7 @@ impl Group for Ristretto255 {
 	) -> [(Self::NonIdentityElement, Array<u8, Self::ElementLength>); N] {
 		let elements = elements_and_scalars
 			.iter()
-			.map(|(element, scalar)| scalar.halve() * element.deref())
+			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
 			.collect_array::<N>();
 		let reprs = RistrettoPoint::double_and_compress_batch(&elements);
 
@@ -181,7 +181,7 @@ impl Group for Ristretto255 {
 	) -> [Array<u8, Self::ElementLength>; N] {
 		let elements = elements_and_scalars
 			.iter()
-			.map(|(element, scalar)| scalar.halve() * element.deref())
+			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
 			.collect_array::<N>();
 
 		RistrettoPoint::double_and_compress_batch(&elements).map(|compressed| compressed.0.into())
@@ -193,7 +193,7 @@ impl Group for Ristretto255 {
 	) -> Vec<(Self::NonIdentityElement, Array<u8, Self::ElementLength>)> {
 		let elements: Vec<_> = elements_and_scalars
 			.iter()
-			.map(|(element, scalar)| scalar.halve() * element.deref())
+			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
 			.collect();
 		let reprs = RistrettoPoint::double_and_compress_alloc_batch(&elements);
 
@@ -212,7 +212,7 @@ impl Group for Ristretto255 {
 	) -> Vec<Array<u8, Self::ElementLength>> {
 		let elements: Vec<_> = elements_and_scalars
 			.iter()
-			.map(|(element, scalar)| scalar.halve() * element.deref())
+			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
 			.collect();
 
 		RistrettoPoint::double_and_compress_alloc_batch(&elements)
