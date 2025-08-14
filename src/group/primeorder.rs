@@ -20,6 +20,7 @@ use rand_core::TryCryptoRng;
 use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
+use crate::util::CollectArray;
 
 impl<G> CipherSuite for G
 where
@@ -134,17 +135,60 @@ where
 		element.to_bytes()
 	}
 
-	fn non_identity_element_batch_to_repr<const N: usize>(
-		elements: &[Self::NonIdentityElement; N],
+	fn non_identity_element_batch_multiply_and_repr<const N: usize>(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar); N],
+	) -> [(Self::NonIdentityElement, Array<u8, Self::ElementLength>); N] {
+		let elements = elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| scalar * element)
+			.collect_array::<N>();
+		let reprs = NonIdentity::<ProjectivePoint<C>>::batch_normalize(&elements);
+
+		elements
+			.into_iter()
+			.zip(reprs)
+			.map(|(element, repr)| (element, repr.to_bytes()))
+			.collect_array()
+	}
+
+	fn non_identity_element_batch_multiply_to_repr<const N: usize>(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar); N],
 	) -> [Array<u8, Self::ElementLength>; N] {
-		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements).map(|point| point.to_bytes())
+		let elements = elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| scalar * element)
+			.collect_array();
+
+		NonIdentity::<ProjectivePoint<C>>::batch_normalize(&elements).map(|point| point.to_bytes())
 	}
 
 	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_alloc_to_repr(
-		elements: &[Self::NonIdentityElement],
+	fn non_identity_element_batch_alloc_multiply_and_repr(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar)],
+	) -> Vec<(Self::NonIdentityElement, Array<u8, Self::ElementLength>)> {
+		let elements: Vec<_> = elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| scalar * element)
+			.collect();
+		let reprs = NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements.as_slice());
+
+		elements
+			.into_iter()
+			.zip(reprs)
+			.map(|(element, repr)| (element, repr.to_bytes()))
+			.collect()
+	}
+
+	#[cfg(feature = "alloc")]
+	fn non_identity_element_batch_alloc_multiply_to_repr(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar)],
 	) -> Vec<Array<u8, Self::ElementLength>> {
-		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements)
+		let elements: Vec<_> = elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| scalar * element)
+			.collect();
+
+		NonIdentity::<ProjectivePoint<C>>::batch_normalize(elements.as_slice())
 			.into_iter()
 			.map(|point| point.to_bytes())
 			.collect()

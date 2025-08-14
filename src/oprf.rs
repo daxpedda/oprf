@@ -296,11 +296,11 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		&self,
 		blinded_elements: &[BlindedElement<CS>; N],
 	) -> [EvaluationElement<CS>; N] {
-		let elements = blinded_elements
+		let elements_and_scalars = blinded_elements
 			.iter()
-			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.as_element())
+			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()))
 			.collect_array();
-		EvaluationElement::new_batch(&elements)
+		EvaluationElement::new_batch(&elements_and_scalars)
 	}
 
 	/// Batch process the [`BlindedElement`]s.
@@ -317,10 +317,10 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	where
 		I: Iterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
-		let elements: Vec<_> = blinded_elements
-			.map(|blinded_element| self.secret_key.to_scalar() * blinded_element.as_element())
+		let elements_and_scalars: Vec<_> = blinded_elements
+			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()))
 			.collect();
-		EvaluationElement::new_batch_alloc(elements)
+		EvaluationElement::new_batch_alloc(&elements_and_scalars)
 	}
 
 	/// Completes the evaluation.
@@ -361,8 +361,13 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		inputs: &[&[&[u8]]; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
+					NonIdentityElement<CS>,
+					NonZeroScalar<CS>,
+				); N],
+			>,
 		>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,

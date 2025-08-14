@@ -208,32 +208,77 @@ pub trait Group {
 	/// [`SerializeElement()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.16).
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
 
-	/// Batch serialization of the given
-	/// [`NonIdentityElement`](Group::NonIdentityElement)s *without allocation*.
+	/// Batch multiplication and serialization of the given
+	/// [`NonIdentityElement`](Group::NonIdentityElement)s and
+	/// [`NonZeroScalar`](Group::NonZeroScalar)s product *without allocation*.
 	///
 	/// This is expected to be practically as efficient as a single
 	/// serialization.
-	fn non_identity_element_batch_to_repr<const N: usize>(
-		elements: &[Self::NonIdentityElement; N],
-	) -> [Array<u8, Self::ElementLength>; N] {
-		elements
+	#[expect(clippy::type_complexity, reason = "acceptable")]
+	fn non_identity_element_batch_multiply_and_repr<const N: usize>(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar); N],
+	) -> [(Self::NonIdentityElement, Array<u8, Self::ElementLength>); N] {
+		elements_and_scalars
 			.iter()
-			.map(|element| Self::element_to_repr(element))
+			.map(|(element, scalar)| {
+				let element = *scalar * element;
+				let repr = Self::element_to_repr(&element);
+
+				(element, repr)
+			})
 			.collect_array()
 	}
 
 	/// Batch serialization of the given
-	/// [`NonIdentityElement`](Group::NonIdentityElement)s.
+	/// [`NonIdentityElement`](Group::NonIdentityElement)s and
+	/// [`NonZeroScalar`](Group::NonZeroScalar)s product *without allocation*.
+	///
+	/// This is expected to be practically as efficient as a single
+	/// serialization.
+	fn non_identity_element_batch_multiply_to_repr<const N: usize>(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar); N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| Self::element_to_repr(&(*scalar * element)))
+			.collect_array()
+	}
+
+	/// Batch multiplication and serialization of the given
+	/// [`NonIdentityElement`](Group::NonIdentityElement)s and
+	/// [`NonZeroScalar`](Group::NonZeroScalar)s product.
 	///
 	/// This is expected to be practically as efficient as a single
 	/// serialization.
 	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_alloc_to_repr(
-		elements: &[Self::NonIdentityElement],
-	) -> Vec<Array<u8, Self::ElementLength>> {
-		elements
+	#[expect(clippy::type_complexity, reason = "acceptable")]
+	fn non_identity_element_batch_alloc_multiply_and_repr(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar)],
+	) -> Vec<(Self::NonIdentityElement, Array<u8, Self::ElementLength>)> {
+		elements_and_scalars
 			.iter()
-			.map(|element| Self::element_to_repr(element))
+			.map(|(element, scalar)| {
+				let element = *scalar * element;
+				let repr = Self::element_to_repr(&element);
+
+				(element, repr)
+			})
+			.collect()
+	}
+
+	/// Batch serialization of the given
+	/// [`NonIdentityElement`](Group::NonIdentityElement)s and
+	/// [`NonZeroScalar`](Group::NonZeroScalar)s product.
+	///
+	/// This is expected to be practically as efficient as a single
+	/// serialization.
+	#[cfg(feature = "alloc")]
+	fn non_identity_element_batch_alloc_multiply_to_repr(
+		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar)],
+	) -> Vec<Array<u8, Self::ElementLength>> {
+		elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| Self::element_to_repr(&(*scalar * element)))
 			.collect()
 	}
 

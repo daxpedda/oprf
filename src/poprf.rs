@@ -489,7 +489,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		let evaluation_elements = EvaluationElement::new_batch(
 			&blinded_elements
 				.iter()
-				.map(|blinded_element| self.t_inverted * blinded_element.as_element())
+				.map(|blinded_element| (*blinded_element.as_element(), self.t_inverted))
 				.collect_array(),
 		);
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
@@ -534,9 +534,9 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 
 		let d: Vec<_> = blinded_elements.map(BlindedElement::as_ref).collect();
 		let evaluation_elements = EvaluationElement::new_batch_alloc(
-			d.iter()
-				.map(|element| self.t_inverted * element.as_element())
-				.collect(),
+			&d.iter()
+				.map(|element| (*element.as_element(), self.t_inverted))
+				.collect::<Vec<_>>(),
 		);
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
@@ -598,8 +598,13 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
+					NonIdentityElement<CS>,
+					NonZeroScalar<CS>,
+				); N],
+			>,
 		>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,

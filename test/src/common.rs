@@ -773,8 +773,13 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 
 	pub fn evaluate<const N: usize>(&self) -> [Output<CS::Hash>; N]
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
+					NonIdentityElement<CS>,
+					NonZeroScalar<CS>,
+				); N],
+			>,
 		>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
@@ -788,8 +793,13 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
+					NonIdentityElement<CS>,
+					NonZeroScalar<CS>,
+				); N],
+			>,
 		>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,

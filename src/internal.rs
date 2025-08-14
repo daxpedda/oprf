@@ -73,26 +73,19 @@ impl<'info> Info<'info> {
 
 impl<G: Group> ElementWrapper<G> {
 	pub(crate) fn new_batch<const N: usize>(
-		elements: &[G::NonIdentityElement; N],
+		elements_and_scalars: &[(G::NonIdentityElement, G::NonZeroScalar); N],
 	) -> impl Iterator<Item = Self> {
-		let repr = G::non_identity_element_batch_to_repr(elements);
-
-		elements
-			.iter()
-			.copied()
-			.zip(repr)
+		G::non_identity_element_batch_multiply_and_repr(elements_and_scalars)
+			.into_iter()
 			.map(|(element, repr)| Self { element, repr })
 	}
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements: Vec<G::NonIdentityElement>,
+		elements_and_scalars: &[(G::NonIdentityElement, G::NonZeroScalar)],
 	) -> impl Iterator<Item = Self> {
-		let repr = G::non_identity_element_batch_alloc_to_repr(&elements);
-
-		elements
+		G::non_identity_element_batch_alloc_multiply_and_repr(elements_and_scalars)
 			.into_iter()
-			.zip(repr)
 			.map(|(element, repr)| Self { element, repr })
 	}
 
@@ -416,10 +409,9 @@ where
 	})?
 	.0;
 
-	let blinded_elements = blinds
-		.iter()
-		.zip(input_elements)
-		.map(|(blind, input_element)| *blind * &input_element)
+	let blinded_elements = input_elements
+		.into_iter()
+		.zip(blinds.iter().copied())
 		.collect_array();
 
 	let blinded_elements = BlindedElement::new_batch(&blinded_elements);
@@ -463,7 +455,7 @@ where
 			// Moved `blind` after to fail early.
 			let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 
-			let blinded_element = blind * &input_element;
+			let blinded_element = (input_element, blind);
 
 			blinds.push(blind);
 			blinded_elements.push(blinded_element);
@@ -472,7 +464,7 @@ where
 		},
 	)?;
 
-	let blinded_elements = BlindedElement::new_batch_alloc(blinded_elements);
+	let blinded_elements = BlindedElement::new_batch_alloc(&blinded_elements);
 
 	Ok(BatchAllocBlindResult {
 		blinds,
@@ -502,12 +494,12 @@ where
 	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
 
 	let inverted_blinds = CS::Group::scalar_batch_invert(blinds);
-	let n = inverted_blinds
+	let n = evaluation_elements
 		.into_iter()
-		.zip(evaluation_elements)
-		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
+		.copied()
+		.zip(inverted_blinds)
 		.collect_array::<N>();
-	let unblinded_elements = CS::Group::non_identity_element_batch_to_repr(&n);
+	let unblinded_elements = CS::Group::non_identity_element_batch_multiply_to_repr(&n);
 
 	let mut outputs = internal_finalize::<CS>(inputs.iter().copied(), &unblinded_elements, info);
 	// Using `Iterator::collect()` can panic!
@@ -546,12 +538,12 @@ where
 	);
 
 	let inverted_blinds = CS::Group::scalar_batch_alloc_invert(blinds);
-	let n: Vec<_> = inverted_blinds
+	let n: Vec<_> = evaluation_elements
 		.into_iter()
-		.zip(evaluation_elements)
-		.map(|(inverted_blind, evaluation_element)| inverted_blind * evaluation_element)
+		.copied()
+		.zip(inverted_blinds)
 		.collect();
-	let unblinded_elements = CS::Group::non_identity_element_batch_alloc_to_repr(&n);
+	let unblinded_elements = CS::Group::non_identity_element_batch_alloc_multiply_to_repr(&n);
 
 	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
 }
@@ -611,8 +603,13 @@ pub(crate) fn batch_evaluate<CS, const N: usize>(
 	info: Option<Info<'_>>,
 ) -> Result<[Output<CS::Hash>; N]>
 where
-	[NonIdentityElement<CS>; N]: AssocArraySize<
-		Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+	[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
+		Size: ArraySize<
+			ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
+				NonIdentityElement<CS>,
+				NonZeroScalar<CS>,
+			); N],
+		>,
 	>,
 	[Output<CS::Hash>; N]:
 		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
@@ -623,10 +620,11 @@ where
 		let input = inputs[index];
 
 		let input_element = CS::hash_to_curve(mode, input)?;
-		Ok(secret_key * &input_element)
+		Ok((input_element, secret_key))
 	})?
 	.0;
-	let issued_elements = CS::Group::non_identity_element_batch_to_repr(&evaluation_elements);
+	let issued_elements =
+		CS::Group::non_identity_element_batch_multiply_to_repr(&evaluation_elements);
 
 	let mut outputs = internal_evaluate::<CS>(inputs, &issued_elements, info);
 
@@ -661,10 +659,11 @@ pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
 		.iter()
 		.map(|input| {
 			let input_element = CS::hash_to_curve(mode, input)?;
-			Ok(secret_key * &input_element)
+			Ok((input_element, secret_key))
 		})
 		.collect::<Result<Vec<_>>>()?;
-	let issued_elements = CS::Group::non_identity_element_batch_alloc_to_repr(&evaluation_elements);
+	let issued_elements =
+		CS::Group::non_identity_element_batch_alloc_multiply_to_repr(&evaluation_elements);
 
 	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
 }

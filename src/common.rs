@@ -12,7 +12,9 @@ use hybrid_array::Array;
 use hybrid_array::typenum::{Sum, Unsigned};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::cipher_suite::{CipherSuite, ElementLength, NonIdentityElement, Scalar, ScalarLength};
+use crate::cipher_suite::{
+	CipherSuite, ElementLength, NonIdentityElement, NonZeroScalar, Scalar, ScalarLength,
+};
 use crate::error::{Error, Result};
 use crate::group::Group;
 use crate::internal::ElementWrapper;
@@ -114,15 +116,19 @@ pub struct BatchAllocBlindEvaluateResult<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> BlindedElement<CS> {
-	pub(crate) fn new_batch<const N: usize>(elements: &[NonIdentityElement<CS>; N]) -> [Self; N] {
-		ElementWrapper::new_batch(elements)
+	pub(crate) fn new_batch<const N: usize>(
+		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>); N],
+	) -> [Self; N] {
+		ElementWrapper::new_batch(elements_and_scalars)
 			.map(Self)
 			.collect_array()
 	}
 
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch_alloc(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		ElementWrapper::new_batch_alloc(elements)
+	pub(crate) fn new_batch_alloc(
+		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>)],
+	) -> Vec<Self> {
+		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.map(Self)
 			.collect()
 	}
@@ -148,15 +154,19 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 }
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
-	pub(crate) fn new_batch<const N: usize>(elements: &[NonIdentityElement<CS>; N]) -> [Self; N] {
-		ElementWrapper::new_batch(elements)
+	pub(crate) fn new_batch<const N: usize>(
+		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>); N],
+	) -> [Self; N] {
+		ElementWrapper::new_batch(elements_and_scalars)
 			.map(Self)
 			.collect_array()
 	}
 
 	#[cfg(feature = "alloc")]
-	pub(crate) fn new_batch_alloc(elements: Vec<NonIdentityElement<CS>>) -> Vec<Self> {
-		ElementWrapper::new_batch_alloc(elements)
+	pub(crate) fn new_batch_alloc(
+		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>)],
+	) -> Vec<Self> {
+		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.map(Self)
 			.collect()
 	}

@@ -411,7 +411,10 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			&blinded_elements
 				.iter()
 				.map(|blinded_element| {
-					self.key_pair.secret_key().to_scalar() * blinded_element.as_element()
+					(
+						*blinded_element.as_element(),
+						self.key_pair.secret_key().to_scalar(),
+					)
 				})
 				.collect_array(),
 		);
@@ -463,9 +466,14 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 
 		let c: Vec<_> = blinded_elements.map(BlindedElement::as_ref).collect();
 		let evaluation_elements = EvaluationElement::new_batch_alloc(
-			c.iter()
-				.map(|element| self.key_pair.secret_key().to_scalar() * element.as_element())
-				.collect(),
+			&c.iter()
+				.map(|element| {
+					(
+						*element.as_element(),
+						self.key_pair.secret_key().to_scalar(),
+					)
+				})
+				.collect::<Vec<_>>(),
 		);
 		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
@@ -522,8 +530,13 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		inputs: &[&[&[u8]]; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
+			Size: ArraySize<
+				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
+					NonIdentityElement<CS>,
+					NonZeroScalar<CS>,
+				); N],
+			>,
 		>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
