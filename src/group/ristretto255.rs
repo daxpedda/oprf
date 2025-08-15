@@ -238,6 +238,7 @@ impl Group for Ristretto255 {
 }
 
 /// Analogous to [`elliptic_curve::NonZeroScalar`].
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NonZeroScalar(Scalar);
 
@@ -320,6 +321,7 @@ impl Zeroize for NonZeroScalar {
 }
 
 /// Analogous to [`elliptic_curve::point::NonIdentity`].
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NonIdentityElement(RistrettoPoint);
 

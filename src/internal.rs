@@ -74,19 +74,19 @@ impl<'info> Info<'info> {
 impl<G: Group> ElementWrapper<G> {
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: &[(G::NonIdentityElement, G::NonZeroScalar); N],
-	) -> impl Iterator<Item = Self> {
+	) -> [Self; N] {
 		G::non_identity_element_batch_multiply_and_repr(elements_and_scalars)
-			.into_iter()
 			.map(|(element, repr)| Self { element, repr })
 	}
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
 		elements_and_scalars: &[(G::NonIdentityElement, G::NonZeroScalar)],
-	) -> impl Iterator<Item = Self> {
+	) -> Vec<Self> {
 		G::non_identity_element_batch_alloc_multiply_and_repr(elements_and_scalars)
 			.into_iter()
 			.map(|(element, repr)| Self { element, repr })
+			.collect()
 	}
 
 	pub(crate) fn into_element(self) -> G::NonIdentityElement {

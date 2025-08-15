@@ -20,7 +20,6 @@ use crate::group::Group;
 use crate::internal::ElementWrapper;
 #[cfg(feature = "serde")]
 use crate::serde;
-use crate::util::CollectArray;
 
 /// Protocol mode. Only used in
 /// [`SecretKey::derive()`](crate::key::SecretKey::derive).
@@ -62,6 +61,7 @@ impl Mode {
 ///
 /// [`*Client::blind()`]: crate::oprf::OprfClient::blind
 /// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
+#[repr(transparent)]
 pub struct BlindedElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 
 /// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be
@@ -69,6 +69,7 @@ pub struct BlindedElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 ///
 /// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
 /// [`*Client::finalize()`]: crate::oprf::OprfClient::finalize
+#[repr(transparent)]
 pub struct EvaluationElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 
 /// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be verified
@@ -119,9 +120,7 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>); N],
 	) -> [Self; N] {
-		ElementWrapper::new_batch(elements_and_scalars)
-			.map(Self)
-			.collect_array()
+		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
 
 	#[cfg(feature = "alloc")]
@@ -129,6 +128,7 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>)],
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
+			.into_iter()
 			.map(Self)
 			.collect()
 	}
@@ -157,9 +157,7 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>); N],
 	) -> [Self; N] {
-		ElementWrapper::new_batch(elements_and_scalars)
-			.map(Self)
-			.collect_array()
+		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
 
 	#[cfg(feature = "alloc")]
@@ -167,6 +165,7 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>)],
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
+			.into_iter()
 			.map(Self)
 			.collect()
 	}
