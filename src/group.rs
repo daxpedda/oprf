@@ -45,6 +45,7 @@ pub trait Group {
 	/// Scalar type.
 	type Scalar: Copy
 		+ Debug
+		+ Default
 		+ Eq
 		+ for<'scalar> Add<&'scalar Self::Scalar, Output = Self::Scalar>
 		+ for<'scalar> Sub<&'scalar Self::Scalar, Output = Self::Scalar>
@@ -67,6 +68,7 @@ pub trait Group {
 
 	/// Element type.
 	type Element: Copy
+		+ Default
 		+ for<'element> Add<&'element Self::Element, Output = Self::Element>
 		+ TryInto<Self::NonIdentityElement>;
 
@@ -306,16 +308,31 @@ pub trait Group {
 		bytes: &Array<u8, Self::ElementLength>,
 	) -> Result<Self::NonIdentityElement, InternalError>;
 
+	/// Computes `element1 * scalar1 + element2 * scalar2` *without allocation*.
+	///
+	/// This is expected to be an optimized implementations of linear
+	/// combinations.
+	fn lincomb<const N: usize>(
+		elements_and_scalars: &[(Self::Element, Self::Scalar); N],
+	) -> Self::Element {
+		elements_and_scalars
+			.iter()
+			.map(|(element, scalar)| *scalar * element)
+			.reduce(|acc, element| acc + &element)
+			.unwrap_or_else(Self::Element::default)
+	}
+
 	/// Computes `element1 * scalar1 + element2 * scalar2`.
 	///
 	/// This is expected to be an optimized implementations of linear
 	/// combinations.
-	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
+	#[cfg(feature = "alloc")]
+	fn alloc_lincomb(elements_and_scalars: &[(Self::Element, Self::Scalar)]) -> Self::Element {
 		elements_and_scalars
-			.into_iter()
-			.map(|(element, scalar)| scalar * &element)
+			.iter()
+			.map(|(element, scalar)| *scalar * element)
 			.reduce(|acc, element| acc + &element)
-			.expect("array is not empty")
+			.unwrap_or_else(Self::Element::default)
 	}
 }
 

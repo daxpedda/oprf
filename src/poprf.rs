@@ -241,7 +241,9 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
 		let d = clients.iter().map(|client| client.blinded_element.as_ref());
 
-		internal::verify_proof(Mode::Poprf, tweaked_key.as_ref(), c, d, proof)?;
+		let composites =
+			internal::compute_composites::<_, N>(Mode::Poprf, None, tweaked_key.as_ref(), c, d)?;
+		internal::verify_proof(Mode::Poprf, composites, tweaked_key.as_ref(), proof)?;
 
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
 		let evaluation_elements = evaluation_elements
@@ -302,13 +304,15 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			.map(|client| (client.blinded_element.as_ref(), client.blind))
 			.unzip();
 
-		internal::verify_proof(
+		let composites = internal::alloc_compute_composites(
 			Mode::Poprf,
+			clients_len,
+			None,
 			tweaked_key.as_ref(),
 			c.iter().copied(),
-			d.into_iter(),
-			proof,
+			d.iter().copied(),
 		)?;
+		internal::verify_proof(Mode::Poprf, composites, tweaked_key.as_ref(), proof)?;
 
 		let evaluation_elements = c.into_iter().map(ElementWrapper::as_element);
 
@@ -495,8 +499,21 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
 		let d = blinded_elements.iter().map(BlindedElement::as_ref);
 
-		let proof =
-			internal::generate_proof(Mode::Poprf, rng, self.t, self.tweaked_key.as_ref(), c, d)?;
+		let composites = internal::compute_composites::<_, N>(
+			Mode::Poprf,
+			Some(self.t),
+			self.tweaked_key.as_ref(),
+			c,
+			d,
+		)
+		.map_err(Error::into_random::<R>)?;
+		let proof = internal::generate_proof(
+			Mode::Poprf,
+			rng,
+			self.t,
+			composites,
+			self.tweaked_key.as_ref(),
+		)?;
 
 		Ok(BatchBlindEvaluateResult {
 			evaluation_elements,
@@ -540,13 +557,21 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		);
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
+		let composites = internal::alloc_compute_composites(
+			Mode::Poprf,
+			blinded_elements_length,
+			Some(self.t),
+			self.tweaked_key.as_ref(),
+			c.into_iter(),
+			d.into_iter(),
+		)
+		.map_err(Error::into_random::<R>)?;
 		let proof = internal::generate_proof(
 			Mode::Poprf,
 			rng,
 			self.t,
+			composites,
 			self.tweaked_key.as_ref(),
-			c.into_iter(),
-			d.into_iter(),
 		)?;
 
 		Ok(BatchAllocBlindEvaluateResult {

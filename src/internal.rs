@@ -1,8 +1,11 @@
 #![expect(non_snake_case, reason = "following the specification exactly")]
 
 #[cfg(feature = "alloc")]
+use alloc::vec;
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 use core::fmt::{self, Debug, Formatter};
+use core::iter;
 use core::ops::Deref;
 
 #[cfg(feature = "serde")]
@@ -45,7 +48,7 @@ pub(crate) struct ElementWrapper<G: Group> {
 	repr: Array<u8, G::ElementLength>,
 }
 
-struct Composites<CS: CipherSuite> {
+pub(crate) struct Composites<CS: CipherSuite> {
 	M: Element<CS>,
 	Z: Element<CS>,
 }
@@ -177,6 +180,15 @@ impl<G: Group> Serialize for ElementWrapper<G> {
 	}
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl<CS: CipherSuite> Clone for Composites<CS> {
+	fn clone(&self) -> Self {
+		*self
+	}
+}
+
+impl<CS: CipherSuite> Copy for Composites<CS> {}
+
 /// Corresponds to
 /// [`GenerateProof()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3).
 ///
@@ -186,24 +198,18 @@ impl<G: Group> Serialize for ElementWrapper<G> {
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
 /// - [`Error::Random`] if the given `rng` fails.
-pub(crate) fn generate_proof<'items, CS, R>(
+pub(crate) fn generate_proof<CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	k: NonZeroScalar<CS>,
+	composites: Composites<CS>,
 	B: &ElementWrapper<CS::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
 ) -> Result<Proof<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
 	R: ?Sized + TryCryptoRng,
 {
-	debug_assert_ne!(C.len(), 0, "found zero item length");
-	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
-	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
-
-	let Composites::<CS> { M, Z } =
-		compute_composites(mode, Some(k), B, C, D).map_err(Error::into_random::<R>)?;
+	let Composites::<CS> { M, Z } = composites;
 
 	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?;
 	// `A` is always the generator element.
@@ -225,25 +231,20 @@ where
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
 /// - [`Error::Proof`] if the [`Proof`] is invalid.
-pub(crate) fn verify_proof<'items, CS>(
+pub(crate) fn verify_proof<CS>(
 	mode: Mode,
+	composites: Composites<CS>,
 	B: &ElementWrapper<CS::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
 	proof: &Proof<CS>,
 ) -> Result<()>
 where
 	CS: CipherSuite,
 {
-	debug_assert_ne!(C.len(), 0, "found zero item length");
-	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
-	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
-
-	let Composites::<CS> { M, Z } = compute_composites(mode, None, B, C, D)?;
+	let Composites::<CS> { M, Z } = composites;
 	let Proof { c, s } = proof;
 
-	let t2 = CS::Group::lincomb([(CS::Group::element_generator(), *s), (B.element.into(), *c)]);
-	let t3 = CS::Group::lincomb([(M, *s), (Z, *c)]);
+	let t2 = CS::Group::lincomb(&[(CS::Group::element_generator(), *s), (B.element.into(), *c)]);
+	let t3 = CS::Group::lincomb(&[(M, *s), (Z, *c)]);
 
 	let expected_c = compute_c::<CS>(mode, B, M, Z, t2, t3)?;
 
@@ -304,7 +305,7 @@ fn compute_c<CS: CipherSuite>(
 /// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 /// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 /// are incompatible.
-fn compute_composites<'items, CS>(
+pub(crate) fn compute_composites<'items, CS, const N: usize>(
 	mode: Mode,
 	k: Option<NonZeroScalar<CS>>,
 	B: &ElementWrapper<CS::Group>,
@@ -314,8 +315,100 @@ fn compute_composites<'items, CS>(
 where
 	CS: CipherSuite,
 {
+	debug_assert_ne!(N, 0, "found zero item length");
+	debug_assert_eq!(N, C.len(), "found unequal item length");
+	debug_assert_eq!(N, D.len(), "found unequal item length");
+	debug_assert!(N <= u16::MAX.into(), "found overflowing item length");
+
+	let mut Ms = [(Element::<CS>::default(), Scalar::<CS>::default()); N];
+	let mut Zs = k
+		.is_none()
+		.then(|| [(Element::<CS>::default(), Scalar::<CS>::default()); N]);
+
+	internal_compute_composites::<CS>(
+		mode,
+		B,
+		C,
+		D,
+		&mut Ms,
+		Zs.as_mut().map(<[_; N]>::as_mut_slice),
+	)?;
+
+	let M = CS::Group::lincomb(&Ms);
+	let Z = k.map_or_else(
+		|| CS::Group::lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
+		|k| k.into() * &M,
+	);
+
+	Ok(Composites { M, Z })
+}
+
+/// Corresponds to
+/// [`ComputeComposites()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-5)
+/// and
+/// [`ComputeCompositesFast()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-4).
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+/// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+/// are incompatible.
+#[cfg(feature = "alloc")]
+pub(crate) fn alloc_compute_composites<'items, CS>(
+	mode: Mode,
+	length: usize,
+	k: Option<NonZeroScalar<CS>>,
+	B: &ElementWrapper<CS::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+) -> Result<Composites<CS>>
+where
+	CS: CipherSuite,
+{
+	debug_assert_ne!(length, 0, "found zero item length");
+	debug_assert_eq!(length, C.len(), "found unequal item length");
+	debug_assert_eq!(length, D.len(), "found unequal item length");
+	debug_assert!(length <= u16::MAX.into(), "found overflowing item length");
+
+	let mut Ms = vec![(Element::<CS>::default(), Scalar::<CS>::default()); length];
+	let mut Zs = k
+		.is_none()
+		.then(|| vec![(Element::<CS>::default(), Scalar::<CS>::default()); length]);
+
+	internal_compute_composites::<CS>(mode, B, C, D, &mut Ms, Zs.as_deref_mut())?;
+
+	let M = CS::Group::alloc_lincomb(&Ms);
+	let Z = k.map_or_else(
+		|| CS::Group::alloc_lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
+		|k| k.into() * &M,
+	);
+
+	Ok(Composites { M, Z })
+}
+
+fn internal_compute_composites<'items, CS>(
+	mode: Mode,
+	B: &ElementWrapper<CS::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
+	Ms: &mut [(Element<CS>, Scalar<CS>)],
+	Zs: Option<&mut [(Element<CS>, Scalar<CS>)]>,
+) -> Result<()>
+where
+	CS: CipherSuite,
+{
 	debug_assert_ne!(C.len(), 0, "found zero item length");
 	debug_assert_eq!(C.len(), D.len(), "found unequal item length");
+	debug_assert_eq!(C.len(), Ms.len(), "found unequal item length");
+
+	#[expect(
+		clippy::debug_assert_with_mut_call,
+		reason = "`len()` must not have side-effects"
+	)]
+	if let Some(Zs) = &Zs {
+		debug_assert_eq!(C.len(), Zs.len(), "found unequal item length");
+	}
+
 	debug_assert!(C.len() <= u16::MAX.into(), "found overflowing item length");
 
 	let Bm = &B.repr;
@@ -327,10 +420,16 @@ where
 		.chain_iter(seed_dst.into_iter())
 		.finalize_fixed();
 
-	let mut M = CS::Group::element_identity();
-	let mut Z = CS::Group::element_identity();
-
-	for (i, (Ci, Di)) in (0..=u16::MAX).zip(C.zip(D)) {
+	for (i, ((Ci, M), (Di, Z))) in (0..=u16::MAX).zip(
+		(C.zip(Ms)).zip(
+			D.zip(
+				Zs.into_iter()
+					.flatten()
+					.map(Some)
+					.chain(iter::repeat_with(|| None)),
+			),
+		),
+	) {
 		let di = CS::hash_to_scalar(
 			mode,
 			&[
@@ -346,18 +445,14 @@ where
 			None,
 		)?;
 
-		M = di * Ci.element.deref() + &M;
+		*M = (Ci.element.into(), di);
 
-		if k.is_none() {
-			Z = di * Di.element.deref() + &Z;
+		if let Some(Z) = Z {
+			*Z = (Di.element.into(), di);
 		}
 	}
 
-	if let Some(k) = k {
-		Z = k.into() * &M;
-	}
-
-	Ok(Composites { M, Z })
+	Ok(())
 }
 
 /// Corresponds to

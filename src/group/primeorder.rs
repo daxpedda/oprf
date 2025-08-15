@@ -208,7 +208,14 @@ where
 			.ok_or(InternalError)
 	}
 
-	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		ProjectivePoint::<C>::lincomb(&elements_and_scalars)
+	fn lincomb<const N: usize>(
+		elements_and_scalars: &[(Self::Element, Self::Scalar); N],
+	) -> Self::Element {
+		ProjectivePoint::<C>::lincomb(elements_and_scalars)
+	}
+
+	#[cfg(feature = "alloc")]
+	fn alloc_lincomb(elements_and_scalars: &[(Self::Element, Self::Scalar)]) -> Self::Element {
+		ProjectivePoint::<C>::lincomb(elements_and_scalars)
 	}
 }

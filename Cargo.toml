@@ -101,7 +101,7 @@ static_assertions = "1"
 zeroize = "1.5"
 
 [patch.crates-io]
-curve25519-dalek = { git = "https://github.com/dalek-cryptography/curve25519-dalek", rev = "97d9f6d629c8643a736f1ca32b27fdacfbf8dfea" }
+curve25519-dalek = { git = "https://github.com/dalek-cryptography/curve25519-dalek", rev = "68790e34588df61b7bbbbb889504d41324163510" }
 
 [workspace.lints.rust]
 # Rust groups.

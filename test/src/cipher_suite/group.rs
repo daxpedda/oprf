@@ -21,7 +21,7 @@ pub struct MockCurve;
 pub struct NonZeroScalar;
 
 /// A mock [`Group::Scalar`].
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Zeroize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Zeroize)]
 pub struct Scalar;
 
 /// A mock [`Group::NonIdentityElement`].
@@ -29,7 +29,7 @@ pub struct Scalar;
 pub struct NonIdentityElement;
 
 /// A mock [`Group::Element`].
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Element;
 
 impl Group for MockCurve {

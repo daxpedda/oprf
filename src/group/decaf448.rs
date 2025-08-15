@@ -137,7 +137,14 @@ impl Group for Decaf448 {
 			.ok_or(InternalError)
 	}
 
-	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		DecafPoint::lincomb(&elements_and_scalars)
+	fn lincomb<const N: usize>(
+		elements_and_scalars: &[(Self::Element, Self::Scalar); N],
+	) -> Self::Element {
+		DecafPoint::lincomb(elements_and_scalars)
+	}
+
+	#[cfg(feature = "alloc")]
+	fn alloc_lincomb(elements_and_scalars: &[(Self::Element, Self::Scalar)]) -> Self::Element {
+		DecafPoint::lincomb(elements_and_scalars)
 	}
 }

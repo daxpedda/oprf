@@ -229,10 +229,18 @@ impl Group for Ristretto255 {
 			.ok_or(InternalError)
 	}
 
-	fn lincomb(elements_and_scalars: [(Self::Element, Self::Scalar); 2]) -> Self::Element {
-		RistrettoPoint::multiscalar_mul(
-			&[elements_and_scalars[0].1, elements_and_scalars[1].1],
-			&[elements_and_scalars[0].0, elements_and_scalars[1].0],
+	fn lincomb<const N: usize>(
+		elements_and_scalars: &[(Self::Element, Self::Scalar); N],
+	) -> Self::Element {
+		RistrettoPoint::multiscalar_mul(elements_and_scalars)
+	}
+
+	#[cfg(feature = "alloc")]
+	fn alloc_lincomb(elements_and_scalars: &[(Self::Element, Self::Scalar)]) -> Self::Element {
+		RistrettoPoint::multiscalar_alloc_mul(
+			elements_and_scalars
+				.iter()
+				.map(|(element, scalar)| (element, scalar)),
 		)
 	}
 }

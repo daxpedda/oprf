@@ -228,7 +228,9 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		let c = clients.iter().map(|client| client.blinded_element.as_ref());
 		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
-		internal::verify_proof(Mode::Voprf, public_key.as_ref(), c, d, proof)?;
+		let composites =
+			internal::compute_composites::<_, N>(Mode::Voprf, None, public_key.as_ref(), c, d)?;
+		internal::verify_proof(Mode::Voprf, composites, public_key.as_ref(), proof)?;
 
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
 		let evaluation_elements = evaluation_elements
@@ -281,13 +283,15 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			.unzip();
 		let d: Vec<_> = evaluation_elements.map(EvaluationElement::as_ref).collect();
 
-		internal::verify_proof(
+		let composites = internal::alloc_compute_composites(
 			Mode::Voprf,
+			clients_len,
+			None,
 			public_key.as_ref(),
 			c.into_iter(),
 			d.iter().copied(),
-			proof,
 		)?;
+		internal::verify_proof(Mode::Voprf, composites, public_key.as_ref(), proof)?;
 
 		let evaluation_elements = d.into_iter().map(ElementWrapper::as_element);
 
@@ -421,13 +425,20 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		let c = blinded_elements.iter().map(BlindedElement::as_ref);
 		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
+		let composites = internal::compute_composites::<_, N>(
+			Mode::Voprf,
+			Some(self.key_pair.secret_key().to_scalar()),
+			self.key_pair.public_key().as_ref(),
+			c.into_iter(),
+			d.into_iter(),
+		)
+		.map_err(Error::into_random::<R>)?;
 		let proof = internal::generate_proof(
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
+			composites,
 			self.key_pair.public_key().as_ref(),
-			c,
-			d,
 		)?;
 
 		Ok(BatchBlindEvaluateResult {
@@ -477,13 +488,21 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		);
 		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
+		let composites = internal::alloc_compute_composites(
+			Mode::Voprf,
+			blinded_elements_length,
+			Some(self.key_pair.secret_key().to_scalar()),
+			self.key_pair.public_key().as_ref(),
+			c.into_iter(),
+			d,
+		)
+		.map_err(Error::into_random::<R>)?;
 		let proof = internal::generate_proof(
 			Mode::Voprf,
 			rng,
 			self.key_pair.secret_key().to_scalar(),
+			composites,
 			self.key_pair.public_key().as_ref(),
-			c.into_iter(),
-			d,
 		)?;
 
 		Ok(BatchAllocBlindEvaluateResult {
