@@ -124,6 +124,13 @@ pub trait Group {
 	#[must_use]
 	fn scalar_invert(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar;
 
+	/// Potentially halves the scalar if [`Self::element_batch_to_repr()`]
+	/// serializes double the point.
+	#[must_use]
+	fn scalar_maybe_halve(scalar: &Self::Scalar) -> Self::Scalar {
+		*scalar
+	}
+
 	/// Batch computes the inverse of the given
 	/// [`NonZeroScalar`](Group::NonZeroScalar)s *without allocation*.
 	///

@@ -211,13 +211,13 @@ where
 {
 	let Composites::<CS> { M, Z } = composites;
 
-	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?;
+	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?.into();
 	// `A` is always the generator element.
-	let t2 = CS::Group::non_zero_scalar_mul_by_generator(&r);
-	let t3 = r.into() * &M;
+	let t2 = CS::Group::scalar_mul_by_generator(&CS::Group::scalar_maybe_halve(&r));
+	let t3 = r * &M;
 
-	let c = compute_c::<CS>(mode, B, M, Z, t2.into(), t3).map_err(Error::into_random::<R>)?;
-	let s = r.into() - &(c * k.deref());
+	let c = compute_c::<CS>(mode, B, M, Z, t2, t3).map_err(Error::into_random::<R>)?;
+	let s = r - &(c * k.deref());
 
 	Ok(Proof { c, s })
 }
@@ -243,7 +243,13 @@ where
 	let Composites::<CS> { M, Z } = composites;
 	let Proof { c, s } = proof;
 
-	let t2 = CS::Group::lincomb(&[(CS::Group::element_generator(), *s), (B.element.into(), *c)]);
+	let t2 = CS::Group::lincomb(&[
+		(
+			CS::Group::element_generator(),
+			CS::Group::scalar_maybe_halve(s),
+		),
+		(B.element.into(), CS::Group::scalar_maybe_halve(c)),
+	]);
 	let t3 = CS::Group::lincomb(&[(M, *s), (Z, *c)]);
 
 	let expected_c = compute_c::<CS>(mode, B, M, Z, t2, t3)?;
@@ -430,7 +436,7 @@ where
 			),
 		),
 	) {
-		let di = CS::hash_to_scalar(
+		let mut di = CS::hash_to_scalar(
 			mode,
 			&[
 				&<CS::Hash as OutputSizeUser>::OutputSize::U16.i2osp(),
@@ -444,6 +450,8 @@ where
 			],
 			None,
 		)?;
+
+		di = CS::Group::scalar_maybe_halve(&di);
 
 		*M = (Ci.element.into(), di);
 

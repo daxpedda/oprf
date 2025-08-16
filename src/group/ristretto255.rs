@@ -95,6 +95,10 @@ impl Group for Ristretto255 {
 		NonZeroScalar(scalar.0.invert())
 	}
 
+	fn scalar_maybe_halve(scalar: &Self::Scalar) -> Self::Scalar {
+		scalar.div_by_2()
+	}
+
 	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N] {
@@ -219,6 +223,12 @@ impl Group for Ristretto255 {
 			.into_iter()
 			.map(|compressed| compressed.0.into())
 			.collect()
+	}
+
+	fn element_batch_to_repr<const N: usize>(
+		elements: &[Self::Element; N],
+	) -> [Array<u8, Self::ElementLength>; N] {
+		RistrettoPoint::double_and_compress_batch(elements).map(|compressed| compressed.0.into())
 	}
 
 	fn non_identity_element_from_repr(
