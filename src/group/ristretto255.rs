@@ -24,6 +24,7 @@ use zeroize::Zeroize;
 use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
+use crate::util::CollectArray;
 
 /// Implementation for Decaf448.
 ///
@@ -174,8 +175,8 @@ impl Group for Ristretto255 {
 	fn non_identity_element_batch_maybe_double_to_repr<const N: usize>(
 		elements: &[Self::NonIdentityElement; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
-		RistrettoPoint::double_and_compress_batch(&elements.map(|element| element.0))
-			.map(|compressed| compressed.0.into())
+		let elements = elements.iter().map(|element| element.0).collect_array();
+		RistrettoPoint::double_and_compress_batch(&elements).map(|compressed| compressed.0.into())
 	}
 
 	#[cfg(feature = "alloc")]

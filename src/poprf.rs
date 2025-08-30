@@ -143,7 +143,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	) -> Result<PoprfBatchAllocBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
-		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
+		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
 		let BatchAllocBlindResult {
 			blinds,
@@ -286,12 +286,12 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
 	{
-		let clients_len = clients.len();
+		let length = clients.len();
 
-		if clients_len == 0
-			|| clients_len != inputs.len()
-			|| clients_len != evaluation_elements.len()
-			|| clients_len > u16::MAX.into()
+		if length == 0
+			|| length != inputs.len()
+			|| length != evaluation_elements.len()
+			|| length > u16::MAX.into()
 		{
 			return Err(Error::Batch);
 		}
@@ -306,7 +306,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		let composites = internal::alloc_compute_composites(
 			Mode::Poprf,
-			clients_len,
+			length,
 			None,
 			tweaked_key.as_ref(),
 			c.iter().copied(),
@@ -316,7 +316,13 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		let evaluation_elements = c.into_iter().map(ElementWrapper::as_element);
 
-		internal::batch_alloc_finalize::<CS>(inputs, blinds, evaluation_elements, Some(info))
+		internal::batch_alloc_finalize::<CS>(
+			length,
+			inputs,
+			blinds,
+			evaluation_elements,
+			Some(info),
+		)
 	}
 
 	/// # Errors

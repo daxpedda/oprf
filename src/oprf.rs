@@ -127,7 +127,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	) -> Result<OprfBatchAllocBlindResult<CS>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
-		I: Iterator<Item = &'inputs [&'inputs [u8]]>,
+		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
 		let BatchAllocBlindResult {
 			blinds,
@@ -212,16 +212,16 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
 	{
-		let clients_len = clients.len();
+		let length = clients.len();
 
-		if clients_len != inputs.len() || clients_len != evaluation_elements.len() {
+		if length != inputs.len() || length != evaluation_elements.len() {
 			return Err(Error::Batch);
 		}
 
 		let blinds = clients.map(|client| client.blind).collect();
 		let evaluation_elements = evaluation_elements.map(EvaluationElement::as_element);
 
-		internal::batch_alloc_finalize::<CS>(inputs, blinds, evaluation_elements, None)
+		internal::batch_alloc_finalize::<CS>(length, inputs, blinds, evaluation_elements, None)
 	}
 }
 
@@ -314,7 +314,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		blinded_elements: I,
 	) -> Vec<EvaluationElement<CS>>
 	where
-		I: Iterator<Item = &'blinded_elements BlindedElement<CS>>,
+		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
 		let elements_and_scalars = blinded_elements
 			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()));

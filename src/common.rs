@@ -125,7 +125,7 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
+		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.into_iter()
@@ -162,7 +162,7 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
+		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.into_iter()
