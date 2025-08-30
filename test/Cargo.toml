@@ -20,6 +20,7 @@ oprf = { workspace = true }
 p256 = { workspace = true }
 p384 = { workspace = true }
 p521 = { workspace = true }
+paste = { workspace = true }
 rand = { workspace = true }
 rand_core = { workspace = true }
 serde_test = { workspace = true, optional = true }

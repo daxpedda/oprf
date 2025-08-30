@@ -15,7 +15,7 @@ mod rng;
 mod serde;
 mod serialized;
 
-pub use oprf;
+pub use {oprf, p256, p384, p521, paste};
 
 pub use self::cipher_suite::{MockCs, MockCurve, MockExpandMsg, MockHash};
 pub use self::common::{CommonClient, CommonServer};
@@ -29,54 +29,56 @@ pub use self::serialized::*;
 #[macro_export]
 macro_rules! test_ciphersuites {
 	($name:ident) => {
-		$crate::test_ciphersuites!(internal: $name, $name);
+		$crate::test_ciphersuites!(internal: $name);
 	};
-	($name:ident, Oprf) => {
-		$crate::test_ciphersuites!(mode: $name, Oprf);
+	($name:ident, Oprf $(, [$($cs:path as $cs_name:ident),+])?) => {
+		$crate::test_ciphersuites!(mode: $name, Oprf $(, [$($cs as $cs_name),+])?);
 	};
-	($name:ident, Voprf) => {
-		$crate::test_ciphersuites!(mode: $name, Voprf);
+	($name:ident, Voprf $(, [$($cs:path as $cs_name:ident),+])?) => {
+		$crate::test_ciphersuites!(mode: $name, Voprf $(, [$($cs as $cs_name),+])?);
 	};
-	($name:ident, Poprf) => {
-		$crate::test_ciphersuites!(mode: $name, Poprf);
+	($name:ident, Poprf $(, [$($cs:path as $cs_name:ident),+])?) => {
+		$crate::test_ciphersuites!(mode: $name, Poprf $(, [$($cs as $cs_name),+])?);
 	};
-	($name:ident, Mode) => {
-		$crate::test_ciphersuites!($name, Oprf);
-		$crate::test_ciphersuites!($name, Voprf);
-		$crate::test_ciphersuites!($name, Poprf);
+	($name:ident, Mode $(, [$($cs:path as $cs_name:ident),+])?) => {
+		$crate::test_ciphersuites!($name, Oprf $(, [$($cs as $cs_name),+])?);
+		$crate::test_ciphersuites!($name, Voprf $(, [$($cs as $cs_name),+])?);
+		$crate::test_ciphersuites!($name, Poprf $(, [$($cs as $cs_name),+])?);
 	};
 	(mode: $name:ident, $mode:ident) => {
-		::paste::paste! {
-			$crate::test_ciphersuites!(internal: [<$name _ $mode:lower>], $name, $mode);
-		}
+		$crate::test_ciphersuites!(internal: $name, $mode);
 	};
-	(internal: $prefixed_name:ident, $name:ident $(, $mode:ident)?) => {
-		::paste::paste! {
+	(mode: $name:ident, $mode:ident, [$($cs:path as $cs_name:ident),+]) => {
+		$crate::test_ciphersuites!(internal: $name, $mode, [$($cs as $cs_name),+]);
+	};
+	(internal: $name:ident $(, $mode:ident)?) => {
+		$crate::test_ciphersuites!(
+			internal: $name,
+			$($mode,)?
+			[
+				$crate::p256::NistP256 as p256,
+				$crate::p384::NistP384 as p384,
+				$crate::p521::NistP521 as p521,
+				$crate::oprf::group::ristretto255::Ristretto255 as ristretto255,
+				$crate::oprf::group::decaf448::Decaf448 as decaf448
+			]
+		);
+	};
+	(internal: $name:ident, [$($cs:path as $cs_name:ident),+]) => {
+		$crate::paste::paste! { $(
 			#[test]
-			fn [<$prefixed_name _p256>]() {
-				$name::<::p256::NistP256>($(::oprf::common::Mode::$mode)?);
+			fn [<$name _ $cs_name>]() {
+				$name::<$cs>();
 			}
-
+		)+ }
+	};
+	(internal: $name:ident, $mode:ident, [$($cs:path as $cs_name:ident),+]) => {
+		$crate::paste::paste! { $(
 			#[test]
-			fn [<$prefixed_name _p384>]() {
-				$name::<::p384::NistP384>($(::oprf::common::Mode::$mode)?);
+			fn [<$name _ $mode:lower _ $cs_name>]() {
+				$name::<$cs>(::oprf::common::Mode::$mode);
 			}
-
-			#[test]
-			fn [<$prefixed_name _p521>]() {
-				$name::<::p521::NistP521>($(::oprf::common::Mode::$mode)?);
-			}
-
-			#[test]
-			fn [<$prefixed_name _ristretto255>]() {
-				$name::<$crate::oprf::group::ristretto255::Ristretto255>($(::oprf::common::Mode::$mode)?);
-			}
-
-			#[test]
-			fn [<$prefixed_name _decaf448>]() {
-				$name::<$crate::oprf::group::decaf448::Decaf448>($(::oprf::common::Mode::$mode)?);
-			}
-		}
+		)+ }
 	};
 }
 

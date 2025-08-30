@@ -5,9 +5,25 @@
 
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
-use oprf_test::{CommonClient, CommonServer, test_ciphersuites};
+use oprf::group::decaf448::Decaf448;
+use oprf::group::ristretto255::Ristretto255;
+use oprf_test::{CommonClient, CommonServer, MockCs, test_ciphersuites};
+use p256::NistP256;
+use p384::NistP384;
+use p521::NistP521;
 
-test_ciphersuites!(basic, Mode);
+test_ciphersuites!(
+	basic,
+	Mode,
+	[
+		NistP256 as p256,
+		NistP384 as p384,
+		NistP521 as p521,
+		Ristretto255 as ristretto255,
+		Decaf448 as decaf448,
+		MockCs as mock
+	]
+);
 
 /// Tests complete protocol.
 fn basic<CS: CipherSuite>(mode: Mode) {
@@ -19,7 +35,18 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(client_output, server_output);
 }
 
-test_ciphersuites!(batch, Mode);
+test_ciphersuites!(
+	batch,
+	Mode,
+	[
+		NistP256 as p256,
+		NistP384 as p384,
+		NistP521 as p521,
+		Ristretto255 as ristretto255,
+		Decaf448 as decaf448,
+		MockCs as mock
+	]
+);
 
 /// Tests complete protocol when using batching methods.
 fn batch<CS: CipherSuite>(mode: Mode) {
@@ -32,7 +59,18 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 }
 
 #[cfg(feature = "alloc")]
-test_ciphersuites!(batch_alloc, Mode);
+test_ciphersuites!(
+	batch_alloc,
+	Mode,
+	[
+		NistP256 as p256,
+		NistP384 as p384,
+		NistP521 as p521,
+		Ristretto255 as ristretto255,
+		Decaf448 as decaf448,
+		MockCs as mock
+	]
+);
 
 /// Tests complete protocol when using batching methods with `alloc`.
 #[cfg(feature = "alloc")]
