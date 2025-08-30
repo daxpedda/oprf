@@ -79,13 +79,13 @@ impl<G: Group> ElementWrapper<G> {
 		elements_and_scalars: impl Iterator<Item = (G::NonIdentityElement, G::NonZeroScalar)>,
 	) -> [Self; N] {
 		let elements = elements_and_scalars
-			.map(|(element, scalar)| non_zero_scalar_maybe_halve::<G>(&scalar, N) * &element)
+			.map(|(element, scalar)| non_zero_maybe_halve::<G>(&scalar, N) * &element)
 			.collect_array::<N>();
-		non_identity_element_batch_maybe_double_to_repr::<G, N>(&elements)
+		non_identity_batch_maybe_double_to_repr::<G, N>(&elements)
 			.into_iter()
 			.zip(elements)
 			.map(|(repr, element)| Self {
-				element: non_identity_element_maybe_double::<G>(&element, N),
+				element: maybe_double::<G>(&element, N),
 				repr,
 			})
 			.collect_array()
@@ -97,13 +97,13 @@ impl<G: Group> ElementWrapper<G> {
 	) -> Vec<Self> {
 		let length = elements_and_scalars.len();
 		let elements: Vec<_> = elements_and_scalars
-			.map(|(element, scalar)| non_zero_scalar_maybe_halve::<G>(&scalar, length) * &element)
+			.map(|(element, scalar)| non_zero_maybe_halve::<G>(&scalar, length) * &element)
 			.collect();
-		non_identity_element_batch_alloc_maybe_double_to_repr::<G>(&elements)
+		non_identity_batch_alloc_maybe_double_to_repr::<G>(&elements)
 			.into_iter()
 			.zip(elements)
 			.map(|(repr, element)| Self {
-				element: non_identity_element_maybe_double::<G>(&element, length),
+				element: maybe_double::<G>(&element, length),
 				repr,
 			})
 			.collect()
@@ -618,10 +618,10 @@ where
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| {
-			scalar_maybe_halve::<CS::Group>(&inverted_blind, N) * evaluation_element.deref()
+			maybe_halve::<CS::Group>(&inverted_blind, N) * evaluation_element.deref()
 		})
 		.collect_array::<N>();
-	let unblinded_elements = element_batch_maybe_double_to_repr::<CS::Group, N>(&n);
+	let unblinded_elements = batch_maybe_double_to_repr::<CS::Group, N>(&n);
 
 	let mut outputs = internal_finalize::<CS>(inputs.iter().copied(), &unblinded_elements, info);
 	// Using `Iterator::collect()` can panic!
@@ -666,10 +666,10 @@ where
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| {
-			non_zero_scalar_maybe_halve::<CS::Group>(&inverted_blind, length) * evaluation_element
+			non_zero_maybe_halve::<CS::Group>(&inverted_blind, length) * evaluation_element
 		})
 		.collect();
-	let unblinded_elements = non_identity_element_batch_alloc_maybe_double_to_repr::<CS::Group>(&n);
+	let unblinded_elements = non_identity_batch_alloc_maybe_double_to_repr::<CS::Group>(&n);
 
 	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
 }
@@ -739,10 +739,10 @@ where
 		let input = inputs[index];
 
 		let input_element = CS::hash_to_curve(mode, input)?;
-		Ok(scalar_maybe_halve::<CS::Group>(&secret_key, N) * input_element.deref())
+		Ok(maybe_halve::<CS::Group>(&secret_key, N) * input_element.deref())
 	})?
 	.0;
-	let issued_elements = element_batch_maybe_double_to_repr::<CS::Group, N>(&evaluation_elements);
+	let issued_elements = batch_maybe_double_to_repr::<CS::Group, N>(&evaluation_elements);
 
 	let mut outputs = internal_evaluate::<CS>(inputs, &issued_elements, info);
 
@@ -777,14 +777,11 @@ pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
 		.iter()
 		.map(|input| {
 			let input_element = CS::hash_to_curve(mode, input)?;
-			Ok(
-				non_zero_scalar_maybe_halve::<CS::Group>(&secret_key, inputs.len())
-					* &input_element,
-			)
+			Ok(non_zero_maybe_halve::<CS::Group>(&secret_key, inputs.len()) * &input_element)
 		})
 		.collect::<Result<Vec<_>>>()?;
 	let issued_elements =
-		non_identity_element_batch_alloc_maybe_double_to_repr::<CS::Group>(&evaluation_elements);
+		non_identity_batch_alloc_maybe_double_to_repr::<CS::Group>(&evaluation_elements);
 
 	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
 }
@@ -822,33 +819,27 @@ fn internal_evaluate<CS: CipherSuite>(
 		})
 }
 
-fn non_zero_scalar_maybe_halve<G: Group>(
-	scalar: &G::NonZeroScalar,
-	length: usize,
-) -> G::NonZeroScalar {
+fn non_zero_maybe_halve<G: Group>(scalar: &G::NonZeroScalar, length: usize) -> G::NonZeroScalar {
 	match length {
 		1 => *scalar,
 		_ => G::non_zero_scalar_maybe_halve(scalar),
 	}
 }
-fn scalar_maybe_halve<G: Group>(scalar: &G::Scalar, length: usize) -> G::Scalar {
+fn maybe_halve<G: Group>(scalar: &G::Scalar, length: usize) -> G::Scalar {
 	match length {
 		1 => *scalar,
 		_ => G::scalar_maybe_halve(scalar),
 	}
 }
 
-fn non_identity_element_maybe_double<G: Group>(
-	element: &G::NonIdentityElement,
-	length: usize,
-) -> G::NonIdentityElement {
+fn maybe_double<G: Group>(element: &G::NonIdentityElement, length: usize) -> G::NonIdentityElement {
 	match length {
 		1 => *element,
 		_ => G::non_identity_element_maybe_double(element),
 	}
 }
 
-fn non_identity_element_batch_maybe_double_to_repr<G: Group, const N: usize>(
+fn non_identity_batch_maybe_double_to_repr<G: Group, const N: usize>(
 	elements: &[G::NonIdentityElement; N],
 ) -> [Array<u8, G::ElementLength>; N] {
 	match N {
@@ -861,7 +852,7 @@ fn non_identity_element_batch_maybe_double_to_repr<G: Group, const N: usize>(
 }
 
 #[cfg(feature = "alloc")]
-fn non_identity_element_batch_alloc_maybe_double_to_repr<G: Group>(
+fn non_identity_batch_alloc_maybe_double_to_repr<G: Group>(
 	elements: &[G::NonIdentityElement],
 ) -> Vec<Array<u8, G::ElementLength>> {
 	match elements.len() {
@@ -873,7 +864,7 @@ fn non_identity_element_batch_alloc_maybe_double_to_repr<G: Group>(
 	}
 }
 
-fn element_batch_maybe_double_to_repr<G: Group, const N: usize>(
+fn batch_maybe_double_to_repr<G: Group, const N: usize>(
 	elements: &[G::Element; N],
 ) -> [Array<u8, G::ElementLength>; N] {
 	match N {
