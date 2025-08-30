@@ -85,11 +85,7 @@ fn empty<CS: CipherSuite>(mode: Mode) {
 }
 
 #[cfg(feature = "alloc")]
-test_ciphersuites!(unequal, Oprf);
-#[cfg(feature = "alloc")]
-test_ciphersuites!(unequal, Voprf);
-#[cfg(feature = "alloc")]
-test_ciphersuites!(unequal, Poprf);
+test_ciphersuites!(unequal, Mode);
 
 /// Tests correct failure on iterators with unequal length when using batching
 /// methods.

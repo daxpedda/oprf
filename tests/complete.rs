@@ -7,9 +7,7 @@ use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf_test::{CommonClient, CommonServer, test_ciphersuites};
 
-test_ciphersuites!(basic, Oprf);
-test_ciphersuites!(basic, Voprf);
-test_ciphersuites!(basic, Poprf);
+test_ciphersuites!(basic, Mode);
 
 /// Tests complete protocol.
 fn basic<CS: CipherSuite>(mode: Mode) {
@@ -21,9 +19,7 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 	assert_eq!(client_output, server_output);
 }
 
-test_ciphersuites!(batch, Oprf);
-test_ciphersuites!(batch, Voprf);
-test_ciphersuites!(batch, Poprf);
+test_ciphersuites!(batch, Mode);
 
 /// Tests complete protocol when using batching methods.
 fn batch<CS: CipherSuite>(mode: Mode) {
@@ -36,11 +32,7 @@ fn batch<CS: CipherSuite>(mode: Mode) {
 }
 
 #[cfg(feature = "alloc")]
-test_ciphersuites!(batch_alloc, Oprf);
-#[cfg(feature = "alloc")]
-test_ciphersuites!(batch_alloc, Voprf);
-#[cfg(feature = "alloc")]
-test_ciphersuites!(batch_alloc, Poprf);
+test_ciphersuites!(batch_alloc, Mode);
 
 /// Tests complete protocol when using batching methods with `alloc`.
 #[cfg(feature = "alloc")]

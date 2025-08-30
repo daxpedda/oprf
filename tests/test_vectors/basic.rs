@@ -10,9 +10,7 @@ use oprf_test::{CommonClient, CommonServer, INFO, test_ciphersuites};
 use super::parse::{TEST_VECTORS, Vector};
 use crate::{KEY_INFO, SEED};
 
-test_ciphersuites!(test, Oprf);
-test_ciphersuites!(test, Voprf);
-test_ciphersuites!(test, Poprf);
+test_ciphersuites!(test, Mode);
 
 /// Tests non-batched test vectors.
 fn test<CS: CipherSuite>(mode: Mode) {

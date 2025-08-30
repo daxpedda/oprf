@@ -53,9 +53,7 @@ fn basic<CS: CipherSuite>() {
 	);
 }
 
-test_ciphersuites!(derive, Oprf);
-test_ciphersuites!(derive, Voprf);
-test_ciphersuites!(derive, Poprf);
+test_ciphersuites!(derive, Mode);
 
 // Tests key deriviation.
 fn derive<CS: CipherSuite>(mode: Mode) {

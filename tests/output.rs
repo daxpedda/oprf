@@ -7,9 +7,7 @@ use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf_test::{CommonClient, CommonServer, INFO, INPUT, test_ciphersuites};
 
-test_ciphersuites!(input, Oprf);
-test_ciphersuites!(input, Voprf);
-test_ciphersuites!(input, Poprf);
+test_ciphersuites!(input, Mode);
 
 /// Tests unequal `output` with different `input`s.
 fn input<CS: CipherSuite>(mode: Mode) {
@@ -38,9 +36,7 @@ fn input<CS: CipherSuite>(mode: Mode) {
 	assert_ne!(client_output, wrong_server_output);
 }
 
-test_ciphersuites!(input_batch, Oprf);
-test_ciphersuites!(input_batch, Voprf);
-test_ciphersuites!(input_batch, Poprf);
+test_ciphersuites!(input_batch, Mode);
 
 /// Tests unequal `output` with different `input`s when using batching methods.
 fn input_batch<CS: CipherSuite>(mode: Mode) {
@@ -93,9 +89,7 @@ fn info_batch<CS: CipherSuite>(_: Mode) {
 	assert_ne!(client_output, server_output);
 }
 
-test_ciphersuites!(server, Oprf);
-test_ciphersuites!(server, Voprf);
-test_ciphersuites!(server, Poprf);
+test_ciphersuites!(server, Mode);
 
 /// Tests using wrong server in `Evaluate`.
 fn server<CS: CipherSuite>(_: Mode) {

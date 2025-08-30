@@ -18,9 +18,7 @@ use oprf_test::{CommonClient, CommonServer, test_ciphersuites};
 
 static TEST: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; usize::from(u16::MAX) + 1]);
 
-test_ciphersuites!(basic, Oprf);
-test_ciphersuites!(basic, Voprf);
-test_ciphersuites!(basic, Poprf);
+test_ciphersuites!(basic, Mode);
 
 /// Tests correct failure on invalid `input` and `info` length.
 fn basic<CS: CipherSuite>(mode: Mode) {
@@ -97,9 +95,7 @@ fn basic<CS: CipherSuite>(mode: Mode) {
 		.unwrap();
 }
 
-test_ciphersuites!(batch, Oprf);
-test_ciphersuites!(batch, Voprf);
-test_ciphersuites!(batch, Poprf);
+test_ciphersuites!(batch, Mode);
 
 /// Tests correct failure on invalid `input` and `info` length when using
 /// batching methods.

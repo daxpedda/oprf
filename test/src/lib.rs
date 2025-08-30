@@ -32,17 +32,22 @@ macro_rules! test_ciphersuites {
 		$crate::test_ciphersuites!(internal: $name, $name);
 	};
 	($name:ident, Oprf) => {
-		$crate::test_ciphersuites!(mode: $name, Oprf, oprf);
+		$crate::test_ciphersuites!(mode: $name, Oprf);
 	};
 	($name:ident, Voprf) => {
-		$crate::test_ciphersuites!(mode: $name, Voprf, voprf);
+		$crate::test_ciphersuites!(mode: $name, Voprf);
 	};
 	($name:ident, Poprf) => {
-		$crate::test_ciphersuites!(mode: $name, Poprf, poprf);
+		$crate::test_ciphersuites!(mode: $name, Poprf);
 	};
-	(mode: $name:ident, $mode:ident, $mode_prefix:ident) => {
+	($name:ident, Mode) => {
+		$crate::test_ciphersuites!($name, Oprf);
+		$crate::test_ciphersuites!($name, Voprf);
+		$crate::test_ciphersuites!($name, Poprf);
+	};
+	(mode: $name:ident, $mode:ident) => {
 		::paste::paste! {
-			$crate::test_ciphersuites!(internal: [<$name _ $mode_prefix>], $name, $mode);
+			$crate::test_ciphersuites!(internal: [<$name _ $mode:lower>], $name, $mode);
 		}
 	};
 	(internal: $prefixed_name:ident, $name:ident $(, $mode:ident)?) => {
