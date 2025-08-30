@@ -47,6 +47,7 @@ use crate::rng::MockRng;
 type CsGroup<CS> = <CS as CipherSuite>::Group;
 type NonZeroScalar<CS> = <CsGroup<CS> as Group>::NonZeroScalar;
 type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
+type Element<CS> = <CsGroup<CS> as Group>::Element;
 
 /// Wrapper around clients in all [`Mode`]s.
 #[derive_where(Debug)]
@@ -773,14 +774,8 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 
 	pub fn evaluate<const N: usize>(&self) -> [Output<CS::Hash>; N]
 	where
-		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
-					NonIdentityElement<CS>,
-					NonZeroScalar<CS>,
-				); N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
@@ -793,14 +788,8 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
-					NonIdentityElement<CS>,
-					NonZeroScalar<CS>,
-				); N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{

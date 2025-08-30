@@ -15,7 +15,7 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
+use crate::cipher_suite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar};
 #[cfg(feature = "alloc")]
 use crate::common::BatchAllocBlindEvaluateResult;
 use crate::common::{
@@ -411,17 +411,13 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 			return Err(Error::Batch);
 		}
 
-		let evaluation_elements = EvaluationElement::new_batch(
-			&blinded_elements
-				.iter()
-				.map(|blinded_element| {
-					(
-						*blinded_element.as_element(),
-						self.key_pair.secret_key().to_scalar(),
-					)
-				})
-				.collect_array(),
-		);
+		let evaluation_elements =
+			EvaluationElement::new_batch(blinded_elements.iter().map(|blinded_element| {
+				(
+					*blinded_element.as_element(),
+					self.key_pair.secret_key().to_scalar(),
+				)
+			}));
 		let c = blinded_elements.iter().map(BlindedElement::as_ref);
 		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
@@ -476,16 +472,12 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		}
 
 		let c: Vec<_> = blinded_elements.map(BlindedElement::as_ref).collect();
-		let evaluation_elements = EvaluationElement::new_batch_alloc(
-			&c.iter()
-				.map(|element| {
-					(
-						*element.as_element(),
-						self.key_pair.secret_key().to_scalar(),
-					)
-				})
-				.collect::<Vec<_>>(),
-		);
+		let evaluation_elements = EvaluationElement::new_batch_alloc(c.iter().map(|element| {
+			(
+				*element.as_element(),
+				self.key_pair.secret_key().to_scalar(),
+			)
+		}));
 		let d = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
 		let composites = internal::alloc_compute_composites(
@@ -549,14 +541,8 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		inputs: &[&[&[u8]]; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
-					NonIdentityElement<CS>,
-					NonZeroScalar<CS>,
-				); N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{

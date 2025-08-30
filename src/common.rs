@@ -118,14 +118,14 @@ pub struct BatchAllocBlindEvaluateResult<CS: CipherSuite> {
 
 impl<CS: CipherSuite> BlindedElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(
-		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>); N],
+		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> [Self; N] {
 		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>)],
+		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.into_iter()
@@ -155,14 +155,14 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
 	pub(crate) fn new_batch<const N: usize>(
-		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>); N],
+		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> [Self; N] {
 		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
 
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements_and_scalars: &[(NonIdentityElement<CS>, NonZeroScalar<CS>)],
+		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.into_iter()

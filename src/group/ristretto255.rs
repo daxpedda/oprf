@@ -24,7 +24,6 @@ use zeroize::Zeroize;
 use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
-use crate::util::CollectArray;
 
 /// Implementation for Decaf448.
 ///
@@ -95,6 +94,10 @@ impl Group for Ristretto255 {
 		NonZeroScalar(scalar.0.invert())
 	}
 
+	fn non_zero_scalar_maybe_halve(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar {
+		NonZeroScalar(scalar.0.div_by_2())
+	}
+
 	fn scalar_maybe_halve(scalar: &Self::Scalar) -> Self::Scalar {
 		scalar.div_by_2()
 	}
@@ -158,74 +161,34 @@ impl Group for Ristretto255 {
 		Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes))
 	}
 
+	fn non_identity_element_maybe_double(
+		element: &Self::NonIdentityElement,
+	) -> Self::NonIdentityElement {
+		NonIdentityElement(element.0.double())
+	}
+
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {
 		element.to_bytes().into()
 	}
 
-	fn non_identity_element_batch_multiply_and_repr<const N: usize>(
-		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar); N],
-	) -> [(Self::NonIdentityElement, Array<u8, Self::ElementLength>); N] {
-		let elements = elements_and_scalars
-			.iter()
-			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
-			.collect_array::<N>();
-		let reprs = RistrettoPoint::double_and_compress_batch(&elements);
-
-		elements
-			.into_iter()
-			.zip(reprs)
-			.map(|(element, compressed)| {
-				(NonIdentityElement(element.double()), compressed.0.into())
-			})
-			.collect_array()
-	}
-
-	fn non_identity_element_batch_multiply_to_repr<const N: usize>(
-		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar); N],
+	fn non_identity_element_batch_maybe_double_to_repr<const N: usize>(
+		elements: &[Self::NonIdentityElement; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
-		let elements = elements_and_scalars
-			.iter()
-			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
-			.collect_array::<N>();
-
-		RistrettoPoint::double_and_compress_batch(&elements).map(|compressed| compressed.0.into())
-	}
-
-	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_alloc_multiply_and_repr(
-		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar)],
-	) -> Vec<(Self::NonIdentityElement, Array<u8, Self::ElementLength>)> {
-		let elements: Vec<_> = elements_and_scalars
-			.iter()
-			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
-			.collect();
-		let reprs = RistrettoPoint::double_and_compress_alloc_batch(&elements);
-
-		elements
-			.into_iter()
-			.zip(reprs)
-			.map(|(element, compressed)| {
-				(NonIdentityElement(element.double()), compressed.0.into())
-			})
-			.collect()
-	}
-
-	#[cfg(feature = "alloc")]
-	fn non_identity_element_batch_alloc_multiply_to_repr(
-		elements_and_scalars: &[(Self::NonIdentityElement, Self::NonZeroScalar)],
-	) -> Vec<Array<u8, Self::ElementLength>> {
-		let elements: Vec<_> = elements_and_scalars
-			.iter()
-			.map(|(element, scalar)| scalar.div_by_2() * element.deref())
-			.collect();
-
-		RistrettoPoint::double_and_compress_alloc_batch(&elements)
-			.into_iter()
+		RistrettoPoint::double_and_compress_batch(&elements.map(|element| element.0))
 			.map(|compressed| compressed.0.into())
+	}
+
+	#[cfg(feature = "alloc")]
+	fn non_identity_element_batch_alloc_maybe_double_to_repr(
+		elements: &[Self::NonIdentityElement],
+	) -> Vec<Array<u8, Self::ElementLength>> {
+		RistrettoPoint::double_and_compress_alloc_batch(elements.iter().map(|element| &element.0))
+			.into_iter()
+			.map(|bytes| bytes.0.into())
 			.collect()
 	}
 
-	fn element_batch_to_repr<const N: usize>(
+	fn element_batch_maybe_double_to_repr<const N: usize>(
 		elements: &[Self::Element; N],
 	) -> [Array<u8, Self::ElementLength>; N] {
 		RistrettoPoint::double_and_compress_batch(elements).map(|compressed| compressed.0.into())

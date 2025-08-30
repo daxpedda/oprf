@@ -13,7 +13,7 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
+use crate::cipher_suite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar};
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
@@ -298,9 +298,8 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	) -> [EvaluationElement<CS>; N] {
 		let elements_and_scalars = blinded_elements
 			.iter()
-			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()))
-			.collect_array();
-		EvaluationElement::new_batch(&elements_and_scalars)
+			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()));
+		EvaluationElement::new_batch(elements_and_scalars)
 	}
 
 	/// Batch process the [`BlindedElement`]s.
@@ -317,10 +316,9 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	where
 		I: Iterator<Item = &'blinded_elements BlindedElement<CS>>,
 	{
-		let elements_and_scalars: Vec<_> = blinded_elements
-			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()))
-			.collect();
-		EvaluationElement::new_batch_alloc(&elements_and_scalars)
+		let elements_and_scalars = blinded_elements
+			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()));
+		EvaluationElement::new_batch_alloc(elements_and_scalars)
 	}
 
 	/// Completes the evaluation.
@@ -361,14 +359,8 @@ impl<CS: CipherSuite> OprfServer<CS> {
 		inputs: &[&[&[u8]]; N],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
-					NonIdentityElement<CS>,
-					NonZeroScalar<CS>,
-				); N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{

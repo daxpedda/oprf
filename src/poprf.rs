@@ -15,7 +15,7 @@ use hybrid_array::{ArraySize, AssocArraySize};
 use rand_core::TryCryptoRng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::cipher_suite::{CipherSuite, NonIdentityElement, NonZeroScalar};
+use crate::cipher_suite::{CipherSuite, Element, NonIdentityElement, NonZeroScalar};
 #[cfg(feature = "alloc")]
 use crate::common::BatchAllocBlindEvaluateResult;
 use crate::common::{
@@ -491,10 +491,9 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		}
 
 		let evaluation_elements = EvaluationElement::new_batch(
-			&blinded_elements
+			blinded_elements
 				.iter()
-				.map(|blinded_element| (*blinded_element.as_element(), self.t_inverted))
-				.collect_array(),
+				.map(|blinded_element| (*blinded_element.as_element(), self.t_inverted)),
 		);
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
 		let d = blinded_elements.iter().map(BlindedElement::as_ref);
@@ -551,9 +550,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 
 		let d: Vec<_> = blinded_elements.map(BlindedElement::as_ref).collect();
 		let evaluation_elements = EvaluationElement::new_batch_alloc(
-			&d.iter()
-				.map(|element| (*element.as_element(), self.t_inverted))
-				.collect::<Vec<_>>(),
+			d.iter()
+				.map(|element| (*element.as_element(), self.t_inverted)),
 		);
 		let c = evaluation_elements.iter().map(EvaluationElement::as_ref);
 
@@ -623,14 +621,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		info: &[u8],
 	) -> Result<[Output<CS::Hash>; N]>
 	where
-		[(NonIdentityElement<CS>, NonZeroScalar<CS>); N]: AssocArraySize<
-			Size: ArraySize<
-				ArrayType<(NonIdentityElement<CS>, NonZeroScalar<CS>)> = [(
-					NonIdentityElement<CS>,
-					NonZeroScalar<CS>,
-				); N],
-			>,
-		>,
+		[Element<CS>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
 		[Output<CS::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
 	{
