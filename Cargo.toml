@@ -36,6 +36,7 @@ criterion = { workspace = true }
 derive-where = { workspace = true }
 hex = { workspace = true }
 hex-literal = { workspace = true }
+iai-callgrind = { workspace = true }
 oprf = { workspace = true }
 oprf-test = { workspace = true }
 p256 = { workspace = true }
@@ -58,7 +59,11 @@ path = "tests/test_vectors/mod.rs"
 
 [[bench]]
 harness = false
-name = "bench"
+name = "criterion"
+
+[[bench]]
+harness = false
+name = "iai"
 
 [lints]
 workspace = true
@@ -83,6 +88,7 @@ hash2curve = "=0.14.0-rc.0"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
 hybrid-array = "0.3"
+iai-callgrind = "0.16"
 oprf = { path = "", features = ["decaf448", "ristretto255-ciphersuite", "primeorder"] }
 oprf-test = { path = "test" }
 p256 = { version = "=0.14.0-pre.9", default-features = false, features = ["oprf", "serde"] }
@@ -102,6 +108,9 @@ zeroize = "1.5"
 
 [patch.crates-io]
 curve25519-dalek = { git = "https://github.com/dalek-cryptography/curve25519-dalek", rev = "68790e34588df61b7bbbbb889504d41324163510" }
+
+[profile.bench]
+debug = true
 
 [workspace.lints.rust]
 # Rust groups.
