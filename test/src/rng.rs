@@ -1,4 +1,4 @@
-//! Mock [`RngCore`] implementation.
+//! Mock [`TryRngCore`] implementation.
 
 use rand_core::{OsRng, TryCryptoRng, TryRngCore};
 
