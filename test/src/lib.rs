@@ -8,6 +8,7 @@
 	reason = "tests"
 )]
 
+mod bench;
 pub mod cipher_suite;
 pub mod common;
 mod rng;
@@ -17,6 +18,7 @@ mod serialized;
 
 pub use {oprf, p256, p384, p521, paste};
 
+pub use self::bench::{Setup, bench};
 pub use self::cipher_suite::{MockCs, MockCurve, MockExpandMsg, MockHash};
 pub use self::common::{CommonClient, CommonServer};
 #[cfg(feature = "serde")]
