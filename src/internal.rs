@@ -48,12 +48,7 @@ pub(crate) struct AllocBlindResult<CS: CipherSuite> {
 /// Corresponds to
 /// [`PrivateInput` in RFC 9497 § 1.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-1.2-4).
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Info<'info> {
-	/// I2OSP of this `info`s length.
-	i2osp: [u8; 2],
-	/// The `info`.
-	info: &'info [u8],
-}
+pub(crate) struct Info<'info>(&'info [u8]);
 
 /// Holds a [`NonIdentityElement`] and its representation.
 pub(crate) struct ElementWrapper<G: Group> {
@@ -79,20 +74,19 @@ impl<'info> Info<'info> {
 	/// Returns [`Error::InfoLength`] if `info` exceeds a length of
 	/// [`u16::MAX`].
 	pub(crate) fn new(info: &'info [u8]) -> Result<Self> {
-		Ok(Self {
-			i2osp: info.i2osp_length().ok_or(Error::InfoLength)?,
-			info,
-		})
+		info.i2osp_length().ok_or(Error::InfoLength)?;
+
+		Ok(Self(info))
 	}
 
 	/// Returns the I2OSP of the `info`s length.
-	pub(crate) const fn i2osp(&self) -> &[u8; 2] {
-		&self.i2osp
+	pub(crate) fn i2osp(&self) -> [u8; 2] {
+		self.0.i2osp_length().expect("invariant must hold")
 	}
 
 	/// Returns the `info`.
 	pub(crate) const fn info(&self) -> &[u8] {
-		self.info
+		self.0
 	}
 }
 
@@ -752,7 +746,7 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 				.chain_iter(input.iter().copied());
 
 			if let Some(info) = info {
-				hash.update(info.i2osp());
+				hash.update(&info.i2osp());
 				hash.update(info.info());
 			}
 
@@ -859,7 +853,7 @@ fn internal_evaluate<CS: CipherSuite>(
 				.chain_iter(input.iter().copied());
 
 			if let Some(info) = info {
-				hash.update(info.i2osp());
+				hash.update(&info.i2osp());
 				hash.update(info.info());
 			}
 
