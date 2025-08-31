@@ -89,7 +89,7 @@ test_ciphersuites!(unequal, Mode);
 
 /// Tests correct failure on iterators with unequal length when using batching
 /// methods.
-// Not possible to pass unequal parameters to fixed array API.
+// Not possible to pass unequal parameters to the fixed-sized array API.
 #[cfg(feature = "alloc")]
 fn unequal<CS: CipherSuite>(mode: Mode) {
 	let clients = CommonClient::<CS>::batch::<2>(mode);

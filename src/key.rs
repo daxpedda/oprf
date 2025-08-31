@@ -18,14 +18,16 @@ use crate::internal::ElementWrapper;
 use crate::serde;
 use crate::util::{Concat, I2ospLength};
 
-/// Holds a [`SecretKey`] and its corresponding [`PublicKey`].
+/// Holds a [`SecretKey`] and its [`PublicKey`].
 pub struct KeyPair<G: Group> {
+	/// [`SecretKey`].
 	secret_key: SecretKey<G>,
+	/// [`PublicKey`].
 	public_key: PublicKey<G>,
 }
 
 impl<G: Group> KeyPair<G> {
-	/// Generates a random [`SecretKey`] and its corresponding [`PublicKey`].
+	/// Generates a random [`SecretKey`] and its [`PublicKey`].
 	///
 	/// Corresponds to
 	/// [`GenerateKeyPair()` in RFC 9497 § 3.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2-2).
@@ -42,7 +44,7 @@ impl<G: Group> KeyPair<G> {
 	}
 
 	/// Deterministically maps the input to a [`SecretKey`] and its
-	/// corresponding [`PublicKey`].
+	/// [`PublicKey`].
 	///
 	/// Corresponds to
 	/// [`DeriveKeyPair()` in RFC 9497 § 3.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.2.1-2).
@@ -63,8 +65,8 @@ impl<G: Group> KeyPair<G> {
 		SecretKey::derive::<CS>(mode, seed, info).map(Self::from_secret_key)
 	}
 
-	/// Returns a [`KeyPair`] with the given [`SecretKey`] and the its
-	/// corresponding derived [`PublicKey`].
+	/// Returns a [`KeyPair`] with the given [`SecretKey`] and deriving its
+	/// [`PublicKey`].
 	#[must_use]
 	pub fn from_secret_key(secret_key: SecretKey<G>) -> Self {
 		let public_key = PublicKey::from_secret_key(&secret_key);
@@ -87,7 +89,7 @@ impl<G: Group> KeyPair<G> {
 		&self.public_key
 	}
 
-	/// Returns the [`SecretKey`] and its corresponding [`PublicKey`].
+	/// Returns the [`SecretKey`] and its [`PublicKey`].
 	#[must_use]
 	pub fn into_keys(self) -> (SecretKey<G>, PublicKey<G>) {
 		(self.secret_key, self.public_key)
@@ -106,7 +108,7 @@ impl<G: Group> KeyPair<G> {
 	}
 
 	/// Deserializes the given `bytes` to a [`SecretKey`], deriving its
-	/// corresponding [`PublicKey`] and creating a [`KeyPair`].
+	/// [`PublicKey`] and creating a [`KeyPair`].
 	///
 	/// # Errors
 	///
@@ -120,6 +122,12 @@ impl<G: Group> KeyPair<G> {
 pub struct SecretKey<G: Group>(G::NonZeroScalar);
 
 impl<G: Group> SecretKey<G> {
+	/// Creates a new [`SecretKey`].
+	#[cfg(feature = "serde")]
+	pub(crate) const fn new(scalar: G::NonZeroScalar) -> Self {
+		Self(scalar)
+	}
+
 	/// Generates a random [`SecretKey`].
 	///
 	/// Corresponds to
@@ -175,22 +183,18 @@ impl<G: Group> SecretKey<G> {
 		Err(Error::DeriveKeyPair)
 	}
 
-	#[cfg(feature = "serde")]
-	pub(crate) const fn from_scalar(scalar: G::NonZeroScalar) -> Self {
-		Self(scalar)
-	}
-
-	/// Returns the corresponding [`NonZeroScalar`](Group::NonZeroScalar).
+	/// Returns the [`NonZeroScalar`](Group::NonZeroScalar).
 	#[must_use]
 	pub const fn as_scalar(&self) -> &G::NonZeroScalar {
 		&self.0
 	}
 
+	/// Returns the [`NonZeroScalar`](Group::NonZeroScalar).
 	pub(crate) const fn to_scalar(&self) -> G::NonZeroScalar {
 		self.0
 	}
 
-	/// Returns the corresponding [`NonZeroScalar`](Group::NonZeroScalar).
+	/// Returns the [`NonZeroScalar`](Group::NonZeroScalar).
 	#[must_use]
 	pub fn into_scalar(self) -> G::NonZeroScalar {
 		self.0
@@ -227,34 +231,33 @@ impl<G: Group> SecretKey<G> {
 pub struct PublicKey<G: Group>(ElementWrapper<G>);
 
 impl<G: Group> PublicKey<G> {
-	/// Returns the corresponding
-	/// [`NonIdentityElement`](Group::NonIdentityElement).
+	/// Creates a [`PublicKey`].
+	pub(crate) fn new(element: G::NonIdentityElement) -> Self {
+		Self(ElementWrapper::new(element))
+	}
+
+	/// Returns the [`NonIdentityElement`](Group::NonIdentityElement).
 	#[must_use]
 	pub const fn as_element(&self) -> &G::NonIdentityElement {
 		self.0.as_element()
 	}
 
-	/// Returns the corresponding
-	/// [`NonIdentityElement`](Group::NonIdentityElement).
+	/// Returns the [`NonIdentityElement`](Group::NonIdentityElement).
 	#[must_use]
 	pub fn into_element(self) -> G::NonIdentityElement {
 		self.0.into_element()
 	}
 
-	/// Serializes this [`PublicKey`].
+	/// Returns the representation of this [`PublicKey`].
 	#[must_use]
 	pub const fn as_repr(&self) -> &Array<u8, G::ElementLength> {
 		self.0.as_repr()
 	}
 
-	pub(crate) fn from_element(element: G::NonIdentityElement) -> Self {
-		Self(ElementWrapper::from_element(element))
-	}
-
 	/// Derives the corresponding [`PublicKey`] from the given [`SecretKey`].
 	#[must_use]
 	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
-		Self::from_element(G::non_zero_scalar_mul_by_generator(&secret_key.0))
+		Self::new(G::non_zero_scalar_mul_by_generator(&secret_key.0))
 	}
 
 	/// Deserializes the given `bytes` to a [`PublicKey`].

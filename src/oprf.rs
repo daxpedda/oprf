@@ -17,8 +17,8 @@ use crate::cipher_suite::{CipherSuite, Element, NonIdentityElement, NonZeroScala
 use crate::common::{BlindedElement, EvaluationElement, Mode};
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
-use crate::internal::BatchAllocBlindResult;
-use crate::internal::{self, BatchBlindResult};
+use crate::internal::AllocBlindResult;
+use crate::internal::{self, BlindResult};
 use crate::key::SecretKey;
 #[cfg(feature = "serde")]
 use crate::serde;
@@ -28,6 +28,7 @@ use crate::util::CollectArray;
 ///
 /// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
 pub struct OprfClient<CS: CipherSuite> {
+	/// `blind`.
 	blind: NonZeroScalar<CS>,
 }
 
@@ -89,7 +90,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
 		R: ?Sized + TryCryptoRng,
 	{
-		let BatchBlindResult {
+		let BlindResult {
 			blinds,
 			blinded_elements,
 		} = internal::batch_blind(Mode::Oprf, rng, inputs)?;
@@ -129,7 +130,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		let BatchAllocBlindResult {
+		let AllocBlindResult {
 			blinds,
 			blinded_elements,
 		} = internal::batch_alloc_blind(Mode::Oprf, rng, inputs)?;
@@ -229,6 +230,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 ///
 /// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
 pub struct OprfServer<CS: CipherSuite> {
+	/// [`SecretKey`].
 	secret_key: SecretKey<CS::Group>,
 }
 
@@ -497,7 +499,7 @@ where
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "OprfServer")
-			.map(SecretKey::from_scalar)
+			.map(SecretKey::new)
 			.map(|secret_key| Self { secret_key })
 	}
 }

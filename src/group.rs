@@ -319,9 +319,13 @@ pub trait Group {
 	}
 }
 
+/// High-level access to [`Group`] from [`CipherSuite`].
 pub(crate) trait InternalGroup: CipherSuite {
+	/// The I2OSP of [`Group::ElementLength`].
 	const I2OSP_ELEMENT_LEN: [u8; 2];
 
+	/// Redirects to [`Group::hash_to_scalar()`] with the default DST.
+	///
 	/// # Errors
 	///
 	/// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
@@ -333,6 +337,8 @@ pub(crate) trait InternalGroup: CipherSuite {
 		dst_pre_concat: Option<&'static [u8]>,
 	) -> Result<Scalar<Self>>;
 
+	/// Redirects to [`Group::hash_to_curve()`] with the default DST.
+	///
 	/// # Errors
 	///
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
@@ -366,6 +372,7 @@ impl<CS: CipherSuite> InternalGroup for CS {
 	}
 }
 
+/// Returns the default DST.
 fn dst<CS: CipherSuite>(mode: Mode, pre_concat: &'static [u8]) -> [&'static [u8]; 5] {
 	[pre_concat].concat(internal::create_context_string::<CS>(mode))
 }

@@ -78,7 +78,9 @@ pub struct EvaluationElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 /// [`*Server::blind_evaluate()`]: crate::voprf::VoprfServer::blind_evaluate
 /// [`*Client::finalize()`]: crate::voprf::VoprfClient::finalize
 pub struct Proof<CS: CipherSuite> {
+	/// `c`.
 	pub(crate) c: Scalar<CS>,
+	/// `s`.
 	pub(crate) s: Scalar<CS>,
 }
 
@@ -117,12 +119,14 @@ pub struct BatchAllocBlindEvaluateResult<CS: CipherSuite> {
 }
 
 impl<CS: CipherSuite> BlindedElement<CS> {
+	/// Creates a fixed-sized array of [`BlindedElement`]s.
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> [Self; N] {
 		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
 
+	/// Creates a [`Vec`] of [`BlindedElement`]s.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
 		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
@@ -131,16 +135,6 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 			.into_iter()
 			.map(Self)
 			.collect()
-	}
-
-	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
-		self.0.as_element()
-	}
-
-	/// Serializes this [`BlindedElement`].
-	#[must_use]
-	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
-		self.0.as_repr()
 	}
 
 	/// Deserializes the given `bytes` to a [`BlindedElement`].
@@ -151,15 +145,28 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		ElementWrapper::from_repr(bytes).map(Self)
 	}
+
+	/// Returns the [`NonIdentityElement`].
+	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
+		self.0.as_element()
+	}
+
+	/// Returns the representation of this [`BlindedElement`].
+	#[must_use]
+	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
+		self.0.as_repr()
+	}
 }
 
 impl<CS: CipherSuite> EvaluationElement<CS> {
+	/// Creates a fixed-sized array of [`EvaluationElement`]s.
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
 	) -> [Self; N] {
 		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
 
+	/// Creates a [`Vec`] of [`EvaluationElement`]s.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
 		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
@@ -170,16 +177,6 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 			.collect()
 	}
 
-	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
-		self.0.as_element()
-	}
-
-	/// Serializes this [`EvaluationElement`].
-	#[must_use]
-	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
-		self.0.as_repr()
-	}
-
 	/// Deserializes the given `bytes` to a [`EvaluationElement`].
 	///
 	/// # Errors
@@ -187,6 +184,17 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
 		ElementWrapper::from_repr(bytes).map(Self)
+	}
+
+	/// Returns the [`NonIdentityElement`].
+	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
+		self.0.as_element()
+	}
+
+	/// Returns the representation of this [`EvaluationElement`].
+	#[must_use]
+	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
+		self.0.as_repr()
 	}
 }
 

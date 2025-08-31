@@ -23,10 +23,10 @@ use crate::common::{
 };
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
-use crate::internal::BatchAllocBlindResult;
+use crate::internal::AllocBlindResult;
 #[cfg(feature = "serde")]
 use crate::internal::ElementWrapper;
-use crate::internal::{self, BatchBlindResult};
+use crate::internal::{self, BlindResult};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -38,7 +38,9 @@ use crate::util::CollectArray;
 ///
 /// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
 pub struct VoprfClient<CS: CipherSuite> {
+	/// `blind`.
 	blind: NonZeroScalar<CS>,
+	/// `blindedElement`.
 	blinded_element: BlindedElement<CS>,
 }
 
@@ -100,7 +102,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
 		R: ?Sized + TryCryptoRng,
 	{
-		let BatchBlindResult {
+		let BlindResult {
 			blinds,
 			blinded_elements,
 		} = internal::batch_blind(Mode::Voprf, rng, inputs)?;
@@ -144,7 +146,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		let BatchAllocBlindResult {
+		let AllocBlindResult {
 			blinds,
 			blinded_elements,
 		} = internal::batch_alloc_blind(Mode::Voprf, rng, inputs)?;
@@ -303,6 +305,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 ///
 /// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
 pub struct VoprfServer<CS: CipherSuite> {
+	/// [`KeyPair`].
 	key_pair: KeyPair<CS::Group>,
 }
 
@@ -705,7 +708,7 @@ where
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "VoprfServer")
-			.map(SecretKey::from_scalar)
+			.map(SecretKey::new)
 			.map(KeyPair::from_secret_key)
 			.map(|key_pair| Self { key_pair })
 	}

@@ -21,6 +21,7 @@ use p521::NistP521;
 use paste::paste;
 use rand_core::OsRng;
 
+/// Benchmark the given [`Mode`].
 macro_rules! group {
 	($mode:ident) => {
 		paste! {
@@ -41,12 +42,16 @@ macro_rules! group {
 
 /// Holds the data that should *not* be included in measurements.
 struct Setup<CS: CipherSuite> {
+	/// `blind`.
 	blind: Array<u8, <CS::Group as Group>::ScalarLength>,
+	/// Server [`SecretKey`].
 	secret_key: SecretKey<CS::Group>,
+	/// [`Proof`] `r`.
 	r: Array<u8, <CS::Group as Group>::ScalarLength>,
 }
 
 impl<CS: CipherSuite> Setup<CS> {
+	/// Create a new [`Setup`], inferring `CS` from the parameter.
 	fn new(_: CS) -> Self {
 		let blind = <CS::Group as Group>::scalar_random(&mut OsRng).unwrap();
 		let blind = <CS::Group as Group>::scalar_to_repr(&blind);

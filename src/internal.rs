@@ -1,3 +1,5 @@
+//! "Raw" implementation of the specification.
+
 #![expect(non_snake_case, reason = "following the specification exactly")]
 
 #[cfg(feature = "alloc")]
@@ -26,34 +28,52 @@ use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
-pub(crate) struct BatchBlindResult<CS: CipherSuite, const N: usize> {
+/// Returned by [`batch_blind()`].
+pub(crate) struct BlindResult<CS: CipherSuite, const N: usize> {
+	/// `blind`s.
 	pub(crate) blinds: [NonZeroScalar<CS>; N],
+	/// `blindedElement`s.
 	pub(crate) blinded_elements: [BlindedElement<CS>; N],
 }
 
+/// Returned by [`batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
-pub(crate) struct BatchAllocBlindResult<CS: CipherSuite> {
+pub(crate) struct AllocBlindResult<CS: CipherSuite> {
+	/// `blind`s.
 	pub(crate) blinds: Vec<NonZeroScalar<CS>>,
+	/// `blindedElement`s.
 	pub(crate) blinded_elements: Vec<BlindedElement<CS>>,
 }
 
+/// Corresponds to
+/// [`PrivateInput` in RFC 9497 § 1.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-1.2-4).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Info<'info> {
+	/// I2OSP of this `info`s length.
 	i2osp: [u8; 2],
+	/// The `info`.
 	info: &'info [u8],
 }
 
+/// Holds a [`NonIdentityElement`] and its representation.
 pub(crate) struct ElementWrapper<G: Group> {
+	/// The [`NonIdentityElement`].
 	element: G::NonIdentityElement,
+	/// Its representation.
 	repr: Array<u8, G::ElementLength>,
 }
 
+/// Returned by [`compute_composites()`].
 pub(crate) struct Composites<CS: CipherSuite> {
+	/// `M`. Might be half the expected value to facilitate batch serialization.
 	M: Element<CS>,
+	/// `Z`. Might be half the expected value to facilitate batch serialization.
 	Z: Element<CS>,
 }
 
 impl<'info> Info<'info> {
+	/// Creates a new [`Info`].
+	///
 	/// # Errors
 	///
 	/// Returns [`Error::InfoLength`] if `info` exceeds a length of
@@ -65,16 +85,48 @@ impl<'info> Info<'info> {
 		})
 	}
 
+	/// Returns the I2OSP of the `info`s length.
 	pub(crate) const fn i2osp(&self) -> &[u8; 2] {
 		&self.i2osp
 	}
 
+	/// Returns the `info`.
 	pub(crate) const fn info(&self) -> &[u8] {
 		self.info
 	}
 }
 
 impl<G: Group> ElementWrapper<G> {
+	/// Creates an [`ElementWrapper`].
+	pub(crate) fn new(element: G::NonIdentityElement) -> Self {
+		Self {
+			element,
+			repr: G::element_to_repr(&element),
+		}
+	}
+
+	/// Creates an [`ElementWrapper`] from the given representation.
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
+	pub(crate) fn from_repr(bytes: &[u8]) -> Result<Self> {
+		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
+	}
+
+	/// Creates an [`ElementWrapper`] from the given representation.
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
+	fn from_array(repr: Array<u8, G::ElementLength>) -> Result<Self> {
+		let element = G::non_identity_element_from_repr(&repr).map_err(|_| Error::FromRepr)?;
+
+		Ok(Self { element, repr })
+	}
+
+	/// Creates a fixed-sized array of [`ElementWrapper`]s from multiplying the
+	/// given elements and scalars.
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (G::NonIdentityElement, G::NonZeroScalar)>,
 	) -> [Self; N] {
@@ -91,6 +143,8 @@ impl<G: Group> ElementWrapper<G> {
 			.collect_array()
 	}
 
+	/// Creates a [`Vec`] of [`ElementWrapper`]s from multiplying the given
+	/// elements and scalars.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
 		elements_and_scalars: impl ExactSizeIterator<Item = (G::NonIdentityElement, G::NonZeroScalar)>,
@@ -109,36 +163,19 @@ impl<G: Group> ElementWrapper<G> {
 			.collect()
 	}
 
+	/// Returns the [`NonIdentityElement`].
 	pub(crate) fn into_element(self) -> G::NonIdentityElement {
 		self.element
 	}
 
+	/// Returns a reference to the [`NonIdentityElement`].
 	pub(crate) const fn as_element(&self) -> &G::NonIdentityElement {
 		&self.element
 	}
 
+	/// Returns the representation of the [`NonIdentityElement`].
 	pub(crate) const fn as_repr(&self) -> &Array<u8, G::ElementLength> {
 		&self.repr
-	}
-
-	pub(crate) fn from_element(element: G::NonIdentityElement) -> Self {
-		Self {
-			element,
-			repr: G::element_to_repr(&element),
-		}
-	}
-
-	/// # Errors
-	///
-	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub(crate) fn from_repr(bytes: &[u8]) -> Result<Self> {
-		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
-	}
-
-	fn from_array(repr: Array<u8, G::ElementLength>) -> Result<Self> {
-		let element = G::non_identity_element_from_repr(&repr).map_err(|_| Error::FromRepr)?;
-
-		Ok(Self { element, repr })
 	}
 }
 
@@ -208,6 +245,9 @@ impl<CS: CipherSuite> Copy for Composites<CS> {}
 
 /// Corresponds to
 /// [`GenerateProof()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3).
+///
+/// `A` is always the generator element.
+/// `C` and `D` are used to generate [`Composites`].
 ///
 /// # Errors
 ///
@@ -282,6 +322,8 @@ where
 /// [`GenerateProof()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3)
 /// and
 /// [`VerifyProof()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2).
+///
+/// The given [`Element`]s may be halved for the purpose of batch serialization.
 ///
 /// # Errors
 ///
@@ -358,6 +400,7 @@ where
 		Zs.as_mut().map(<[_; N]>::as_mut_slice),
 	)?;
 
+	// We skip the initial addition to the identity point, which is a no-op.
 	let M = CS::Group::lincomb(&Ms);
 	let Z = k.map_or_else(
 		|| CS::Group::lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
@@ -410,6 +453,16 @@ where
 	Ok(Composites { M, Z })
 }
 
+/// Corresponds to
+/// [`ComputeComposites()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-5)
+/// and
+/// [`ComputeCompositesFast()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-4).
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
+/// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
+/// are incompatible.
 fn internal_compute_composites<'items, CS>(
 	mode: Mode,
 	length: usize,
@@ -505,7 +558,7 @@ pub(crate) fn batch_blind<CS, R, const N: usize>(
 	mode: Mode,
 	rng: &mut R,
 	inputs: &[&[&[u8]]; N],
-) -> Result<BatchBlindResult<CS, N>, Error<R::Error>>
+) -> Result<BlindResult<CS, N>, Error<R::Error>>
 where
 	[NonIdentityElement<CS>; N]: AssocArraySize<
 		Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
@@ -520,7 +573,7 @@ where
 		let input = inputs[index];
 
 		// Fail early.
-		let _ = input.i2osp_length().ok_or(Error::InputLength)?;
+		input.i2osp_length().ok_or(Error::InputLength)?;
 
 		CS::hash_to_curve(mode, input).map_err(Error::into_random::<R>)
 	})?
@@ -533,10 +586,9 @@ where
 	.0;
 
 	let blinded_elements = input_elements.into_iter().zip(blinds.iter().copied());
-
 	let blinded_elements = BlindedElement::new_batch(blinded_elements);
 
-	Ok(BatchBlindResult {
+	Ok(BlindResult {
 		blinds,
 		blinded_elements,
 	})
@@ -559,7 +611,7 @@ pub(crate) fn batch_alloc_blind<'inputs, CS, R>(
 	mode: Mode,
 	rng: &mut R,
 	mut inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-) -> Result<BatchAllocBlindResult<CS>, Error<R::Error>>
+) -> Result<AllocBlindResult<CS>, Error<R::Error>>
 where
 	CS: CipherSuite,
 	R: ?Sized + TryCryptoRng,
@@ -568,7 +620,7 @@ where
 		(Vec::new(), Vec::new()),
 		|(mut blinds, mut blinded_elements), input| {
 			// Fail early.
-			let _ = input.i2osp_length().ok_or(Error::InputLength)?;
+			input.i2osp_length().ok_or(Error::InputLength)?;
 
 			let input_element = CS::hash_to_curve(mode, input).map_err(Error::into_random::<R>)?;
 
@@ -586,7 +638,7 @@ where
 
 	let blinded_elements = BlindedElement::new_batch_alloc(blinded_elements.into_iter());
 
-	Ok(BatchAllocBlindResult {
+	Ok(AllocBlindResult {
 		blinds,
 		blinded_elements,
 	})
@@ -700,8 +752,8 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 				.chain_iter(input.iter().copied());
 
 			if let Some(info) = info {
-				hash.update(&info.i2osp);
-				hash.update(info.info);
+				hash.update(info.i2osp());
+				hash.update(info.info());
 			}
 
 			Ok(hash
@@ -807,8 +859,8 @@ fn internal_evaluate<CS: CipherSuite>(
 				.chain_iter(input.iter().copied());
 
 			if let Some(info) = info {
-				hash.update(&info.i2osp);
-				hash.update(info.info);
+				hash.update(info.i2osp());
+				hash.update(info.info());
 			}
 
 			Ok(hash
@@ -819,12 +871,17 @@ fn internal_evaluate<CS: CipherSuite>(
 		})
 }
 
+/// Only redirects to [`Group::non_zero_scalar_maybe_halve()`] if we intend to
+/// serialize multiple scalars.
 fn non_zero_maybe_halve<G: Group>(scalar: &G::NonZeroScalar, length: usize) -> G::NonZeroScalar {
 	match length {
 		1 => *scalar,
 		_ => G::non_zero_scalar_maybe_halve(scalar),
 	}
 }
+
+/// Only redirects to [`Group::scalar_maybe_halve()`] if we intend to serialize
+/// multiple scalars.
 fn maybe_halve<G: Group>(scalar: &G::Scalar, length: usize) -> G::Scalar {
 	match length {
 		1 => *scalar,
@@ -832,6 +889,8 @@ fn maybe_halve<G: Group>(scalar: &G::Scalar, length: usize) -> G::Scalar {
 	}
 }
 
+/// Only redirects to [`Group::non_identity_element_maybe_double()`] if we
+/// intend to serialize multiple elements.
 fn maybe_double<G: Group>(element: &G::NonIdentityElement, length: usize) -> G::NonIdentityElement {
 	match length {
 		1 => *element,
@@ -839,6 +898,9 @@ fn maybe_double<G: Group>(element: &G::NonIdentityElement, length: usize) -> G::
 	}
 }
 
+/// Only redirects to
+/// [`Group::non_identity_element_batch_maybe_double_to_repr()`] if we intend to
+/// serialize multiple elements.
 fn non_identity_batch_maybe_double_to_repr<G: Group, const N: usize>(
 	elements: &[G::NonIdentityElement; N],
 ) -> [Array<u8, G::ElementLength>; N] {
@@ -851,6 +913,9 @@ fn non_identity_batch_maybe_double_to_repr<G: Group, const N: usize>(
 	}
 }
 
+/// Only redirects to
+/// [`Group::non_identity_element_batch_alloc_maybe_double_to_repr()`] if we
+/// intend to serialize multiple elements.
 #[cfg(feature = "alloc")]
 fn non_identity_batch_alloc_maybe_double_to_repr<G: Group>(
 	elements: &[G::NonIdentityElement],
@@ -864,6 +929,8 @@ fn non_identity_batch_alloc_maybe_double_to_repr<G: Group>(
 	}
 }
 
+/// Only redirects to [`Group::element_batch_maybe_double_to_repr()`] if we
+/// intend to serialize multiple elements.
 fn batch_maybe_double_to_repr<G: Group, const N: usize>(
 	elements: &[G::Element; N],
 ) -> [Array<u8, G::ElementLength>; N] {

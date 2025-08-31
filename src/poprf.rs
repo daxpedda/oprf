@@ -24,10 +24,10 @@ use crate::common::{
 use crate::error::{Error, Result};
 use crate::group::{Group, InternalGroup};
 #[cfg(feature = "alloc")]
-use crate::internal::BatchAllocBlindResult;
+use crate::internal::AllocBlindResult;
 #[cfg(feature = "serde")]
 use crate::internal::ElementWrapper;
-use crate::internal::{self, BatchBlindResult, Info};
+use crate::internal::{self, BlindResult, Info};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
 use crate::key::{KeyPair, PublicKey};
@@ -39,7 +39,9 @@ use crate::util::CollectArray;
 ///
 /// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
 pub struct PoprfClient<CS: CipherSuite> {
+	/// `blind`.
 	blind: NonZeroScalar<CS>,
+	/// `blindedElement`.
 	blinded_element: BlindedElement<CS>,
 }
 
@@ -101,7 +103,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
 		R: ?Sized + TryCryptoRng,
 	{
-		let BatchBlindResult {
+		let BlindResult {
 			blinds,
 			blinded_elements,
 		} = internal::batch_blind(Mode::Poprf, rng, inputs)?;
@@ -145,7 +147,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
 	{
-		let BatchAllocBlindResult {
+		let AllocBlindResult {
 			blinds,
 			blinded_elements,
 		} = internal::batch_alloc_blind(Mode::Poprf, rng, inputs)?;
@@ -343,7 +345,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			.try_into()
 			.map_err(|_| Error::InvalidInfo)?;
 
-		Ok(PublicKey::from_element(element))
+		Ok(PublicKey::new(element))
 	}
 }
 
@@ -351,9 +353,13 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 ///
 /// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
 pub struct PoprfServer<CS: CipherSuite> {
+	/// [`KeyPair`].
 	key_pair: KeyPair<CS::Group>,
+	/// Cached `t`.
 	t: NonZeroScalar<CS>,
+	/// Cached inverted `t`.
 	t_inverted: NonZeroScalar<CS>,
+	/// Cached `tweakedKey`.
 	tweaked_key: PublicKey<CS::Group>,
 }
 
@@ -421,7 +427,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 			.map_err(|_| Error::InvalidInfoDanger)?;
 		let t_inverted = CS::Group::scalar_invert(&t);
 		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
-		let tweaked_key = PublicKey::from_element(tweaked_key);
+		let tweaked_key = PublicKey::new(tweaked_key);
 
 		Ok(Self {
 			key_pair,
@@ -811,11 +817,11 @@ where
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let (scalar, t) = serde::struct_2(deserializer, "PoprfServer", &["secret_key", "t"])?;
-		let secret_key = SecretKey::from_scalar(scalar);
+		let secret_key = SecretKey::new(scalar);
 		let key_pair = KeyPair::from_secret_key(secret_key);
 		let t_inverted = CS::Group::scalar_invert(&t);
 		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
-		let tweaked_key = PublicKey::from_element(tweaked_key);
+		let tweaked_key = PublicKey::new(tweaked_key);
 
 		Ok(Self {
 			key_pair,

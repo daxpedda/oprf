@@ -1,3 +1,5 @@
+//! Utilities to implement [`Deserialize`].
+
 #[cfg(feature = "alloc")]
 use alloc::borrow::Cow;
 #[cfg(feature = "alloc")]
@@ -8,13 +10,16 @@ use core::marker::PhantomData;
 use serde::de::{DeserializeSeed, Error, MapAccess, SeqAccess, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer};
 
+/// Copy of Serde's proc-macro output for a newtype struct.
 pub(crate) fn newtype_struct<'de, D, T>(deserializer: D, name: &'static str) -> Result<T, D::Error>
 where
 	D: Deserializer<'de>,
 	T: Deserialize<'de>,
 {
 	struct VisitorImpl<T> {
+		/// Name of the type.
 		name: &'static str,
+		/// Holding `T`.
 		_t: PhantomData<T>,
 	}
 
@@ -57,6 +62,7 @@ where
 	)
 }
 
+/// Copy of Serde's proc-macro output for a struct with two named fields.
 #[expect(clippy::too_many_lines, reason = "serde")]
 pub(crate) fn struct_2<'de, D, T1, T2>(
 	deserializer: D,
@@ -71,7 +77,9 @@ where
 	struct FieldVisitor(&'static [&'static str; 2]);
 
 	enum Field {
+		/// The first field.
 		Field1,
+		/// The second field.
 		Field2,
 	}
 
@@ -128,8 +136,11 @@ where
 	}
 
 	struct VisitorImpl<T1, T2> {
+		/// Name of the type.
 		name: &'static str,
+		/// Name of the fields.
 		fields: &'static [&'static str; 2],
+		/// Holding `T1` and `T2`.
 		_t: PhantomData<(T1, T2)>,
 	}
 
@@ -210,21 +221,24 @@ where
 	)
 }
 
-// https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/mod.rs#L29-L47
+/// Copied from
+/// [Serde](https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/mod.rs#L29-L47).
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub(crate) fn from_utf8_lossy(bytes: &[u8]) -> Cow<'_, str> {
 	String::from_utf8_lossy(bytes)
 }
 
-// https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/mod.rs#L29-L47
+/// Copied from
+/// [Serde](https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/mod.rs#L29-L47).
 #[cfg(not(feature = "alloc"))]
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub(crate) fn from_utf8_lossy(bytes: &[u8]) -> &str {
 	str::from_utf8(bytes).unwrap_or("\u{fffd}\u{fffd}\u{fffd}")
 }
 
-// https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/de.rs#L21-L59
+/// Copied from
+/// [Serde](https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/de.rs#L21-L59).
 #[cfg_attr(coverage_nightly, coverage(off))]
 pub(crate) fn missing_field<'de, V, E>(field: &'static str) -> Result<V, E>
 where

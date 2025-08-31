@@ -1,3 +1,5 @@
+//! Utility functions.
+
 use core::array;
 use core::ops::Add;
 
@@ -5,11 +7,13 @@ use digest::Update;
 use hybrid_array::typenum::{Const, Sum, ToUInt, U};
 use hybrid_array::{Array, ArrayN, ArraySize, AssocArraySize};
 
+/// Concat fixed-sized arrays.
 pub(crate) trait Concat<const L1: usize, T>
 where
 	Const<L1>: ToUInt,
 	U<L1>: ArraySize,
 {
+	/// Returns the concatenation of both fixed-sized arrays.
 	fn concat<const L2: usize>(
 		self,
 		other: [T; L2],
@@ -41,7 +45,9 @@ where
 	}
 }
 
+/// [`Iterator::collect()`] for fixed-sized arrays.
 pub(crate) trait CollectArray<T> {
+	/// Equivalent of [`Iterator::collect()`] returning a fixed-sized array.
 	fn collect_array<const N: usize>(self) -> [T; N];
 }
 
@@ -58,8 +64,10 @@ impl<I: Iterator<Item = T>, T> CollectArray<T> for I {
 	}
 }
 
+/// [`Update`] taking [`Iterator`]s.
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) trait UpdateIter {
+	/// Equivalent of [`Update::chain()`] taking an [`Iterator`] of byte slices.
 	fn chain_iter<'slice>(self, iter: impl Iterator<Item = &'slice [u8]>) -> Self;
 }
 
@@ -76,21 +84,22 @@ impl<T: Update> UpdateIter for T {
 	}
 }
 
-// `I2OSP`
-// https://datatracker.ietf.org/doc/html/rfc8017#section-4.1
-pub(crate) trait I2osp<const LENGTH: usize> {
-	fn i2osp(self) -> [u8; LENGTH];
+/// [`I2OSP`](https://datatracker.ietf.org/doc/html/rfc8017#section-4.1) implementation directly on types.
+pub(crate) trait I2osp {
+	/// [`I2OSP(self, 2)`](https://datatracker.ietf.org/doc/html/rfc8017#section-4.1).
+	fn i2osp(self) -> [u8; 2];
 }
 
-impl I2osp<2> for u16 {
+impl I2osp for u16 {
 	fn i2osp(self) -> [u8; 2] {
 		self.to_be_bytes()
 	}
 }
 
-// `I2OSP`
-// https://datatracker.ietf.org/doc/html/rfc8017#section-4.1
+/// [`I2OSP`](https://datatracker.ietf.org/doc/html/rfc8017#section-4.1) implementation directly on types.
 pub(crate) trait I2ospLength {
+	/// [`I2OSP(length, 2)`](https://datatracker.ietf.org/doc/html/rfc8017#section-4.1)
+	/// where `length` is the number of bytes of the given slice(s).
 	fn i2osp_length(&self) -> Option<[u8; 2]>;
 }
 
