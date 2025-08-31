@@ -5,8 +5,8 @@ publish = false
 version = "0.0.0"
 
 [features]
-alloc = []
-serde = ["dep:serde_test"]
+alloc = ["oprf/alloc"]
+serde = ["oprf/serde", "dep:serde_test"]
 
 [dependencies]
 curve25519-dalek = { workspace = true }
