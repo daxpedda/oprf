@@ -77,6 +77,16 @@ impl<G: Group> KeyPair<G> {
 		}
 	}
 
+	/// Deserializes the given `repr` to a [`SecretKey`], deriving its
+	/// [`PublicKey`] and creating a [`KeyPair`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		SecretKey::from_repr(repr).map(Self::from_secret_key)
+	}
+
 	/// Returns the [`SecretKey`].
 	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<G> {
@@ -105,16 +115,6 @@ impl<G: Group> KeyPair<G> {
 	#[must_use]
 	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
 		self.secret_key.to_repr()
-	}
-
-	/// Deserializes the given `repr` to a [`SecretKey`], deriving its
-	/// [`PublicKey`] and creating a [`KeyPair`].
-	///
-	/// # Errors
-	///
-	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(repr: &[u8]) -> Result<Self> {
-		SecretKey::from_repr(repr).map(Self::from_secret_key)
 	}
 }
 
@@ -183,6 +183,19 @@ impl<G: Group> SecretKey<G> {
 		Err(Error::DeriveKeyPair)
 	}
 
+	/// Deserializes the given `repr` to a [`SecretKey`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		repr.try_into()
+			.ok()
+			.and_then(|repr| G::non_zero_scalar_from_repr(repr).ok())
+			.ok_or(Error::FromRepr)
+			.map(Self)
+	}
+
 	/// Returns the [`NonZeroScalar`](Group::NonZeroScalar).
 	#[must_use]
 	pub const fn as_scalar(&self) -> &G::NonZeroScalar {
@@ -211,19 +224,6 @@ impl<G: Group> SecretKey<G> {
 	pub fn to_repr(&self) -> Array<u8, G::ScalarLength> {
 		G::scalar_to_repr(&self.0)
 	}
-
-	/// Deserializes the given `repr` to a [`SecretKey`].
-	///
-	/// # Errors
-	///
-	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(repr: &[u8]) -> Result<Self> {
-		repr.try_into()
-			.ok()
-			.and_then(|repr| G::non_zero_scalar_from_repr(repr).ok())
-			.ok_or(Error::FromRepr)
-			.map(Self)
-	}
 }
 
 /// A public key.
@@ -233,6 +233,21 @@ impl<G: Group> PublicKey<G> {
 	/// Creates a [`PublicKey`].
 	pub(crate) fn new(element: G::NonIdentityElement) -> Self {
 		Self(ElementWrapper::new(element))
+	}
+
+	/// Derives the corresponding [`PublicKey`] from the given [`SecretKey`].
+	#[must_use]
+	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
+		Self::new(G::non_zero_scalar_mul_by_generator(&secret_key.0))
+	}
+
+	/// Deserializes the given `repr` to a [`PublicKey`].
+	///
+	/// # Errors
+	///
+	/// Returns [`Error::FromRepr`] if deserialization fails.
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		ElementWrapper::from_repr(repr).map(Self)
 	}
 
 	/// Returns the [`NonIdentityElement`](Group::NonIdentityElement).
@@ -251,21 +266,6 @@ impl<G: Group> PublicKey<G> {
 	#[must_use]
 	pub const fn as_repr(&self) -> &Array<u8, G::ElementLength> {
 		self.0.as_repr()
-	}
-
-	/// Derives the corresponding [`PublicKey`] from the given [`SecretKey`].
-	#[must_use]
-	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
-		Self::new(G::non_zero_scalar_mul_by_generator(&secret_key.0))
-	}
-
-	/// Deserializes the given `repr` to a [`PublicKey`].
-	///
-	/// # Errors
-	///
-	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(repr: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(repr).map(Self)
 	}
 }
 
