@@ -22,7 +22,7 @@ use crate::common::{
 	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
 };
 use crate::error::{Error, Result};
-use crate::group::{Group, InternalGroup};
+use crate::group::{CipherSuiteExt, Group};
 #[cfg(feature = "alloc")]
 use crate::internal::AllocBlindResult;
 #[cfg(feature = "serde")]

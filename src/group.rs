@@ -320,7 +320,7 @@ pub trait Group {
 }
 
 /// High-level access to [`Group`] from [`CipherSuite`].
-pub(crate) trait InternalGroup: CipherSuite {
+pub(crate) trait CipherSuiteExt: CipherSuite {
 	/// The I2OSP of [`Group::ElementLength`].
 	const I2OSP_ELEMENT_LEN: [u8; 2];
 
@@ -349,7 +349,7 @@ pub(crate) trait InternalGroup: CipherSuite {
 	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>>;
 }
 
-impl<CS: CipherSuite> InternalGroup for CS {
+impl<CS: CipherSuite> CipherSuiteExt for CS {
 	const I2OSP_ELEMENT_LEN: [u8; 2] = ElementLength::<CS>::U16.to_be_bytes();
 
 	fn hash_to_scalar(

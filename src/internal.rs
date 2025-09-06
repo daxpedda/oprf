@@ -25,7 +25,7 @@ use crate::cipher_suite::{
 };
 use crate::common::{BlindedElement, Mode, Proof};
 use crate::error::{Error, Result};
-use crate::group::{Group, InternalGroup};
+use crate::group::{CipherSuiteExt, Group};
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
 /// Returned by [`batch_blind()`].

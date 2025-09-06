@@ -12,7 +12,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::cipher_suite::CipherSuite;
 use crate::common::Mode;
 use crate::error::{Error, Result};
-use crate::group::{Group, InternalGroup};
+use crate::group::{CipherSuiteExt, Group};
 use crate::internal::ElementWrapper;
 #[cfg(feature = "serde")]
 use crate::serde;
