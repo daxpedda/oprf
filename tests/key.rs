@@ -10,8 +10,7 @@ use oprf::oprf::OprfServer;
 use oprf::poprf::PoprfServer;
 use oprf::voprf::VoprfServer;
 use oprf_test::{INFO, test_ciphersuites};
-use rand::TryRngCore;
-use rand_core::OsRng;
+use rand_core::{OsRng, TryRngCore};
 
 test_ciphersuites!(basic);
 

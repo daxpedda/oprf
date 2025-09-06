@@ -21,8 +21,7 @@ p256 = { workspace = true }
 p384 = { workspace = true }
 p521 = { workspace = true }
 paste = { workspace = true }
-rand = { workspace = true }
-rand_core = { workspace = true }
+rand_core = { workspace = true, features = ["os_rng"] }
 serde_test = { workspace = true, optional = true }
 zeroize = { workspace = true, features = ["derive"] }
 

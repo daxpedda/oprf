@@ -38,8 +38,7 @@ use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfSer
 use oprf::voprf::VoprfBatchAllocBlindResult;
 use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
 use oprf::{Error, Result};
-use rand::TryRngCore;
-use rand::rngs::OsRng;
+use rand_core::{OsRng, TryRngCore};
 
 use super::{INFO, INPUT};
 use crate::rng::MockRng;

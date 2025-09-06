@@ -8,7 +8,7 @@ use hybrid_array::Array;
 use hybrid_array::typenum::U0;
 use oprf::error::InternalError;
 use oprf::group::Group;
-use rand::TryCryptoRng;
+use rand_core::TryCryptoRng;
 use zeroize::Zeroize;
 
 /// A mock [`Group`] for testing purposes. It is zero-sized and does no checks
