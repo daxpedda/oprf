@@ -39,7 +39,7 @@ pub enum Error<E = Infallible> {
 	InvalidInfoDanger,
 	/// The given `bytes` can't be deserialized into the output type.
 	FromRepr,
-	/// The given `rng` failed.
+	/// The given RNG failed.
 	Random(E),
 }
 
