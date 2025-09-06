@@ -78,7 +78,8 @@ impl Group for Ristretto255 {
 			64.try_into().expect("`64` is smaller than `U16::MAX"),
 		)
 		.map_err(|_| InternalError)?
-		.fill_bytes(&mut uniform_bytes);
+		.fill_bytes(&mut uniform_bytes)
+		.expect("sizes match");
 
 		Ok(Scalar::from_bytes_mod_order_wide(&uniform_bytes))
 	}
@@ -107,14 +108,14 @@ impl Group for Ristretto255 {
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N] {
 		let mut scalars: [_; N] = scalars.map(|scalar| scalar.0);
-		Scalar::batch_invert(&mut scalars);
+		Scalar::invert_batch(&mut scalars);
 		scalars.map(NonZeroScalar)
 	}
 
 	#[cfg(feature = "alloc")]
 	fn scalar_batch_alloc_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
 		let mut scalars: Vec<_> = scalars.into_iter().map(|scalar| scalar.0).collect();
-		Scalar::batch_alloc_invert(&mut scalars);
+		Scalar::invert_batch_alloc(&mut scalars);
 		scalars.into_iter().map(NonZeroScalar).collect()
 	}
 
@@ -157,7 +158,8 @@ impl Group for Ristretto255 {
 			64.try_into().expect("`64` is smaller than `U16::MAX"),
 		)
 		.map_err(|_| InternalError)?
-		.fill_bytes(&mut uniform_bytes);
+		.fill_bytes(&mut uniform_bytes)
+		.expect("sizes match");
 
 		Ok(RistrettoPoint::from_uniform_bytes(&uniform_bytes))
 	}
@@ -183,7 +185,7 @@ impl Group for Ristretto255 {
 	fn non_identity_element_batch_alloc_maybe_double_to_repr(
 		elements: &[Self::NonIdentityElement],
 	) -> Vec<Array<u8, Self::ElementLength>> {
-		RistrettoPoint::double_and_compress_alloc_batch(elements.iter().map(|element| &element.0))
+		RistrettoPoint::double_and_compress_batch_alloc(elements.iter().map(|element| &element.0))
 			.into_iter()
 			.map(|bytes| bytes.0.into())
 			.collect()
@@ -211,7 +213,7 @@ impl Group for Ristretto255 {
 
 	#[cfg(feature = "alloc")]
 	fn alloc_lincomb(elements_and_scalars: &[(Self::Element, Self::Scalar)]) -> Self::Element {
-		RistrettoPoint::multiscalar_alloc_mul(
+		RistrettoPoint::multiscalar_mul_alloc(
 			elements_and_scalars
 				.iter()
 				.map(|(element, scalar)| (element, scalar)),

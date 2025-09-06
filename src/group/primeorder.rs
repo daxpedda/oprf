@@ -9,7 +9,7 @@ use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
 use elliptic_curve::point::NonIdentity;
 use elliptic_curve::sec1::{CompressedPointSize, ModulusSize};
 use elliptic_curve::{
-	BatchNormalize, FieldBytesSize, Group as _, NonZeroScalar, PrimeField, Scalar,
+	BatchNormalize, FieldBytes, FieldBytesSize, Group as _, NonZeroScalar, PrimeField, Scalar,
 };
 use hash2curve::{ExpandMsg, GroupDigest, OprfParameters};
 use hybrid_array::typenum::{IsLess, True, U65536};
@@ -23,7 +23,7 @@ use crate::error::{InternalError, Result};
 
 impl<G> CipherSuite for G
 where
-	G: Group<SecurityLevel = <G as GroupDigest>::K> + OprfParameters,
+	G: Group<SecurityLevel = <G as GroupDigest>::SecurityLevel> + OprfParameters,
 {
 	const ID: Id = Id::new(G::ID).unwrap();
 
@@ -35,12 +35,13 @@ where
 impl<C> Group for C
 where
 	C: GroupDigest<ProjectivePoint = ProjectivePoint<C>> + PrimeCurveParams,
+	FieldBytes<C>: Copy,
 	FieldBytesSize<C>: Add<FieldBytesSize<C>, Output: ArraySize> + ModulusSize,
 	CompressedPointSize<C>: IsLess<U65536, Output = True>,
 	ProjectivePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 	AffinePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 {
-	type SecurityLevel = C::K;
+	type SecurityLevel = C::SecurityLevel;
 
 	type NonZeroScalar = NonZeroScalar<C>;
 	type Scalar = C::Scalar;
@@ -59,7 +60,7 @@ where
 		loop {
 			rng.try_fill_bytes(&mut bytes)?;
 
-			if let Some(result) = NonZeroScalar::from_repr(bytes.clone()).into() {
+			if let Some(result) = NonZeroScalar::from_repr(bytes).into() {
 				break Ok(result);
 			}
 		}
@@ -110,7 +111,7 @@ where
 	fn scalar_from_repr(
 		bytes: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError> {
-		Scalar::<C>::from_repr(bytes.clone())
+		Scalar::<C>::from_repr(*bytes)
 			.into_option()
 			.ok_or(InternalError)
 	}
