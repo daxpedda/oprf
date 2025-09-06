@@ -104,8 +104,8 @@ impl<G: Group> ElementWrapper<G> {
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub(crate) fn from_repr(bytes: &[u8]) -> Result<Self> {
-		Self::from_array(bytes.try_into().map_err(|_| Error::FromRepr)?)
+	pub(crate) fn from_repr(repr: &[u8]) -> Result<Self> {
+		Self::from_array(repr.try_into().map_err(|_| Error::FromRepr)?)
 	}
 
 	/// Creates an [`ElementWrapper`] from the given representation.

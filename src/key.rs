@@ -107,14 +107,14 @@ impl<G: Group> KeyPair<G> {
 		self.secret_key.to_repr()
 	}
 
-	/// Deserializes the given `bytes` to a [`SecretKey`], deriving its
+	/// Deserializes the given `repr` to a [`SecretKey`], deriving its
 	/// [`PublicKey`] and creating a [`KeyPair`].
 	///
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		SecretKey::from_repr(bytes).map(Self::from_secret_key)
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		SecretKey::from_repr(repr).map(Self::from_secret_key)
 	}
 }
 
@@ -212,16 +212,15 @@ impl<G: Group> SecretKey<G> {
 		G::scalar_to_repr(&self.0)
 	}
 
-	/// Deserializes the given `bytes` to a [`SecretKey`].
+	/// Deserializes the given `repr` to a [`SecretKey`].
 	///
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		bytes
-			.try_into()
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		repr.try_into()
 			.ok()
-			.and_then(|bytes| G::non_zero_scalar_from_repr(bytes).ok())
+			.and_then(|repr| G::non_zero_scalar_from_repr(repr).ok())
 			.ok_or(Error::FromRepr)
 			.map(Self)
 	}
@@ -260,13 +259,13 @@ impl<G: Group> PublicKey<G> {
 		Self::new(G::non_zero_scalar_mul_by_generator(&secret_key.0))
 	}
 
-	/// Deserializes the given `bytes` to a [`PublicKey`].
+	/// Deserializes the given `repr` to a [`PublicKey`].
 	///
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(bytes).map(Self)
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		ElementWrapper::from_repr(repr).map(Self)
 	}
 }
 

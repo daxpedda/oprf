@@ -101,17 +101,17 @@ where
 	}
 
 	fn non_zero_scalar_from_repr(
-		bytes: Array<u8, Self::ScalarLength>,
+		repr: Array<u8, Self::ScalarLength>,
 	) -> Result<Self::NonZeroScalar, InternalError> {
-		NonZeroScalar::<C>::from_repr(bytes)
+		NonZeroScalar::<C>::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
 
 	fn scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		repr: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError> {
-		Scalar::<C>::from_repr(*bytes)
+		Scalar::<C>::from_repr(*repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
@@ -158,9 +158,9 @@ where
 	}
 
 	fn non_identity_element_from_repr(
-		bytes: &Array<u8, Self::ElementLength>,
+		repr: &Array<u8, Self::ElementLength>,
 	) -> Result<Self::NonIdentityElement, InternalError> {
-		NonIdentity::<ProjectivePoint<C>>::from_repr(bytes)
+		NonIdentity::<ProjectivePoint<C>>::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}

@@ -37,7 +37,7 @@ pub enum Error<E = Infallible> {
 	/// The given `info` maps to the [`SecretKey`](crate::key::SecretKey) of the
 	/// server, the client can be assumed to know it and it should be replaced.
 	InvalidInfoDanger,
-	/// The given `bytes` can't be deserialized into the output type.
+	/// The given `repr` can't be deserialized into the output type.
 	FromRepr,
 	/// The given RNG failed.
 	Random(E),
@@ -103,7 +103,7 @@ impl<E: Display> Display for Error<E> {
 				"the given `info` maps to the `SecretKey` of the server, the client can be assumed \
 				 to know it and it should be replaced"
 			}
-			Self::FromRepr => "the given `bytes` can't be deserialized into the output type",
+			Self::FromRepr => "the given `repr` can't be deserialized into the output type",
 			Self::Random(error) => return error.fmt(formatter),
 		})
 	}

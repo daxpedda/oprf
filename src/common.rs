@@ -137,13 +137,13 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 			.collect()
 	}
 
-	/// Deserializes the given `bytes` to a [`BlindedElement`].
+	/// Deserializes the given `repr` to a [`BlindedElement`].
 	///
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(bytes).map(Self)
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		ElementWrapper::from_repr(repr).map(Self)
 	}
 
 	/// Returns the [`NonIdentityElement`].
@@ -177,13 +177,13 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 			.collect()
 	}
 
-	/// Deserializes the given `bytes` to a [`EvaluationElement`].
+	/// Deserializes the given `repr` to a [`EvaluationElement`].
 	///
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(bytes).map(Self)
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		ElementWrapper::from_repr(repr).map(Self)
 	}
 
 	/// Returns the [`NonIdentityElement`].
@@ -205,25 +205,24 @@ impl<CS: CipherSuite> Proof<CS> {
 		CS::Group::scalar_to_repr(&self.c).concat(CS::Group::scalar_to_repr(&self.s))
 	}
 
-	/// Deserializes the given `bytes` to a [`Proof`].
+	/// Deserializes the given `repr` to a [`Proof`].
 	///
 	/// # Errors
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
-	pub fn from_repr(bytes: &[u8]) -> Result<Self> {
-		fn scalar_from_repr<G: Group>(bytes: &[u8]) -> Result<G::Scalar> {
-			bytes
-				.try_into()
+	pub fn from_repr(repr: &[u8]) -> Result<Self> {
+		fn scalar_from_repr<G: Group>(repr: &[u8]) -> Result<G::Scalar> {
+			repr.try_into()
 				.ok()
-				.and_then(|bytes| G::scalar_from_repr(bytes).ok())
+				.and_then(|repr| G::scalar_from_repr(repr).ok())
 				.ok_or(Error::FromRepr)
 		}
 
-		let (c_bytes, s_bytes) = bytes
+		let (c_repr, s_repr) = repr
 			.split_at_checked(ScalarLength::<CS>::USIZE)
 			.ok_or(Error::FromRepr)?;
-		let c = scalar_from_repr::<CS::Group>(c_bytes)?;
-		let s = scalar_from_repr::<CS::Group>(s_bytes)?;
+		let c = scalar_from_repr::<CS::Group>(c_repr)?;
+		let s = scalar_from_repr::<CS::Group>(s_repr)?;
 
 		Ok(Self { c, s })
 	}

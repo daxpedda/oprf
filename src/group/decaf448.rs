@@ -95,17 +95,17 @@ impl Group for Decaf448 {
 	}
 
 	fn non_zero_scalar_from_repr(
-		bytes: Array<u8, Self::ScalarLength>,
+		repr: Array<u8, Self::ScalarLength>,
 	) -> Result<Self::NonZeroScalar, InternalError> {
-		Decaf448NonZeroScalar::from_repr(bytes)
+		Decaf448NonZeroScalar::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
 
 	fn scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		repr: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError> {
-		DecafScalar::from_repr(*bytes)
+		DecafScalar::from_repr(*repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
@@ -130,9 +130,9 @@ impl Group for Decaf448 {
 	}
 
 	fn non_identity_element_from_repr(
-		bytes: &Array<u8, Self::ElementLength>,
+		repr: &Array<u8, Self::ElementLength>,
 	) -> Result<Self::NonIdentityElement, InternalError> {
-		NonIdentity::from_repr(bytes)
+		NonIdentity::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}

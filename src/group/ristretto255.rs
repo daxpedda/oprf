@@ -124,17 +124,17 @@ impl Group for Ristretto255 {
 	}
 
 	fn non_zero_scalar_from_repr(
-		bytes: Array<u8, Self::ScalarLength>,
+		repr: Array<u8, Self::ScalarLength>,
 	) -> Result<Self::NonZeroScalar, InternalError> {
-		NonZeroScalar::from_repr(bytes)
+		NonZeroScalar::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
 
 	fn scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		repr: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError> {
-		Scalar::from_canonical_bytes(bytes.0)
+		Scalar::from_canonical_bytes(repr.0)
 			.into_option()
 			.ok_or(InternalError)
 	}
@@ -187,7 +187,7 @@ impl Group for Ristretto255 {
 	) -> Vec<Array<u8, Self::ElementLength>> {
 		RistrettoPoint::double_and_compress_batch_alloc(elements.iter().map(|element| &element.0))
 			.into_iter()
-			.map(|bytes| bytes.0.into())
+			.map(|repr| repr.0.into())
 			.collect()
 	}
 
@@ -198,9 +198,9 @@ impl Group for Ristretto255 {
 	}
 
 	fn non_identity_element_from_repr(
-		bytes: &Array<u8, Self::ElementLength>,
+		repr: &Array<u8, Self::ElementLength>,
 	) -> Result<Self::NonIdentityElement, InternalError> {
-		NonIdentityElement::from_repr(bytes)
+		NonIdentityElement::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}

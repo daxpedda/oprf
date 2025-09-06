@@ -172,7 +172,7 @@ pub trait Group {
 	#[must_use]
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
-	/// Deserializes the given `bytes` to a
+	/// Deserializes the given `repr` to a
 	/// [`NonZeroScalar`](Group::NonZeroScalar).
 	///
 	/// Corresponds to [`DeserializeScalar()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.22).
@@ -181,10 +181,10 @@ pub trait Group {
 	///
 	/// Returns [`InternalError`] if deserialization fails.
 	fn non_zero_scalar_from_repr(
-		bytes: Array<u8, Self::ScalarLength>,
+		repr: Array<u8, Self::ScalarLength>,
 	) -> Result<Self::NonZeroScalar, InternalError>;
 
-	/// Deserializes the given `bytes` to a [`Scalar`](Group::Scalar).
+	/// Deserializes the given `repr` to a [`Scalar`](Group::Scalar).
 	///
 	/// Corresponds to [`DeserializeScalar()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.22).
 	///
@@ -192,7 +192,7 @@ pub trait Group {
 	///
 	/// Returns [`InternalError`] if deserialization fails.
 	fn scalar_from_repr(
-		bytes: &Array<u8, Self::ScalarLength>,
+		repr: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError>;
 
 	/// Returns the identity element.
@@ -278,7 +278,7 @@ pub trait Group {
 		elements.iter().map(Self::element_to_repr).collect_array()
 	}
 
-	/// Deserializes the given `bytes` to a
+	/// Deserializes the given `repr` to a
 	/// [`NonIdentityElement`](Group::NonIdentityElement).
 	///
 	/// Corresponds to
@@ -288,7 +288,7 @@ pub trait Group {
 	///
 	/// Returns [`InternalError`] if deserialization fails.
 	fn non_identity_element_from_repr(
-		bytes: &Array<u8, Self::ElementLength>,
+		repr: &Array<u8, Self::ElementLength>,
 	) -> Result<Self::NonIdentityElement, InternalError>;
 
 	/// Computes `element1 * scalar1 + element2 * scalar2` *without allocation*.

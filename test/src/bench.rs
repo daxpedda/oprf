@@ -69,9 +69,9 @@ pub fn bench<CS: CipherSuite>(
 	let proof = server.proof().map(Proof::to_repr);
 	let server_output = server.evaluate();
 
-	let public_key = public_key.map(|bytes| PublicKey::from_repr(bytes).unwrap());
+	let public_key = public_key.map(|repr| PublicKey::from_repr(repr).unwrap());
 	let evaluation_element = EvaluationElement::from_repr(evaluation_element).unwrap();
-	let proof = proof.map(|bytes| Proof::from_repr(&bytes).unwrap());
+	let proof = proof.map(|repr| Proof::from_repr(&repr).unwrap());
 	let client_output = client
 		.finalize_with(
 			public_key.as_ref(),
