@@ -123,8 +123,7 @@ pub struct SecretKey<G: Group>(G::NonZeroScalar);
 
 impl<G: Group> SecretKey<G> {
 	/// Creates a new [`SecretKey`].
-	#[cfg(feature = "serde")]
-	pub(crate) const fn new(scalar: G::NonZeroScalar) -> Self {
+	pub const fn new(scalar: G::NonZeroScalar) -> Self {
 		Self(scalar)
 	}
 
