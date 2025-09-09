@@ -22,23 +22,23 @@ use serde_test::{Compact, Configure, Token};
 test_ciphersuites!(common);
 
 /// Test common types.
-fn common<CS: CipherSuite<Group: ScalarRepr> + ScalarRepr>()
+fn common<Cs: CipherSuite<Group: ScalarRepr> + ScalarRepr>()
 where
-	BlindedElement<CS>: for<'de> Deserialize<'de> + Serialize,
-	EvaluationElement<CS>: for<'de> Deserialize<'de> + Serialize,
-	Proof<CS>: for<'de> Deserialize<'de> + Serialize,
-	KeyPair<CS::Group>: for<'de> Deserialize<'de> + Serialize,
-	SecretKey<CS::Group>: for<'de> Deserialize<'de> + Serialize,
-	PublicKey<CS::Group>: for<'de> Deserialize<'de> + Serialize,
+	BlindedElement<Cs>: for<'de> Deserialize<'de> + Serialize,
+	EvaluationElement<Cs>: for<'de> Deserialize<'de> + Serialize,
+	Proof<Cs>: for<'de> Deserialize<'de> + Serialize,
+	KeyPair<Cs::Group>: for<'de> Deserialize<'de> + Serialize,
+	SecretKey<Cs::Group>: for<'de> Deserialize<'de> + Serialize,
+	PublicKey<Cs::Group>: for<'de> Deserialize<'de> + Serialize,
 {
-	let scalar1 = leak(oprf_test::scalar::<CS>());
-	let scalar2 = leak(oprf_test::scalar::<CS>());
-	let invalid_scalar = leak(oprf_test::invalid_scalar::<CS>());
-	let zero_scalar = leak(oprf_test::zero_scalar::<CS>());
+	let scalar1 = leak(oprf_test::scalar::<Cs>());
+	let scalar2 = leak(oprf_test::scalar::<Cs>());
+	let invalid_scalar = leak(oprf_test::invalid_scalar::<Cs>());
+	let zero_scalar = leak(oprf_test::zero_scalar::<Cs>());
 
-	let element = leak(oprf_test::element::<CS>());
-	let invalid_element = leak(oprf_test::invalid_element::<CS>());
-	let identity_element = leak(oprf_test::identity_element::<CS>());
+	let element = leak(oprf_test::element::<Cs>());
+	let invalid_element = leak(oprf_test::invalid_element::<Cs>());
+	let identity_element = leak(oprf_test::identity_element::<Cs>());
 
 	let blinded_element = BlindedElement::from_repr(element).unwrap();
 	newtype_struct(
@@ -57,7 +57,7 @@ where
 	);
 
 	let proof_bytes = [scalar1, scalar2].concat();
-	let proof = Proof::<CS>::from_repr(&proof_bytes).unwrap();
+	let proof = Proof::<Cs>::from_repr(&proof_bytes).unwrap();
 	struct_2(
 		&proof,
 		"Proof",
@@ -69,10 +69,10 @@ where
 		[invalid_scalar],
 	);
 
-	let key_pair = KeyPair::<CS::Group>::from_repr(scalar1).unwrap();
+	let key_pair = KeyPair::<Cs::Group>::from_repr(scalar1).unwrap();
 	newtype_struct(&key_pair, "KeyPair", scalar1, [invalid_scalar, zero_scalar]);
 
-	let secret_key = SecretKey::<CS::Group>::from_repr(scalar1).unwrap();
+	let secret_key = SecretKey::<Cs::Group>::from_repr(scalar1).unwrap();
 	newtype_struct(
 		&secret_key,
 		"SecretKey",
@@ -80,7 +80,7 @@ where
 		[invalid_scalar, zero_scalar],
 	);
 
-	let public_key = PublicKey::<CS::Group>::from_repr(element).unwrap();
+	let public_key = PublicKey::<Cs::Group>::from_repr(element).unwrap();
 	newtype_struct(
 		&public_key,
 		"PublicKey",
@@ -92,18 +92,18 @@ where
 test_ciphersuites!(oprf);
 
 /// Test OPRF types.
-fn oprf<CS: CipherSuite + ScalarRepr>()
+fn oprf<Cs: CipherSuite + ScalarRepr>()
 where
-	OprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
-	OprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
+	OprfClient<Cs>: for<'de> Deserialize<'de> + Serialize,
+	OprfServer<Cs>: for<'de> Deserialize<'de> + Serialize,
 {
-	let scalar = leak(oprf_test::scalar::<CS>());
-	let invalid_scalar = leak(oprf_test::invalid_scalar::<CS>());
-	let zero_scalar = leak(oprf_test::zero_scalar::<CS>());
+	let scalar = leak(oprf_test::scalar::<Cs>());
+	let invalid_scalar = leak(oprf_test::invalid_scalar::<Cs>());
+	let zero_scalar = leak(oprf_test::zero_scalar::<Cs>());
 
-	let client = Compact::<OprfClient<CS>>::deserialize(&mut Deserializer::new(
+	let client = Compact::<OprfClient<Cs>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(1) })
-			.chain(OprfClient::<CS>::repr(0, scalar))
+			.chain(OprfClient::<Cs>::repr(0, scalar))
 			.chain(iter::once(Token::SeqEnd))
 			.collect::<Vec<_>>(),
 	))
@@ -112,29 +112,29 @@ where
 	newtype_struct(&client, "OprfClient", scalar, [invalid_scalar, zero_scalar]);
 
 	let secret_key = SecretKey::from_repr(scalar).unwrap();
-	let server = OprfServer::<CS>::from_key(secret_key);
+	let server = OprfServer::<Cs>::from_key(secret_key);
 	newtype_struct(&server, "OprfServer", scalar, [invalid_scalar, zero_scalar]);
 }
 
 test_ciphersuites!(voprf);
 
 /// Test VOPRF types.
-fn voprf<CS: CipherSuite + ScalarRepr>()
+fn voprf<Cs: CipherSuite + ScalarRepr>()
 where
-	VoprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
-	VoprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
+	VoprfClient<Cs>: for<'de> Deserialize<'de> + Serialize,
+	VoprfServer<Cs>: for<'de> Deserialize<'de> + Serialize,
 {
-	let scalar = leak(oprf_test::scalar::<CS>());
-	let invalid_scalar = leak(oprf_test::invalid_scalar::<CS>());
-	let zero_scalar = leak(oprf_test::zero_scalar::<CS>());
+	let scalar = leak(oprf_test::scalar::<Cs>());
+	let invalid_scalar = leak(oprf_test::invalid_scalar::<Cs>());
+	let zero_scalar = leak(oprf_test::zero_scalar::<Cs>());
 
-	let element = leak(oprf_test::element::<CS>());
-	let invalid_element = leak(oprf_test::invalid_element::<CS>());
-	let identity_element = leak(oprf_test::identity_element::<CS>());
+	let element = leak(oprf_test::element::<Cs>());
+	let invalid_element = leak(oprf_test::invalid_element::<Cs>());
+	let identity_element = leak(oprf_test::identity_element::<Cs>());
 
-	let client = Compact::<VoprfClient<CS>>::deserialize(&mut Deserializer::new(
+	let client = Compact::<VoprfClient<Cs>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(2) })
-			.chain(VoprfClient::<CS>::repr(0, scalar))
+			.chain(VoprfClient::<Cs>::repr(0, scalar))
 			.chain([Token::Bytes(element), Token::SeqEnd])
 			.collect::<Vec<_>>(),
 	))
@@ -152,7 +152,7 @@ where
 	);
 
 	let secret_key = KeyPair::from_repr(scalar).unwrap();
-	let server = VoprfServer::<CS>::from_key_pair(secret_key);
+	let server = VoprfServer::<Cs>::from_key_pair(secret_key);
 	newtype_struct(
 		&server,
 		"VoprfServer",
@@ -164,23 +164,23 @@ where
 test_ciphersuites!(poprf);
 
 /// Test POPRF types.
-fn poprf<CS: CipherSuite + ScalarRepr>()
+fn poprf<Cs: CipherSuite + ScalarRepr>()
 where
-	PoprfClient<CS>: for<'de> Deserialize<'de> + Serialize,
-	PoprfServer<CS>: for<'de> Deserialize<'de> + Serialize,
+	PoprfClient<Cs>: for<'de> Deserialize<'de> + Serialize,
+	PoprfServer<Cs>: for<'de> Deserialize<'de> + Serialize,
 {
-	let scalar1 = leak(oprf_test::scalar::<CS>());
-	let scalar2 = leak(oprf_test::scalar::<CS>());
-	let invalid_scalar = leak(oprf_test::invalid_scalar::<CS>());
-	let zero_scalar = leak(oprf_test::zero_scalar::<CS>());
+	let scalar1 = leak(oprf_test::scalar::<Cs>());
+	let scalar2 = leak(oprf_test::scalar::<Cs>());
+	let invalid_scalar = leak(oprf_test::invalid_scalar::<Cs>());
+	let zero_scalar = leak(oprf_test::zero_scalar::<Cs>());
 
-	let element = leak(oprf_test::element::<CS>());
-	let invalid_element = leak(oprf_test::invalid_element::<CS>());
-	let identity_element = leak(oprf_test::identity_element::<CS>());
+	let element = leak(oprf_test::element::<Cs>());
+	let invalid_element = leak(oprf_test::invalid_element::<Cs>());
+	let identity_element = leak(oprf_test::identity_element::<Cs>());
 
-	let client = Compact::<PoprfClient<CS>>::deserialize(&mut Deserializer::new(
+	let client = Compact::<PoprfClient<Cs>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(2) })
-			.chain(PoprfClient::<CS>::repr(0, scalar1))
+			.chain(PoprfClient::<Cs>::repr(0, scalar1))
 			.chain([Token::Bytes(element), Token::SeqEnd])
 			.collect::<Vec<_>>(),
 	))
@@ -197,10 +197,10 @@ where
 		[invalid_element, identity_element],
 	);
 
-	let server = Compact::<PoprfServer<CS>>::deserialize(&mut Deserializer::new(
+	let server = Compact::<PoprfServer<Cs>>::deserialize(&mut Deserializer::new(
 		&iter::once(Token::Seq { len: Some(2) })
-			.chain(PoprfServer::<CS>::repr(0, scalar1))
-			.chain(PoprfServer::<CS>::repr(1, scalar2))
+			.chain(PoprfServer::<Cs>::repr(0, scalar1))
+			.chain(PoprfServer::<Cs>::repr(1, scalar2))
 			.chain(iter::once(Token::SeqEnd))
 			.collect::<Vec<_>>(),
 	))

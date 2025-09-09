@@ -37,14 +37,14 @@ use crate::util::CollectArray;
 /// VOPRF client.
 ///
 /// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
-pub struct VoprfClient<CS: CipherSuite> {
+pub struct VoprfClient<Cs: CipherSuite> {
 	/// `blind`.
-	blind: NonZeroScalar<CS>,
+	blind: NonZeroScalar<Cs>,
 	/// `blindedElement`.
-	blinded_element: BlindedElement<CS>,
+	blinded_element: BlindedElement<Cs>,
 }
 
-impl<CS: CipherSuite> VoprfClient<CS> {
+impl<Cs: CipherSuite> VoprfClient<Cs> {
 	/// Blinds the given `input`.
 	///
 	/// Corresponds to
@@ -60,7 +60,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
 	///   [`BlindedElement`].
 	/// - [`Error::Random`] if the given `rng` fails.
-	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<VoprfBlindResult<CS>, Error<R::Error>>
+	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<VoprfBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -93,13 +93,13 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<VoprfBatchBlindResult<CS, N>, Error<R::Error>>
+	) -> Result<VoprfBatchBlindResult<Cs, N>, Error<R::Error>>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[NonIdentityElement<Cs>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
 		>,
-		[NonZeroScalar<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		[NonZeroScalar<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<Cs>> = [NonZeroScalar<Cs>; N]>>,
 		R: ?Sized + TryCryptoRng,
 	{
 		let BlindResult {
@@ -141,7 +141,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
 		inputs: I,
-	) -> Result<VoprfBatchAllocBlindResult<CS>, Error<R::Error>>
+	) -> Result<VoprfBatchAllocBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -181,11 +181,11 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	///   [`u16::MAX`].
 	pub fn finalize(
 		&self,
-		public_key: &PublicKey<CS::Group>,
+		public_key: &PublicKey<Cs::Group>,
 		input: &[&[u8]],
-		evaluation_element: &EvaluationElement<CS>,
-		proof: &Proof<CS>,
-	) -> Result<Output<CS::Hash>> {
+		evaluation_element: &EvaluationElement<Cs>,
+		proof: &Proof<Cs>,
+	) -> Result<Output<Cs::Hash>> {
 		let [output] = Self::batch_finalize(
 			array::from_ref(self),
 			public_key,
@@ -214,14 +214,14 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	///   [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
-		public_key: &PublicKey<CS::Group>,
+		public_key: &PublicKey<Cs::Group>,
 		inputs: &[&[&[u8]]; N],
-		evaluation_elements: &[EvaluationElement<CS>; N],
-		proof: &Proof<CS>,
-	) -> Result<[Output<CS::Hash>; N]>
+		evaluation_elements: &[EvaluationElement<Cs>; N],
+		proof: &Proof<Cs>,
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		if N == 0 || N > u16::MAX.into() {
 			return Err(Error::Batch);
@@ -239,7 +239,7 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 			.iter()
 			.map(EvaluationElement::as_element);
 
-		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, None)
+		internal::batch_finalize::<Cs, N>(inputs, blinds, evaluation_elements, None)
 	}
 
 	/// Batch completes evaluations with a combined [`Proof`].
@@ -258,17 +258,17 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 	/// - [`Error::InputLength`] if the given `input` exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
-		clients: IC,
-		public_key: &PublicKey<CS::Group>,
-		inputs: II,
-		evaluation_elements: IEE,
-		proof: &Proof<CS>,
-	) -> Result<Vec<Output<CS::Hash>>>
+	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, Ic, Ii, Iee>(
+		clients: Ic,
+		public_key: &PublicKey<Cs::Group>,
+		inputs: Ii,
+		evaluation_elements: Iee,
+		proof: &Proof<Cs>,
+	) -> Result<Vec<Output<Cs::Hash>>>
 	where
-		IC: ExactSizeIterator<Item = &'clients Self>,
-		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+		Ic: ExactSizeIterator<Item = &'clients Self>,
+		Ii: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		Iee: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<Cs>>,
 	{
 		let length = clients.len();
 
@@ -297,19 +297,19 @@ impl<CS: CipherSuite> VoprfClient<CS> {
 
 		let evaluation_elements = d.into_iter().map(ElementWrapper::as_element);
 
-		internal::batch_alloc_finalize::<CS>(length, inputs, blinds, evaluation_elements, None)
+		internal::batch_alloc_finalize::<Cs>(length, inputs, blinds, evaluation_elements, None)
 	}
 }
 
 /// VOPRF server.
 ///
 /// See [RFC 9497 § 3.3.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-voprf-protocol).
-pub struct VoprfServer<CS: CipherSuite> {
+pub struct VoprfServer<Cs: CipherSuite> {
 	/// [`KeyPair`].
-	key_pair: KeyPair<CS::Group>,
+	key_pair: KeyPair<Cs::Group>,
 }
 
-impl<CS: CipherSuite> VoprfServer<CS> {
+impl<Cs: CipherSuite> VoprfServer<Cs> {
 	/// Creates a new [`VoprfServer`] by generating a random [`SecretKey`].
 	///
 	/// # Errors
@@ -337,25 +337,25 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	///   the given input.
 	pub fn from_seed(seed: &[u8; 32], info: &[u8]) -> Result<Self> {
 		Ok(Self {
-			key_pair: KeyPair::derive::<CS>(Mode::Voprf, seed, info)?,
+			key_pair: KeyPair::derive::<Cs>(Mode::Voprf, seed, info)?,
 		})
 	}
 
 	/// Creates a new [`VoprfServer`] from the given [`KeyPair`].
 	#[must_use]
-	pub const fn from_key_pair(key_pair: KeyPair<CS::Group>) -> Self {
+	pub const fn from_key_pair(key_pair: KeyPair<Cs::Group>) -> Self {
 		Self { key_pair }
 	}
 
 	/// Returns the [`KeyPair`].
 	#[must_use]
-	pub const fn key_pair(&self) -> &KeyPair<CS::Group> {
+	pub const fn key_pair(&self) -> &KeyPair<Cs::Group> {
 		&self.key_pair
 	}
 
 	/// Returns the [`PublicKey`].
 	#[must_use]
-	pub const fn public_key(&self) -> &PublicKey<CS::Group> {
+	pub const fn public_key(&self) -> &PublicKey<Cs::Group> {
 		self.key_pair.public_key()
 	}
 
@@ -373,8 +373,8 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
-		blinded_element: &BlindedElement<CS>,
-	) -> Result<BlindEvaluateResult<CS>, Error<R::Error>>
+		blinded_element: &BlindedElement<Cs>,
+	) -> Result<BlindEvaluateResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -405,8 +405,8 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	pub fn batch_blind_evaluate<R, const N: usize>(
 		&self,
 		rng: &mut R,
-		blinded_elements: &[BlindedElement<CS>; N],
-	) -> Result<BatchBlindEvaluateResult<CS, N>, Error<R::Error>>
+		blinded_elements: &[BlindedElement<Cs>; N],
+	) -> Result<BatchBlindEvaluateResult<Cs, N>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -463,10 +463,10 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: I,
-	) -> Result<BatchAllocBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BatchAllocBlindEvaluateResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
-		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
+		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<Cs>>,
 	{
 		let blinded_elements_length = blinded_elements.len();
 
@@ -520,7 +520,7 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	///   output.
 	/// - [`Error::InputLength`] if the given `input` exceeds a length of
 	///   [`u16::MAX`].
-	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<CS::Hash>> {
+	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<Cs::Hash>> {
 		let [output] = self.batch_evaluate(&[input])?;
 		Ok(output)
 	}
@@ -542,14 +542,14 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	pub fn batch_evaluate<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<[Output<CS::Hash>; N]>
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Element<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<Cs>> = [Element<Cs>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
-		internal::batch_evaluate::<CS, N>(
+		internal::batch_evaluate::<Cs, N>(
 			Mode::Voprf,
 			self.key_pair.secret_key().to_scalar(),
 			inputs,
@@ -572,8 +572,8 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 	/// - [`Error::InputLength`] if a given input exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
-		internal::batch_alloc_evaluate::<CS>(
+	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<Cs::Hash>>> {
+		internal::batch_alloc_evaluate::<Cs>(
 			Mode::Voprf,
 			self.key_pair.secret_key().to_scalar(),
 			inputs,
@@ -583,34 +583,34 @@ impl<CS: CipherSuite> VoprfServer<CS> {
 }
 
 /// Returned from [`VoprfClient::blind()`].
-pub struct VoprfBlindResult<CS: CipherSuite> {
+pub struct VoprfBlindResult<Cs: CipherSuite> {
 	/// The [`VoprfClient`].
-	pub client: VoprfClient<CS>,
+	pub client: VoprfClient<Cs>,
 	/// The [`BlindedElement`].
-	pub blinded_element: BlindedElement<CS>,
+	pub blinded_element: BlindedElement<Cs>,
 }
 
 /// Returned from [`VoprfClient::batch_blind()`].
-pub struct VoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
+pub struct VoprfBatchBlindResult<Cs: CipherSuite, const N: usize> {
 	/// The [`VoprfClient`]s.
-	pub clients: [VoprfClient<CS>; N],
+	pub clients: [VoprfClient<Cs>; N],
 	/// The [`BlindedElement`]s each corresponding to a [`VoprfClient`] in
 	/// order.
-	pub blinded_elements: [BlindedElement<CS>; N],
+	pub blinded_elements: [BlindedElement<Cs>; N],
 }
 
 /// Returned from [`VoprfClient::batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
-pub struct VoprfBatchAllocBlindResult<CS: CipherSuite> {
+pub struct VoprfBatchAllocBlindResult<Cs: CipherSuite> {
 	/// The [`VoprfClient`]s.
-	pub clients: Vec<VoprfClient<CS>>,
+	pub clients: Vec<VoprfClient<Cs>>,
 	/// The [`BlindedElement`]s each corresponding to a [`VoprfClient`] in
 	/// order.
-	pub blinded_elements: Vec<BlindedElement<CS>>,
+	pub blinded_elements: Vec<BlindedElement<Cs>>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for VoprfClient<CS> {
+impl<Cs: CipherSuite> Clone for VoprfClient<Cs> {
 	fn clone(&self) -> Self {
 		Self {
 			blind: self.blind,
@@ -620,7 +620,7 @@ impl<CS: CipherSuite> Clone for VoprfClient<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for VoprfClient<CS> {
+impl<Cs: CipherSuite> Debug for VoprfClient<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("VoprfClient")
 			.field("blind", &self.blind)
@@ -630,13 +630,13 @@ impl<CS: CipherSuite> Debug for VoprfClient<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for VoprfClient<CS>
+impl<'de, Cs> Deserialize<'de> for VoprfClient<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let (blind, wrapper): (_, ElementWrapper<CS::Group>) =
+		let (blind, wrapper): (_, ElementWrapper<Cs::Group>) =
 			serde::struct_2(deserializer, "VoprfClient", &["blind", "blinded_element"])?;
 		let blinded_element = BlindedElement::from(wrapper);
 
@@ -648,26 +648,26 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for VoprfClient<CS> {
+impl<Cs: CipherSuite> Drop for VoprfClient<Cs> {
 	fn drop(&mut self) {
 		self.blind.zeroize();
 	}
 }
 
-impl<CS: CipherSuite> Eq for VoprfClient<CS> {}
+impl<Cs: CipherSuite> Eq for VoprfClient<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for VoprfClient<CS> {
+impl<Cs: CipherSuite> PartialEq for VoprfClient<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.blind.eq(&other.blind) && self.blinded_element.eq(&other.blinded_element)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for VoprfClient<CS>
+impl<Cs> Serialize for VoprfClient<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Serialize,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -680,10 +680,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfClient<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for VoprfClient<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for VoprfServer<CS> {
+impl<Cs: CipherSuite> Clone for VoprfServer<Cs> {
 	fn clone(&self) -> Self {
 		Self {
 			key_pair: self.key_pair.clone(),
@@ -692,7 +692,7 @@ impl<CS: CipherSuite> Clone for VoprfServer<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for VoprfServer<CS> {
+impl<Cs: CipherSuite> Debug for VoprfServer<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("VoprfServer")
 			.field("key_pair", &self.key_pair)
@@ -701,10 +701,10 @@ impl<CS: CipherSuite> Debug for VoprfServer<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for VoprfServer<CS>
+impl<'de, Cs> Deserialize<'de> for VoprfServer<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "VoprfServer")
@@ -714,20 +714,20 @@ where
 	}
 }
 
-impl<CS: CipherSuite> Eq for VoprfServer<CS> {}
+impl<Cs: CipherSuite> Eq for VoprfServer<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for VoprfServer<CS> {
+impl<Cs: CipherSuite> PartialEq for VoprfServer<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.key_pair.eq(&other.key_pair)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for VoprfServer<CS>
+impl<Cs> Serialize for VoprfServer<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Serialize,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -737,10 +737,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfServer<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for VoprfServer<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for VoprfBlindResult<CS> {
+impl<Cs: CipherSuite> Debug for VoprfBlindResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("VoprfBlindResult")
 			.field("client", &self.client)
@@ -749,10 +749,10 @@ impl<CS: CipherSuite> Debug for VoprfBlindResult<CS> {
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBlindResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for VoprfBlindResult<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for VoprfBatchBlindResult<CS, N> {
+impl<Cs: CipherSuite, const N: usize> Debug for VoprfBatchBlindResult<Cs, N> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("VoprfBatchBlindResult")
 			.field("clients", &self.clients)
@@ -761,11 +761,11 @@ impl<CS: CipherSuite, const N: usize> Debug for VoprfBatchBlindResult<CS, N> {
 	}
 }
 
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for VoprfBatchBlindResult<CS, N> {}
+impl<Cs: CipherSuite, const N: usize> ZeroizeOnDrop for VoprfBatchBlindResult<Cs, N> {}
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for VoprfBatchAllocBlindResult<CS> {
+impl<Cs: CipherSuite> Debug for VoprfBatchAllocBlindResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("VoprfBatchAllocBlindResult")
 			.field("clients", &self.clients)
@@ -775,4 +775,4 @@ impl<CS: CipherSuite> Debug for VoprfBatchAllocBlindResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for VoprfBatchAllocBlindResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for VoprfBatchAllocBlindResult<Cs> {}

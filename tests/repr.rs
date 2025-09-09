@@ -11,122 +11,122 @@ use oprf_test::test_ciphersuites;
 
 test_ciphersuites!(blinded_element);
 
-fn blinded_element<CS: CipherSuite>() {
+fn blinded_element<Cs: CipherSuite>() {
 	// Failure on non-reduced element.
-	let result = BlindedElement::<CS>::from_repr(&oprf_test::invalid_element::<CS>());
+	let result = BlindedElement::<Cs>::from_repr(&oprf_test::invalid_element::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on identity element.
-	let result = BlindedElement::<CS>::from_repr(&oprf_test::identity_element::<CS>());
+	let result = BlindedElement::<Cs>::from_repr(&oprf_test::identity_element::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = BlindedElement::<CS>::from_repr(&[]);
+	let result = BlindedElement::<Cs>::from_repr(&[]);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Success.
-	BlindedElement::<CS>::from_repr(&oprf_test::element::<CS>()).unwrap();
+	BlindedElement::<Cs>::from_repr(&oprf_test::element::<Cs>()).unwrap();
 }
 
 test_ciphersuites!(evaluation_element);
 
-fn evaluation_element<CS: CipherSuite>() {
+fn evaluation_element<Cs: CipherSuite>() {
 	// Failure on non-reduced element.
-	let result = EvaluationElement::<CS>::from_repr(&oprf_test::invalid_element::<CS>());
+	let result = EvaluationElement::<Cs>::from_repr(&oprf_test::invalid_element::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on identity element.
-	let result = EvaluationElement::<CS>::from_repr(&oprf_test::identity_element::<CS>());
+	let result = EvaluationElement::<Cs>::from_repr(&oprf_test::identity_element::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = EvaluationElement::<CS>::from_repr(&[]);
+	let result = EvaluationElement::<Cs>::from_repr(&[]);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Success.
-	EvaluationElement::<CS>::from_repr(&oprf_test::element::<CS>()).unwrap();
+	EvaluationElement::<Cs>::from_repr(&oprf_test::element::<Cs>()).unwrap();
 }
 
 test_ciphersuites!(proof);
 
-fn proof<CS: CipherSuite>() {
+fn proof<Cs: CipherSuite>() {
 	// Failure on non-reduced scalar `c`.
-	let result = Proof::<CS>::from_repr(
-		&oprf_test::invalid_scalar::<CS>().concat(oprf_test::scalar::<CS>()),
+	let result = Proof::<Cs>::from_repr(
+		&oprf_test::invalid_scalar::<Cs>().concat(oprf_test::scalar::<Cs>()),
 	);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on non-reduced scalar `s`.
-	let result = Proof::<CS>::from_repr(
-		&oprf_test::scalar::<CS>().concat(oprf_test::invalid_scalar::<CS>()),
+	let result = Proof::<Cs>::from_repr(
+		&oprf_test::scalar::<Cs>().concat(oprf_test::invalid_scalar::<Cs>()),
 	);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = Proof::<CS>::from_repr(&oprf_test::scalar::<CS>());
+	let result = Proof::<Cs>::from_repr(&oprf_test::scalar::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Success on non-zero scalars.
-	Proof::<CS>::from_repr(&oprf_test::zero_scalar::<CS>().concat(oprf_test::zero_scalar::<CS>()))
+	Proof::<Cs>::from_repr(&oprf_test::zero_scalar::<Cs>().concat(oprf_test::zero_scalar::<Cs>()))
 		.unwrap();
 
 	// Success.
-	Proof::<CS>::from_repr(&oprf_test::scalar::<CS>().concat(oprf_test::scalar::<CS>())).unwrap();
+	Proof::<Cs>::from_repr(&oprf_test::scalar::<Cs>().concat(oprf_test::scalar::<Cs>())).unwrap();
 }
 
 test_ciphersuites!(key_pair);
 
-fn key_pair<CS: CipherSuite>() {
+fn key_pair<Cs: CipherSuite>() {
 	// Failure on non-reduced scalar.
-	let result = KeyPair::<CS::Group>::from_repr(&oprf_test::invalid_scalar::<CS>());
+	let result = KeyPair::<Cs::Group>::from_repr(&oprf_test::invalid_scalar::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on zero-scalar.
-	let result = KeyPair::<CS::Group>::from_repr(&oprf_test::zero_scalar::<CS>());
+	let result = KeyPair::<Cs::Group>::from_repr(&oprf_test::zero_scalar::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = KeyPair::<CS::Group>::from_repr(&[]);
+	let result = KeyPair::<Cs::Group>::from_repr(&[]);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Success.
-	KeyPair::<CS::Group>::from_repr(&oprf_test::scalar::<CS>()).unwrap();
+	KeyPair::<Cs::Group>::from_repr(&oprf_test::scalar::<Cs>()).unwrap();
 }
 
 test_ciphersuites!(secret_key);
 
-fn secret_key<CS: CipherSuite>() {
+fn secret_key<Cs: CipherSuite>() {
 	// Failure on non-reduced scalar.
-	let result = SecretKey::<CS::Group>::from_repr(&oprf_test::invalid_scalar::<CS>());
+	let result = SecretKey::<Cs::Group>::from_repr(&oprf_test::invalid_scalar::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on zero-scalar.
-	let result = SecretKey::<CS::Group>::from_repr(&oprf_test::zero_scalar::<CS>());
+	let result = SecretKey::<Cs::Group>::from_repr(&oprf_test::zero_scalar::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = SecretKey::<CS::Group>::from_repr(&[]);
+	let result = SecretKey::<Cs::Group>::from_repr(&[]);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Success.
-	SecretKey::<CS::Group>::from_repr(&oprf_test::scalar::<CS>()).unwrap();
+	SecretKey::<Cs::Group>::from_repr(&oprf_test::scalar::<Cs>()).unwrap();
 }
 
 test_ciphersuites!(public_key);
 
-fn public_key<CS: CipherSuite>() {
+fn public_key<Cs: CipherSuite>() {
 	// Failure on non-reduced element.
-	let result = PublicKey::<CS::Group>::from_repr(&oprf_test::invalid_element::<CS>());
+	let result = PublicKey::<Cs::Group>::from_repr(&oprf_test::invalid_element::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on identity element.
-	let result = PublicKey::<CS::Group>::from_repr(&oprf_test::identity_element::<CS>());
+	let result = PublicKey::<Cs::Group>::from_repr(&oprf_test::identity_element::<Cs>());
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Failure on not enough bytes.
-	let result = PublicKey::<CS::Group>::from_repr(&[]);
+	let result = PublicKey::<Cs::Group>::from_repr(&[]);
 	assert_eq!(result.unwrap_err(), Error::FromRepr);
 
 	// Success.
-	PublicKey::<CS::Group>::from_repr(&oprf_test::element::<CS>()).unwrap();
+	PublicKey::<Cs::Group>::from_repr(&oprf_test::element::<Cs>()).unwrap();
 }

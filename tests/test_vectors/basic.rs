@@ -13,11 +13,11 @@ use crate::{KEY_INFO, SEED};
 test_ciphersuites!(test, Mode);
 
 /// Tests non-batched test vectors.
-fn test<CS: CipherSuite>(mode: Mode) {
+fn test<Cs: CipherSuite>(mode: Mode) {
 	let mut tests = 0;
 
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
-		test_vector.identifier.as_bytes() == CS::ID.deref() && test_vector.mode == mode
+		test_vector.identifier.as_bytes() == Cs::ID.deref() && test_vector.mode == mode
 	}) {
 		for vector in &test_vector.vectors {
 			let Vector::Single(vector) = vector else {
@@ -30,7 +30,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			// Blind.
 			let client =
-				CommonClient::<CS>::blind_with(mode, Some(&vector.blind), &[&vector.input])
+				CommonClient::<Cs>::blind_with(mode, Some(&vector.blind), &[&vector.input])
 					.unwrap();
 
 			assert_eq!(
@@ -45,14 +45,14 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			// Blind evaluate.
 			let server = CommonServer::blind_evaluate_with(
 				mode,
-				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
+				Some(SecretKey::derive::<Cs>(mode, &SEED, KEY_INFO).unwrap()),
 				client.blinded_element(),
 				vector_proof.map(|proof| proof.r.as_slice()),
 				INFO,
 			)
 			.unwrap();
 
-			let secret_key = SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap();
+			let secret_key = SecretKey::derive::<Cs>(mode, &SEED, KEY_INFO).unwrap();
 
 			assert_eq!(server.secret_key(), &secret_key);
 			assert_eq!(test_vector.secret_key, secret_key.to_repr().as_slice());

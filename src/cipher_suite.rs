@@ -50,19 +50,19 @@ pub trait CipherSuite: 'static {
 }
 
 /// Typedef to [`CipherSuite::Group`].
-type CsGroup<CS> = <CS as CipherSuite>::Group;
+type CsGroup<Cs> = <Cs as CipherSuite>::Group;
 /// Typedef to [`Group::NonZeroScalar`] via [`CipherSuite`].
-pub(crate) type NonZeroScalar<CS> = <CsGroup<CS> as Group>::NonZeroScalar;
+pub(crate) type NonZeroScalar<Cs> = <CsGroup<Cs> as Group>::NonZeroScalar;
 /// Typedef to [`Group::Scalar`] via [`CipherSuite`].
-pub(crate) type Scalar<CS> = <CsGroup<CS> as Group>::Scalar;
+pub(crate) type Scalar<Cs> = <CsGroup<Cs> as Group>::Scalar;
 /// Typedef to [`Group::ScalarLength`] via [`CipherSuite`].
-pub(crate) type ScalarLength<CS> = <CsGroup<CS> as Group>::ScalarLength;
+pub(crate) type ScalarLength<Cs> = <CsGroup<Cs> as Group>::ScalarLength;
 /// Typedef to [`Group::NonIdentityElement`] via [`CipherSuite`].
-pub(crate) type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
+pub(crate) type NonIdentityElement<Cs> = <CsGroup<Cs> as Group>::NonIdentityElement;
 /// Typedef to [`Group::Element`] via [`CipherSuite`].
-pub(crate) type Element<CS> = <CsGroup<CS> as Group>::Element;
+pub(crate) type Element<Cs> = <CsGroup<Cs> as Group>::Element;
 /// Typedef to [`Group::ElementLength`] via [`CipherSuite`].
-pub(crate) type ElementLength<CS> = <CsGroup<CS> as Group>::ElementLength;
+pub(crate) type ElementLength<Cs> = <CsGroup<Cs> as Group>::ElementLength;
 
 /// A valid [`CipherSuite::ID`].
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

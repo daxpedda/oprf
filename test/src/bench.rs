@@ -13,24 +13,24 @@ use crate::{CommonClient, CommonServer, INFO, INPUT};
 
 /// Holds the data that should *not* be included in measurements.
 #[derive_where(Debug)]
-pub struct Setup<CS: CipherSuite> {
+pub struct Setup<Cs: CipherSuite> {
 	/// `blind`.
-	blind: Array<u8, <CS::Group as Group>::ScalarLength>,
+	blind: Array<u8, <Cs::Group as Group>::ScalarLength>,
 	/// Server [`SecretKey`].
-	secret_key: SecretKey<CS::Group>,
+	secret_key: SecretKey<Cs::Group>,
 	/// [`Proof`] `r`.
-	r: Array<u8, <CS::Group as Group>::ScalarLength>,
+	r: Array<u8, <Cs::Group as Group>::ScalarLength>,
 }
 
-impl<CS: CipherSuite> Default for Setup<CS> {
+impl<Cs: CipherSuite> Default for Setup<Cs> {
 	fn default() -> Self {
-		let blind = <CS::Group as Group>::scalar_random(&mut OsRng).unwrap();
-		let blind = <CS::Group as Group>::scalar_to_repr(&blind);
+		let blind = <Cs::Group as Group>::scalar_random(&mut OsRng).unwrap();
+		let blind = <Cs::Group as Group>::scalar_to_repr(&blind);
 
 		let secret_key = SecretKey::generate(&mut OsRng).unwrap();
 
-		let r = <CS::Group as Group>::scalar_random(&mut OsRng).unwrap();
-		let r = <CS::Group as Group>::scalar_to_repr(&r);
+		let r = <Cs::Group as Group>::scalar_random(&mut OsRng).unwrap();
+		let r = <Cs::Group as Group>::scalar_to_repr(&r);
 
 		Self {
 			blind,
@@ -42,21 +42,21 @@ impl<CS: CipherSuite> Default for Setup<CS> {
 
 /// Runs a benchmark of the full protocol.
 #[expect(clippy::missing_panics_doc, reason = "benchmarks")]
-pub fn bench<CS: CipherSuite>(
+pub fn bench<Cs: CipherSuite>(
 	mode: Mode,
-	setup: Setup<CS>,
-) -> (Output<CS::Hash>, Output<CS::Hash>) {
+	setup: Setup<Cs>,
+) -> (Output<Cs::Hash>, Output<Cs::Hash>) {
 	let Setup {
 		blind,
 		secret_key,
 		r,
 	} = setup;
 
-	let client = CommonClient::<CS>::blind_with(mode, Some(&blind), INPUT).unwrap();
+	let client = CommonClient::<Cs>::blind_with(mode, Some(&blind), INPUT).unwrap();
 	let blinded_element = client.blinded_element().as_repr();
 
 	let blinded_element = BlindedElement::from_repr(blinded_element).unwrap();
-	let server = CommonServer::<CS>::blind_evaluate_with(
+	let server = CommonServer::<Cs>::blind_evaluate_with(
 		mode,
 		Some(secret_key),
 		&blinded_element,

@@ -62,7 +62,7 @@ impl Mode {
 /// [`*Client::blind()`]: crate::oprf::OprfClient::blind
 /// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
 #[repr(transparent)]
-pub struct BlindedElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
+pub struct BlindedElement<Cs: CipherSuite>(ElementWrapper<Cs::Group>);
 
 /// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be
 /// [`*Client::finalize()`]d.
@@ -70,40 +70,40 @@ pub struct BlindedElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
 /// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
 /// [`*Client::finalize()`]: crate::oprf::OprfClient::finalize
 #[repr(transparent)]
-pub struct EvaluationElement<CS: CipherSuite>(ElementWrapper<CS::Group>);
+pub struct EvaluationElement<Cs: CipherSuite>(ElementWrapper<Cs::Group>);
 
 /// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be verified
 /// by [`*Client::finalize()`].
 ///
 /// [`*Server::blind_evaluate()`]: crate::voprf::VoprfServer::blind_evaluate
 /// [`*Client::finalize()`]: crate::voprf::VoprfClient::finalize
-pub struct Proof<CS: CipherSuite> {
+pub struct Proof<Cs: CipherSuite> {
 	/// `c`.
-	pub(crate) c: Scalar<CS>,
+	pub(crate) c: Scalar<Cs>,
 	/// `s`.
-	pub(crate) s: Scalar<CS>,
+	pub(crate) s: Scalar<Cs>,
 }
 
 /// Returned by [`*Server::blind_evaluate()`]. Contains the
 /// [`EvaluationElement`] and [`Proof`].
 ///
 /// [`*Server::blind_evaluate()`]: crate::voprf::VoprfServer::blind_evaluate
-pub struct BlindEvaluateResult<CS: CipherSuite> {
+pub struct BlindEvaluateResult<Cs: CipherSuite> {
 	/// The [`EvaluationElement`].
-	pub evaluation_element: EvaluationElement<CS>,
+	pub evaluation_element: EvaluationElement<Cs>,
 	/// The [`Proof`].
-	pub proof: Proof<CS>,
+	pub proof: Proof<Cs>,
 }
 
 /// Returned by [`*Server::batch_blind_evaluate()`]. Contains the
 /// [`EvaluationElement`]s and [`Proof`].
 ///
 /// [`*Server::batch_blind_evaluate()`]: crate::voprf::VoprfServer::batch_blind_evaluate
-pub struct BatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
+pub struct BatchBlindEvaluateResult<Cs: CipherSuite, const N: usize> {
 	/// The [`EvaluationElement`]s.
-	pub evaluation_elements: [EvaluationElement<CS>; N],
+	pub evaluation_elements: [EvaluationElement<Cs>; N],
 	/// The [`Proof`].
-	pub proof: Proof<CS>,
+	pub proof: Proof<Cs>,
 }
 
 /// Returned by [`*Server::batch_alloc_blind_evaluate()`]. Contains the
@@ -111,17 +111,17 @@ pub struct BatchBlindEvaluateResult<CS: CipherSuite, const N: usize> {
 ///
 /// [`*Server::batch_alloc_blind_evaluate()`]: crate::voprf::VoprfServer::batch_alloc_blind_evaluate
 #[cfg(feature = "alloc")]
-pub struct BatchAllocBlindEvaluateResult<CS: CipherSuite> {
+pub struct BatchAllocBlindEvaluateResult<Cs: CipherSuite> {
 	/// The [`EvaluationElement`]s.
-	pub evaluation_elements: Vec<EvaluationElement<CS>>,
+	pub evaluation_elements: Vec<EvaluationElement<Cs>>,
 	/// The [`Proof`].
-	pub proof: Proof<CS>,
+	pub proof: Proof<Cs>,
 }
 
-impl<CS: CipherSuite> BlindedElement<CS> {
+impl<Cs: CipherSuite> BlindedElement<Cs> {
 	/// Creates a fixed-sized array of [`BlindedElement`]s.
 	pub(crate) fn new_batch<const N: usize>(
-		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
+		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> [Self; N] {
 		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
@@ -129,7 +129,7 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 	/// Creates a [`Vec`] of [`BlindedElement`]s.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
+		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.into_iter()
@@ -147,21 +147,21 @@ impl<CS: CipherSuite> BlindedElement<CS> {
 	}
 
 	/// Returns the [`NonIdentityElement`].
-	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
+	pub(crate) const fn as_element(&self) -> &NonIdentityElement<Cs> {
 		self.0.as_element()
 	}
 
 	/// Returns the representation of this [`BlindedElement`].
 	#[must_use]
-	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
+	pub const fn as_repr(&self) -> &Array<u8, ElementLength<Cs>> {
 		self.0.as_repr()
 	}
 }
 
-impl<CS: CipherSuite> EvaluationElement<CS> {
+impl<Cs: CipherSuite> EvaluationElement<Cs> {
 	/// Creates a fixed-sized array of [`EvaluationElement`]s.
 	pub(crate) fn new_batch<const N: usize>(
-		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
+		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> [Self; N] {
 		ElementWrapper::new_batch(elements_and_scalars).map(Self)
 	}
@@ -169,7 +169,7 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	/// Creates a [`Vec`] of [`EvaluationElement`]s.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
-		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<CS>, NonZeroScalar<CS>)>,
+		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> Vec<Self> {
 		ElementWrapper::new_batch_alloc(elements_and_scalars)
 			.into_iter()
@@ -187,22 +187,22 @@ impl<CS: CipherSuite> EvaluationElement<CS> {
 	}
 
 	/// Returns the [`NonIdentityElement`].
-	pub(crate) const fn as_element(&self) -> &NonIdentityElement<CS> {
+	pub(crate) const fn as_element(&self) -> &NonIdentityElement<Cs> {
 		self.0.as_element()
 	}
 
 	/// Returns the representation of this [`EvaluationElement`].
 	#[must_use]
-	pub const fn as_repr(&self) -> &Array<u8, ElementLength<CS>> {
+	pub const fn as_repr(&self) -> &Array<u8, ElementLength<Cs>> {
 		self.0.as_repr()
 	}
 }
 
-impl<CS: CipherSuite> Proof<CS> {
+impl<Cs: CipherSuite> Proof<Cs> {
 	/// Serializes this [`Proof`].
 	#[must_use]
-	pub fn to_repr(&self) -> Array<u8, Sum<ScalarLength<CS>, ScalarLength<CS>>> {
-		CS::Group::scalar_to_repr(&self.c).concat(CS::Group::scalar_to_repr(&self.s))
+	pub fn to_repr(&self) -> Array<u8, Sum<ScalarLength<Cs>, ScalarLength<Cs>>> {
+		Cs::Group::scalar_to_repr(&self.c).concat(Cs::Group::scalar_to_repr(&self.s))
 	}
 
 	/// Deserializes the given `repr` to a [`Proof`].
@@ -219,59 +219,59 @@ impl<CS: CipherSuite> Proof<CS> {
 		}
 
 		let (c_repr, s_repr) = repr
-			.split_at_checked(ScalarLength::<CS>::USIZE)
+			.split_at_checked(ScalarLength::<Cs>::USIZE)
 			.ok_or(Error::FromRepr)?;
-		let c = scalar_from_repr::<CS::Group>(c_repr)?;
-		let s = scalar_from_repr::<CS::Group>(s_repr)?;
+		let c = scalar_from_repr::<Cs::Group>(c_repr)?;
+		let s = scalar_from_repr::<Cs::Group>(s_repr)?;
 
 		Ok(Self { c, s })
 	}
 }
 
-impl<CS: CipherSuite> AsRef<ElementWrapper<CS::Group>> for BlindedElement<CS> {
-	fn as_ref(&self) -> &ElementWrapper<CS::Group> {
+impl<Cs: CipherSuite> AsRef<ElementWrapper<Cs::Group>> for BlindedElement<Cs> {
+	fn as_ref(&self) -> &ElementWrapper<Cs::Group> {
 		&self.0
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for BlindedElement<CS> {
+impl<Cs: CipherSuite> Clone for BlindedElement<Cs> {
 	fn clone(&self) -> Self {
 		Self(self.0.clone())
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for BlindedElement<CS> {
+impl<Cs: CipherSuite> Debug for BlindedElement<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_tuple("BlindedElement").field(&self.0).finish()
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS: CipherSuite> Deserialize<'de> for BlindedElement<CS> {
+impl<'de, Cs: CipherSuite> Deserialize<'de> for BlindedElement<Cs> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "BlindedElement").map(Self)
 	}
 }
 
-impl<CS: CipherSuite> Eq for BlindedElement<CS> {}
+impl<Cs: CipherSuite> Eq for BlindedElement<Cs> {}
 
-impl<CS: CipherSuite> From<ElementWrapper<CS::Group>> for BlindedElement<CS> {
-	fn from(value: ElementWrapper<CS::Group>) -> Self {
+impl<Cs: CipherSuite> From<ElementWrapper<Cs::Group>> for BlindedElement<Cs> {
+	fn from(value: ElementWrapper<Cs::Group>) -> Self {
 		Self(value)
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for BlindedElement<CS> {
+impl<Cs: CipherSuite> PartialEq for BlindedElement<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS: CipherSuite> Serialize for BlindedElement<CS> {
+impl<Cs: CipherSuite> Serialize for BlindedElement<Cs> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -280,46 +280,46 @@ impl<CS: CipherSuite> Serialize for BlindedElement<CS> {
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for BlindedElement<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for BlindedElement<Cs> {}
 
-impl<CS: CipherSuite> AsRef<ElementWrapper<CS::Group>> for EvaluationElement<CS> {
-	fn as_ref(&self) -> &ElementWrapper<CS::Group> {
+impl<Cs: CipherSuite> AsRef<ElementWrapper<Cs::Group>> for EvaluationElement<Cs> {
+	fn as_ref(&self) -> &ElementWrapper<Cs::Group> {
 		&self.0
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for EvaluationElement<CS> {
+impl<Cs: CipherSuite> Clone for EvaluationElement<Cs> {
 	fn clone(&self) -> Self {
 		Self(self.0.clone())
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for EvaluationElement<CS> {
+impl<Cs: CipherSuite> Debug for EvaluationElement<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_tuple("EvaluationElement").field(&self.0).finish()
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS: CipherSuite> Deserialize<'de> for EvaluationElement<CS> {
+impl<'de, Cs: CipherSuite> Deserialize<'de> for EvaluationElement<Cs> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "EvaluationElement").map(Self)
 	}
 }
 
-impl<CS: CipherSuite> Eq for EvaluationElement<CS> {}
+impl<Cs: CipherSuite> Eq for EvaluationElement<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for EvaluationElement<CS> {
+impl<Cs: CipherSuite> PartialEq for EvaluationElement<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS: CipherSuite> Serialize for EvaluationElement<CS> {
+impl<Cs: CipherSuite> Serialize for EvaluationElement<Cs> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -328,10 +328,10 @@ impl<CS: CipherSuite> Serialize for EvaluationElement<CS> {
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for EvaluationElement<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for EvaluationElement<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for Proof<CS> {
+impl<Cs: CipherSuite> Clone for Proof<Cs> {
 	fn clone(&self) -> Self {
 		Self {
 			c: self.c,
@@ -341,7 +341,7 @@ impl<CS: CipherSuite> Clone for Proof<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for Proof<CS> {
+impl<Cs: CipherSuite> Debug for Proof<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("Proof")
 			.field("c", &self.c)
@@ -351,10 +351,10 @@ impl<CS: CipherSuite> Debug for Proof<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for Proof<CS>
+impl<'de, Cs> Deserialize<'de> for Proof<Cs>
 where
-	CS: CipherSuite,
-	Scalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	Scalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -365,7 +365,7 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for Proof<CS> {
+impl<Cs: CipherSuite> Drop for Proof<Cs> {
 	fn drop(&mut self) {
 		self.c.zeroize();
 		self.s.zeroize();
@@ -373,20 +373,20 @@ impl<CS: CipherSuite> Drop for Proof<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Eq for Proof<CS> {}
+impl<Cs: CipherSuite> Eq for Proof<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for Proof<CS> {
+impl<Cs: CipherSuite> PartialEq for Proof<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.c.eq(&other.c) && self.s.eq(&other.s)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for Proof<CS>
+impl<Cs> Serialize for Proof<Cs>
 where
-	CS: CipherSuite,
-	Scalar<CS>: Serialize,
+	Cs: CipherSuite,
+	Scalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -399,10 +399,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for Proof<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for Proof<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for BlindEvaluateResult<CS> {
+impl<Cs: CipherSuite> Debug for BlindEvaluateResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("BlindEvaluateResult")
 			.field("evaluation_element", &self.evaluation_element)
@@ -411,10 +411,10 @@ impl<CS: CipherSuite> Debug for BlindEvaluateResult<CS> {
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for BlindEvaluateResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for BlindEvaluateResult<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for BatchBlindEvaluateResult<CS, N> {
+impl<Cs: CipherSuite, const N: usize> Debug for BatchBlindEvaluateResult<Cs, N> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("BatchBlindEvaluateResult")
 			.field("evaluation_elements", &self.evaluation_elements)
@@ -423,11 +423,11 @@ impl<CS: CipherSuite, const N: usize> Debug for BatchBlindEvaluateResult<CS, N> 
 	}
 }
 
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for BatchBlindEvaluateResult<CS, N> {}
+impl<Cs: CipherSuite, const N: usize> ZeroizeOnDrop for BatchBlindEvaluateResult<Cs, N> {}
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for BatchAllocBlindEvaluateResult<CS> {
+impl<Cs: CipherSuite> Debug for BatchAllocBlindEvaluateResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("BatchAllocBlindEvaluateResult")
 			.field("evaluation_elements", &self.evaluation_elements)
@@ -437,4 +437,4 @@ impl<CS: CipherSuite> Debug for BatchAllocBlindEvaluateResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for BatchAllocBlindEvaluateResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for BatchAllocBlindEvaluateResult<Cs> {}

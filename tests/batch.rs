@@ -21,16 +21,16 @@ test_ciphersuites!(empty, Voprf);
 test_ciphersuites!(empty, Poprf);
 
 /// Tests correct failure on empty iterators when using batching methods.
-fn empty<CS: CipherSuite>(mode: Mode) {
-	let clients = CommonClient::<CS>::batch::<1>(mode);
+fn empty<Cs: CipherSuite>(mode: Mode) {
+	let clients = CommonClient::<Cs>::batch::<1>(mode);
 
 	// Failure on zero blinded elements.
 	if let Mode::Voprf | Mode::Poprf = mode {
-		let result = CommonServer::<CS>::batch_with::<0>(mode, None, &[], None, INFO);
+		let result = CommonServer::<Cs>::batch_with::<0>(mode, None, &[], None, INFO);
 		assert_eq!(result.unwrap_err(), Error::Batch);
 	}
 
-	let server = CommonServer::<CS>::batch::<1>(&clients);
+	let server = CommonServer::<Cs>::batch::<1>(&clients);
 
 	// Failure on equal but zero elements for all parameters.
 	let result = clients.finalize_with::<0>(server.public_key(), &[], &[], server.proof(), INFO);
@@ -91,9 +91,9 @@ test_ciphersuites!(unequal, Mode);
 /// methods.
 // Not possible to pass unequal parameters to the fixed-sized array API.
 #[cfg(feature = "alloc")]
-fn unequal<CS: CipherSuite>(mode: Mode) {
-	let clients = CommonClient::<CS>::batch::<2>(mode);
-	let server = CommonServer::<CS>::batch::<2>(&clients);
+fn unequal<Cs: CipherSuite>(mode: Mode) {
+	let clients = CommonClient::<Cs>::batch::<2>(mode);
+	let server = CommonServer::<Cs>::batch::<2>(&clients);
 
 	// Failure on unequal clients.
 	let result = clients.finalize_alloc_with(

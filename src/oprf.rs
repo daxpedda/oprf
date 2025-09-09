@@ -27,12 +27,12 @@ use crate::util::CollectArray;
 /// OPRF client.
 ///
 /// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
-pub struct OprfClient<CS: CipherSuite> {
+pub struct OprfClient<Cs: CipherSuite> {
 	/// `blind`.
-	blind: NonZeroScalar<CS>,
+	blind: NonZeroScalar<Cs>,
 }
 
-impl<CS: CipherSuite> OprfClient<CS> {
+impl<Cs: CipherSuite> OprfClient<Cs> {
 	/// Blinds the given `input`.
 	///
 	/// Corresponds to
@@ -48,7 +48,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
 	///   [`BlindedElement`].
 	/// - [`Error::Random`] if the given `rng` fails.
-	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<OprfBlindResult<CS>, Error<R::Error>>
+	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<OprfBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -81,13 +81,13 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<OprfBatchBlindResult<CS, N>, Error<R::Error>>
+	) -> Result<OprfBatchBlindResult<Cs, N>, Error<R::Error>>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[NonIdentityElement<Cs>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
 		>,
-		[NonZeroScalar<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		[NonZeroScalar<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<Cs>> = [NonZeroScalar<Cs>; N]>>,
 		R: ?Sized + TryCryptoRng,
 	{
 		let BlindResult {
@@ -125,7 +125,7 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
 		inputs: I,
-	) -> Result<OprfBatchAllocBlindResult<CS>, Error<R::Error>>
+	) -> Result<OprfBatchAllocBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -155,8 +155,8 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	pub fn finalize(
 		&self,
 		input: &[&[u8]],
-		evaluation_element: &EvaluationElement<CS>,
-	) -> Result<Output<CS::Hash>> {
+		evaluation_element: &EvaluationElement<Cs>,
+	) -> Result<Output<Cs::Hash>> {
 		let [output] = Self::batch_finalize(
 			array::from_ref(self),
 			&[input],
@@ -177,18 +177,18 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
 		inputs: &[&[&[u8]]; N],
-		evaluation_elements: &[EvaluationElement<CS>; N],
-	) -> Result<[Output<CS::Hash>; N]>
+		evaluation_elements: &[EvaluationElement<Cs>; N],
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		let blinds = clients.iter().map(|client| client.blind).collect_array();
 		let evaluation_elements = evaluation_elements
 			.iter()
 			.map(EvaluationElement::as_element);
 
-		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, None)
+		internal::batch_finalize::<Cs, N>(inputs, blinds, evaluation_elements, None)
 	}
 
 	/// Batch completes evaluations.
@@ -203,15 +203,15 @@ impl<CS: CipherSuite> OprfClient<CS> {
 	/// - [`Error::InputLength`] if a given input exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
-		clients: IC,
-		inputs: II,
-		evaluation_elements: IEE,
-	) -> Result<Vec<Output<CS::Hash>>>
+	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, Ic, Ii, Iee>(
+		clients: Ic,
+		inputs: Ii,
+		evaluation_elements: Iee,
+	) -> Result<Vec<Output<Cs::Hash>>>
 	where
-		IC: ExactSizeIterator<Item = &'clients Self>,
-		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+		Ic: ExactSizeIterator<Item = &'clients Self>,
+		Ii: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		Iee: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<Cs>>,
 	{
 		let length = clients.len();
 
@@ -222,19 +222,19 @@ impl<CS: CipherSuite> OprfClient<CS> {
 		let blinds = clients.map(|client| client.blind).collect();
 		let evaluation_elements = evaluation_elements.map(EvaluationElement::as_element);
 
-		internal::batch_alloc_finalize::<CS>(length, inputs, blinds, evaluation_elements, None)
+		internal::batch_alloc_finalize::<Cs>(length, inputs, blinds, evaluation_elements, None)
 	}
 }
 
 /// OPRF server.
 ///
 /// See [RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprf-protocol).
-pub struct OprfServer<CS: CipherSuite> {
+pub struct OprfServer<Cs: CipherSuite> {
 	/// [`SecretKey`].
-	secret_key: SecretKey<CS::Group>,
+	secret_key: SecretKey<Cs::Group>,
 }
 
-impl<CS: CipherSuite> OprfServer<CS> {
+impl<Cs: CipherSuite> OprfServer<Cs> {
 	/// Creates a new [`OprfServer`] by generating a random [`SecretKey`].
 	///
 	/// # Errors
@@ -262,19 +262,19 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	///   the given input.
 	pub fn from_seed(seed: &[u8; 32], info: &[u8]) -> Result<Self> {
 		Ok(Self {
-			secret_key: SecretKey::derive::<CS>(Mode::Oprf, seed, info)?,
+			secret_key: SecretKey::derive::<Cs>(Mode::Oprf, seed, info)?,
 		})
 	}
 
 	/// Creates a new [`OprfServer`] from the given [`SecretKey`].
 	#[must_use]
-	pub const fn from_key(secret_key: SecretKey<CS::Group>) -> Self {
+	pub const fn from_key(secret_key: SecretKey<Cs::Group>) -> Self {
 		Self { secret_key }
 	}
 
 	/// Returns the [`SecretKey`].
 	#[must_use]
-	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
+	pub const fn secret_key(&self) -> &SecretKey<Cs::Group> {
 		&self.secret_key
 	}
 
@@ -283,7 +283,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	/// Corresponds to
 	/// [`BlindEvaluate()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-4).
 	#[must_use]
-	pub fn blind_evaluate(&self, blinded_element: &BlindedElement<CS>) -> EvaluationElement<CS> {
+	pub fn blind_evaluate(&self, blinded_element: &BlindedElement<Cs>) -> EvaluationElement<Cs> {
 		let [evaluation_element] = self.batch_blind_evaluate(array::from_ref(blinded_element));
 		evaluation_element
 	}
@@ -296,8 +296,8 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	#[must_use]
 	pub fn batch_blind_evaluate<const N: usize>(
 		&self,
-		blinded_elements: &[BlindedElement<CS>; N],
-	) -> [EvaluationElement<CS>; N] {
+		blinded_elements: &[BlindedElement<Cs>; N],
+	) -> [EvaluationElement<Cs>; N] {
 		let elements_and_scalars = blinded_elements
 			.iter()
 			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()));
@@ -314,9 +314,9 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	pub fn batch_alloc_blind_evaluate<'blinded_elements, I>(
 		&self,
 		blinded_elements: I,
-	) -> Vec<EvaluationElement<CS>>
+	) -> Vec<EvaluationElement<Cs>>
 	where
-		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
+		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<Cs>>,
 	{
 		let elements_and_scalars = blinded_elements
 			.map(|blinded_element| (*blinded_element.as_element(), self.secret_key.to_scalar()));
@@ -337,7 +337,7 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	///   output.
 	/// - [`Error::InputLength`] if the given `input` exceeds a length of
 	///   [`u16::MAX`].
-	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<CS::Hash>> {
+	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<Cs::Hash>> {
 		let [output] = self.batch_evaluate(&[input])?;
 		Ok(output)
 	}
@@ -359,14 +359,14 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	pub fn batch_evaluate<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<[Output<CS::Hash>; N]>
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Element<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<Cs>> = [Element<Cs>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
-		internal::batch_evaluate::<CS, N>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
+		internal::batch_evaluate::<Cs, N>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
 	}
 
 	/// Batch Completes evaluations.
@@ -384,45 +384,45 @@ impl<CS: CipherSuite> OprfServer<CS> {
 	/// - [`Error::InputLength`] if a given input exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<CS::Hash>>> {
-		internal::batch_alloc_evaluate::<CS>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
+	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<Cs::Hash>>> {
+		internal::batch_alloc_evaluate::<Cs>(Mode::Oprf, self.secret_key.to_scalar(), inputs, None)
 	}
 }
 
 /// Returned from [`OprfClient::blind()`].
-pub struct OprfBlindResult<CS: CipherSuite> {
+pub struct OprfBlindResult<Cs: CipherSuite> {
 	/// The [`OprfClient`].
-	pub client: OprfClient<CS>,
+	pub client: OprfClient<Cs>,
 	/// The [`BlindedElement`].
-	pub blinded_element: BlindedElement<CS>,
+	pub blinded_element: BlindedElement<Cs>,
 }
 
 /// Returned from [`OprfClient::batch_blind()`].
-pub struct OprfBatchBlindResult<CS: CipherSuite, const N: usize> {
+pub struct OprfBatchBlindResult<Cs: CipherSuite, const N: usize> {
 	/// The [`OprfClient`]s.
-	pub clients: [OprfClient<CS>; N],
+	pub clients: [OprfClient<Cs>; N],
 	/// The [`BlindedElement`]s each corresponding to a [`OprfClient`] in order.
-	pub blinded_elements: [BlindedElement<CS>; N],
+	pub blinded_elements: [BlindedElement<Cs>; N],
 }
 
 /// Returned from [`OprfClient::batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
-pub struct OprfBatchAllocBlindResult<CS: CipherSuite> {
+pub struct OprfBatchAllocBlindResult<Cs: CipherSuite> {
 	/// The [`OprfClient`]s.
-	pub clients: Vec<OprfClient<CS>>,
+	pub clients: Vec<OprfClient<Cs>>,
 	/// The [`BlindedElement`]s each corresponding to a [`OprfClient`] in order.
-	pub blinded_elements: Vec<BlindedElement<CS>>,
+	pub blinded_elements: Vec<BlindedElement<Cs>>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for OprfClient<CS> {
+impl<Cs: CipherSuite> Clone for OprfClient<Cs> {
 	fn clone(&self) -> Self {
 		Self { blind: self.blind }
 	}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for OprfClient<CS> {
+impl<Cs: CipherSuite> Debug for OprfClient<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OprfClient")
 			.field("blind", &self.blind)
@@ -431,10 +431,10 @@ impl<CS: CipherSuite> Debug for OprfClient<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for OprfClient<CS>
+impl<'de, Cs> Deserialize<'de> for OprfClient<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "OprfClient").map(|blind| Self { blind })
@@ -442,26 +442,26 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for OprfClient<CS> {
+impl<Cs: CipherSuite> Drop for OprfClient<Cs> {
 	fn drop(&mut self) {
 		self.blind.zeroize();
 	}
 }
 
-impl<CS: CipherSuite> Eq for OprfClient<CS> {}
+impl<Cs: CipherSuite> Eq for OprfClient<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for OprfClient<CS> {
+impl<Cs: CipherSuite> PartialEq for OprfClient<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.blind.eq(&other.blind)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for OprfClient<CS>
+impl<Cs> Serialize for OprfClient<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Serialize,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -471,10 +471,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for OprfClient<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for OprfClient<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for OprfServer<CS> {
+impl<Cs: CipherSuite> Clone for OprfServer<Cs> {
 	fn clone(&self) -> Self {
 		Self {
 			secret_key: self.secret_key.clone(),
@@ -483,7 +483,7 @@ impl<CS: CipherSuite> Clone for OprfServer<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for OprfServer<CS> {
+impl<Cs: CipherSuite> Debug for OprfServer<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OprfServer")
 			.field("secret_key", &self.secret_key)
@@ -492,10 +492,10 @@ impl<CS: CipherSuite> Debug for OprfServer<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for OprfServer<CS>
+impl<'de, Cs> Deserialize<'de> for OprfServer<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		serde::newtype_struct(deserializer, "OprfServer")
@@ -504,20 +504,20 @@ where
 	}
 }
 
-impl<CS: CipherSuite> Eq for OprfServer<CS> {}
+impl<Cs: CipherSuite> Eq for OprfServer<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for OprfServer<CS> {
+impl<Cs: CipherSuite> PartialEq for OprfServer<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.secret_key.eq(&other.secret_key)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for OprfServer<CS>
+impl<Cs> Serialize for OprfServer<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Serialize,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -527,10 +527,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for OprfServer<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for OprfServer<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for OprfBlindResult<CS> {
+impl<Cs: CipherSuite> Debug for OprfBlindResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OprfBlindResult")
 			.field("client", &self.client)
@@ -539,10 +539,10 @@ impl<CS: CipherSuite> Debug for OprfBlindResult<CS> {
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for OprfBlindResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for OprfBlindResult<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for OprfBatchBlindResult<CS, N> {
+impl<Cs: CipherSuite, const N: usize> Debug for OprfBatchBlindResult<Cs, N> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OprfBatchBlindResult")
 			.field("clients", &self.clients)
@@ -551,11 +551,11 @@ impl<CS: CipherSuite, const N: usize> Debug for OprfBatchBlindResult<CS, N> {
 	}
 }
 
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for OprfBatchBlindResult<CS, N> {}
+impl<Cs: CipherSuite, const N: usize> ZeroizeOnDrop for OprfBatchBlindResult<Cs, N> {}
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for OprfBatchAllocBlindResult<CS> {
+impl<Cs: CipherSuite> Debug for OprfBatchAllocBlindResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OprfBatchAllocBlindResult")
 			.field("clients", &self.clients)
@@ -565,4 +565,4 @@ impl<CS: CipherSuite> Debug for OprfBatchAllocBlindResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for OprfBatchAllocBlindResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for OprfBatchAllocBlindResult<Cs> {}

@@ -16,11 +16,11 @@ test_ciphersuites!(test, Poprf);
 
 /// Tests batched test vectors.
 #[expect(clippy::cognitive_complexity, clippy::too_many_lines, reason = "test")]
-fn test<CS: CipherSuite>(mode: Mode) {
+fn test<Cs: CipherSuite>(mode: Mode) {
 	let mut tests = 0;
 
 	for test_vector in TEST_VECTORS.iter().filter(|test_vector| {
-		test_vector.identifier.as_bytes() == CS::ID.deref() && test_vector.mode == mode
+		test_vector.identifier.as_bytes() == Cs::ID.deref() && test_vector.mode == mode
 	}) {
 		for vector in &test_vector.vectors {
 			let Vector::Batch(vector) = vector else {
@@ -35,7 +35,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			let vector_proof = vector.proof.as_ref().expect("unexpected missing proof");
 
 			// Blind.
-			let clients = CommonClient::<CS>::batch_with(
+			let clients = CommonClient::<Cs>::batch_with(
 				mode,
 				Some(&vector.blinds.each_ref().map(Vec::as_slice)),
 				&inputs,
@@ -44,7 +44,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 
 			#[cfg(feature = "alloc")]
 			{
-				let alloc_clients = CommonClient::<CS>::batch_alloc_with(
+				let alloc_clients = CommonClient::<Cs>::batch_alloc_with(
 					mode,
 					Some(vector.blinds.each_ref().map(Vec::as_slice).as_slice()),
 					inputs.into_iter(),
@@ -69,14 +69,14 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			// Blind evaluate.
 			let server = CommonServer::batch_with::<2>(
 				mode,
-				Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
+				Some(SecretKey::derive::<Cs>(mode, &SEED, KEY_INFO).unwrap()),
 				clients.blinded_elements(),
 				Some(&vector_proof.r),
 				INFO,
 			)
 			.unwrap();
 
-			let key_pair = KeyPair::derive::<CS>(mode, &SEED, KEY_INFO).unwrap();
+			let key_pair = KeyPair::derive::<Cs>(mode, &SEED, KEY_INFO).unwrap();
 
 			assert_eq!(server.secret_key(), key_pair.secret_key());
 			assert_eq!(
@@ -124,7 +124,7 @@ fn test<CS: CipherSuite>(mode: Mode) {
 			{
 				let alloc_server = CommonServer::batch_alloc_with(
 					mode,
-					Some(SecretKey::derive::<CS>(mode, &SEED, KEY_INFO).unwrap()),
+					Some(SecretKey::derive::<Cs>(mode, &SEED, KEY_INFO).unwrap()),
 					clients.blinded_elements(),
 					Some(&vector_proof.r),
 					INFO,

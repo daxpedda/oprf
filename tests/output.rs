@@ -10,8 +10,8 @@ use oprf_test::{CommonClient, CommonServer, INFO, INPUT, test_ciphersuites};
 test_ciphersuites!(input, Mode);
 
 /// Tests unequal `output` with different `input`s.
-fn input<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::blind(mode);
+fn input<Cs: CipherSuite>(mode: Mode) {
+	let client = CommonClient::<Cs>::blind(mode);
 	let server = CommonServer::blind_evaluate(&client);
 
 	// Failure on wrong input during `Finalize` and `Evaluate`.
@@ -39,8 +39,8 @@ fn input<CS: CipherSuite>(mode: Mode) {
 test_ciphersuites!(input_batch, Mode);
 
 /// Tests unequal `output` with different `input`s when using batching methods.
-fn input_batch<CS: CipherSuite>(mode: Mode) {
-	let clients = CommonClient::<CS>::batch::<1>(mode);
+fn input_batch<Cs: CipherSuite>(mode: Mode) {
+	let clients = CommonClient::<Cs>::batch::<1>(mode);
 	let server = CommonServer::batch::<1>(&clients);
 
 	// Failure on wrong input during `Finalize` and `Evaluate`.
@@ -68,8 +68,8 @@ fn input_batch<CS: CipherSuite>(mode: Mode) {
 test_ciphersuites!(info, Poprf);
 
 /// Tests unequal `output` with different `info`s.
-fn info<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::blind(mode);
+fn info<Cs: CipherSuite>(mode: Mode) {
+	let client = CommonClient::<Cs>::blind(mode);
 	let server = CommonServer::blind_evaluate(&client);
 
 	let client_output = client.finalize(&server);
@@ -80,8 +80,8 @@ fn info<CS: CipherSuite>(mode: Mode) {
 test_ciphersuites!(info_batch, Poprf);
 
 /// Tests unequal `output` with different `info`s when using batching methods.
-fn info_batch<CS: CipherSuite>(_: Mode) {
-	let clients = CommonClient::<CS>::batch::<1>(Mode::Poprf);
+fn info_batch<Cs: CipherSuite>(_: Mode) {
+	let clients = CommonClient::<Cs>::batch::<1>(Mode::Poprf);
 	let server = CommonServer::batch::<1>(&clients);
 
 	let client_output = clients.finalize::<1>(&server);
@@ -92,8 +92,8 @@ fn info_batch<CS: CipherSuite>(_: Mode) {
 test_ciphersuites!(server, Mode);
 
 /// Tests using wrong server in `Evaluate`.
-fn server<CS: CipherSuite>(_: Mode) {
-	let client = CommonClient::<CS>::blind(Mode::Poprf);
+fn server<Cs: CipherSuite>(_: Mode) {
+	let client = CommonClient::<Cs>::blind(Mode::Poprf);
 	let server = CommonServer::blind_evaluate(&client);
 	let wrong_server = CommonServer::blind_evaluate(&client);
 
@@ -106,8 +106,8 @@ test_ciphersuites!(state_batch, Voprf);
 test_ciphersuites!(state_batch, Poprf);
 
 /// Tests using wrong server in `Evaluate` when using batching methods.
-fn state_batch<CS: CipherSuite>(_: Mode) {
-	let clients = CommonClient::<CS>::batch::<1>(Mode::Poprf);
+fn state_batch<Cs: CipherSuite>(_: Mode) {
+	let clients = CommonClient::<Cs>::batch::<1>(Mode::Poprf);
 	let server = CommonServer::batch::<1>(&clients);
 	let wrong_server = CommonServer::batch::<1>(&clients);
 

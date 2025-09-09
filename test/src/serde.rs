@@ -52,13 +52,13 @@ pub trait TypeRepr {
 	}
 }
 
-impl<CS: CipherSuite> TypeRepr for BlindedElement<CS> {}
+impl<Cs: CipherSuite> TypeRepr for BlindedElement<Cs> {}
 
-impl<CS: CipherSuite> TypeRepr for EvaluationElement<CS> {}
+impl<Cs: CipherSuite> TypeRepr for EvaluationElement<Cs> {}
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for Proof<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for Proof<Cs> {
 	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
-		CS::scalar_repr(bytes)
+		Cs::scalar_repr(bytes)
 	}
 }
 
@@ -76,19 +76,19 @@ impl<G: Group + ScalarRepr> TypeRepr for SecretKey<G> {
 
 impl<G: Group + ScalarRepr> TypeRepr for PublicKey<G> {}
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for OprfClient<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for OprfClient<Cs> {
 	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
-		CS::scalar_repr(bytes)
+		Cs::scalar_repr(bytes)
 	}
 }
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for OprfServer<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for OprfServer<Cs> {
 	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
-		CS::scalar_repr(bytes)
+		Cs::scalar_repr(bytes)
 	}
 }
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for VoprfClient<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for VoprfClient<Cs> {
 	fn repr(index: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
 		#[expect(
 			clippy::iter_on_empty_collections,
@@ -96,7 +96,7 @@ impl<CS: CipherSuite + ScalarRepr> TypeRepr for VoprfClient<CS> {
 			reason = "required to produce type compatible output"
 		)]
 		match index {
-			0 => Some(CS::scalar_repr(bytes))
+			0 => Some(Cs::scalar_repr(bytes))
 				.into_iter()
 				.flatten()
 				.chain(None),
@@ -106,20 +106,20 @@ impl<CS: CipherSuite + ScalarRepr> TypeRepr for VoprfClient<CS> {
 	}
 }
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for VoprfServer<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for VoprfServer<Cs> {
 	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
-		CS::scalar_repr(bytes)
+		Cs::scalar_repr(bytes)
 	}
 }
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for PoprfClient<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for PoprfClient<Cs> {
 	fn repr(index: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
-		VoprfClient::<CS>::repr(index, bytes)
+		VoprfClient::<Cs>::repr(index, bytes)
 	}
 }
 
-impl<CS: CipherSuite + ScalarRepr> TypeRepr for PoprfServer<CS> {
+impl<Cs: CipherSuite + ScalarRepr> TypeRepr for PoprfServer<Cs> {
 	fn repr(_: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
-		CS::scalar_repr(bytes)
+		Cs::scalar_repr(bytes)
 	}
 }

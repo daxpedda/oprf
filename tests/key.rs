@@ -15,8 +15,8 @@ use rand_core::{OsRng, TryRngCore};
 test_ciphersuites!(basic);
 
 // Tests basic key functionality.
-fn basic<CS: CipherSuite>() {
-	let key_pair = KeyPair::<CS::Group>::generate(&mut OsRng).unwrap();
+fn basic<Cs: CipherSuite>() {
+	let key_pair = KeyPair::<Cs::Group>::generate(&mut OsRng).unwrap();
 
 	// Check `from_secret_key()`.
 	assert_eq!(
@@ -55,56 +55,56 @@ fn basic<CS: CipherSuite>() {
 test_ciphersuites!(derive, Mode);
 
 // Tests key deriviation.
-fn derive<CS: CipherSuite>(mode: Mode) {
+fn derive<Cs: CipherSuite>(mode: Mode) {
 	let mut seed = [0; 32];
 	OsRng.try_fill_bytes(&mut seed).unwrap();
 
-	let key_pair = KeyPair::derive::<CS>(mode, &seed, &[]).unwrap();
+	let key_pair = KeyPair::derive::<Cs>(mode, &seed, &[]).unwrap();
 
 	assert_eq!(
-		&SecretKey::derive::<CS>(mode, &seed, &[]).unwrap(),
+		&SecretKey::derive::<Cs>(mode, &seed, &[]).unwrap(),
 		key_pair.secret_key()
 	);
 }
 
 test_ciphersuites!(oprf_from_seed);
 
-fn oprf_from_seed<CS: CipherSuite>() {
+fn oprf_from_seed<Cs: CipherSuite>() {
 	let mut seed = [0; 32];
 	OsRng.try_fill_bytes(&mut seed).unwrap();
 
-	let server = OprfServer::<CS>::from_seed(&seed, &[]).unwrap();
+	let server = OprfServer::<Cs>::from_seed(&seed, &[]).unwrap();
 
 	assert_eq!(
-		&SecretKey::derive::<CS>(Mode::Oprf, &seed, &[]).unwrap(),
+		&SecretKey::derive::<Cs>(Mode::Oprf, &seed, &[]).unwrap(),
 		server.secret_key()
 	);
 }
 
 test_ciphersuites!(voprf_from_seed);
 
-fn voprf_from_seed<CS: CipherSuite>() {
+fn voprf_from_seed<Cs: CipherSuite>() {
 	let mut seed = [0; 32];
 	OsRng.try_fill_bytes(&mut seed).unwrap();
 
-	let server = VoprfServer::<CS>::from_seed(&seed, &[]).unwrap();
+	let server = VoprfServer::<Cs>::from_seed(&seed, &[]).unwrap();
 
 	assert_eq!(
-		&KeyPair::derive::<CS>(Mode::Voprf, &seed, &[]).unwrap(),
+		&KeyPair::derive::<Cs>(Mode::Voprf, &seed, &[]).unwrap(),
 		server.key_pair()
 	);
 }
 
 test_ciphersuites!(poprf_from_seed);
 
-fn poprf_from_seed<CS: CipherSuite>() {
+fn poprf_from_seed<Cs: CipherSuite>() {
 	let mut seed = [0; 32];
 	OsRng.try_fill_bytes(&mut seed).unwrap();
 
-	let server = PoprfServer::<CS>::from_seed(&seed, &[], INFO).unwrap();
+	let server = PoprfServer::<Cs>::from_seed(&seed, &[], INFO).unwrap();
 
 	assert_eq!(
-		&KeyPair::derive::<CS>(Mode::Poprf, &seed, &[]).unwrap(),
+		&KeyPair::derive::<Cs>(Mode::Poprf, &seed, &[]).unwrap(),
 		server.key_pair()
 	);
 }

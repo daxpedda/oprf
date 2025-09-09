@@ -25,7 +25,7 @@ macro_rules! group {
 			#[bench::P521(args = (NistP521), setup = setup)]
 			#[bench::Ristretto255(args = (ristretto255::Ristretto255), setup = setup)]
 			#[bench::Decaf448(args = (decaf448::Decaf448), setup = setup)]
-			fn [<$mode:lower>]<CS: CipherSuite>(setup: Setup<CS>) {
+			fn [<$mode:lower>]<Cs: CipherSuite>(setup: Setup<Cs>) {
 				oprf_test::bench(Mode::$mode, setup);
 			}
 		}
@@ -33,7 +33,7 @@ macro_rules! group {
 }
 
 /// IAI doesn't support generics, so we infer it from the parameter.
-fn setup<CS: CipherSuite>(_: CS) -> Setup<CS> {
+fn setup<Cs: CipherSuite>(_: Cs) -> Setup<Cs> {
 	Setup::default()
 }
 

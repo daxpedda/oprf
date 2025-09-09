@@ -349,23 +349,23 @@ pub(crate) trait CipherSuiteExt: CipherSuite {
 	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>>;
 }
 
-impl<CS: CipherSuite> CipherSuiteExt for CS {
-	const I2OSP_ELEMENT_LEN: [u8; 2] = ElementLength::<CS>::U16.to_be_bytes();
+impl<Cs: CipherSuite> CipherSuiteExt for Cs {
+	const I2OSP_ELEMENT_LEN: [u8; 2] = ElementLength::<Cs>::U16.to_be_bytes();
 
 	fn hash_to_scalar(
 		mode: Mode,
 		input: &[&[u8]],
 		dst_pre_concat: Option<&'static [u8]>,
 	) -> Result<Scalar<Self>> {
-		CS::Group::hash_to_scalar::<CS::ExpandMsg>(
+		Cs::Group::hash_to_scalar::<Cs::ExpandMsg>(
 			input,
-			&dst::<CS>(mode, dst_pre_concat.unwrap_or(b"HashToScalar-")),
+			&dst::<Cs>(mode, dst_pre_concat.unwrap_or(b"HashToScalar-")),
 		)
 		.map_err(|_| Error::InvalidCipherSuite)
 	}
 
 	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>> {
-		CS::Group::hash_to_curve::<CS::ExpandMsg>(input, &dst::<CS>(mode, b"HashToGroup-"))
+		Cs::Group::hash_to_curve::<Cs::ExpandMsg>(input, &dst::<Cs>(mode, b"HashToGroup-"))
 			.map_err(|_| Error::InvalidCipherSuite)?
 			.try_into()
 			.map_err(|_| Error::InvalidInput)
@@ -373,6 +373,6 @@ impl<CS: CipherSuite> CipherSuiteExt for CS {
 }
 
 /// Returns the default DST.
-fn dst<CS: CipherSuite>(mode: Mode, pre_concat: &'static [u8]) -> [&'static [u8]; 5] {
-	[pre_concat].concat(internal::create_context_string::<CS>(mode))
+fn dst<Cs: CipherSuite>(mode: Mode, pre_concat: &'static [u8]) -> [&'static [u8]; 5] {
+	[pre_concat].concat(internal::create_context_string::<Cs>(mode))
 }

@@ -57,12 +57,12 @@ impl<G: Group> KeyPair<G> {
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
 	///   the given input.
-	pub fn derive<CS: CipherSuite<Group = G>>(
+	pub fn derive<Cs: CipherSuite<Group = G>>(
 		mode: Mode,
 		seed: &[u8; 32],
 		info: &[u8],
 	) -> Result<Self> {
-		SecretKey::derive::<CS>(mode, seed, info).map(Self::from_secret_key)
+		SecretKey::derive::<Cs>(mode, seed, info).map(Self::from_secret_key)
 	}
 
 	/// Returns a [`KeyPair`] with the given [`SecretKey`] and deriving its
@@ -156,7 +156,7 @@ impl<G: Group> SecretKey<G> {
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
 	///   the given input.
-	pub fn derive<CS: CipherSuite<Group = G>>(
+	pub fn derive<Cs: CipherSuite<Group = G>>(
 		mode: Mode,
 		seed: &[u8; 32],
 		info: &[u8],
@@ -168,7 +168,7 @@ impl<G: Group> SecretKey<G> {
 		];
 
 		for counter in 0..=u8::MAX {
-			let secret_key = CS::hash_to_scalar(
+			let secret_key = Cs::hash_to_scalar(
 				mode,
 				&derive_input.concat([slice::from_ref(&counter)]),
 				Some(b"DeriveKeyPair"),

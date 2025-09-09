@@ -29,20 +29,20 @@ use crate::group::{CipherSuiteExt, Group};
 use crate::util::{CollectArray, Concat, I2osp, I2ospLength, UpdateIter};
 
 /// Returned by [`batch_blind()`].
-pub(crate) struct BlindResult<CS: CipherSuite, const N: usize> {
+pub(crate) struct BlindResult<Cs: CipherSuite, const N: usize> {
 	/// `blind`s.
-	pub(crate) blinds: [NonZeroScalar<CS>; N],
+	pub(crate) blinds: [NonZeroScalar<Cs>; N],
 	/// `blindedElement`s.
-	pub(crate) blinded_elements: [BlindedElement<CS>; N],
+	pub(crate) blinded_elements: [BlindedElement<Cs>; N],
 }
 
 /// Returned by [`batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
-pub(crate) struct AllocBlindResult<CS: CipherSuite> {
+pub(crate) struct AllocBlindResult<Cs: CipherSuite> {
 	/// `blind`s.
-	pub(crate) blinds: Vec<NonZeroScalar<CS>>,
+	pub(crate) blinds: Vec<NonZeroScalar<Cs>>,
 	/// `blindedElement`s.
-	pub(crate) blinded_elements: Vec<BlindedElement<CS>>,
+	pub(crate) blinded_elements: Vec<BlindedElement<Cs>>,
 }
 
 /// Corresponds to
@@ -59,11 +59,11 @@ pub(crate) struct ElementWrapper<G: Group> {
 }
 
 /// Returned by [`compute_composites()`].
-pub(crate) struct Composites<CS: CipherSuite> {
+pub(crate) struct Composites<Cs: CipherSuite> {
 	/// `M`. Might be half the expected value to facilitate batch serialization.
-	M: Element<CS>,
+	M: Element<Cs>,
 	/// `Z`. Might be half the expected value to facilitate batch serialization.
-	Z: Element<CS>,
+	Z: Element<Cs>,
 }
 
 impl<'info> Info<'info> {
@@ -229,13 +229,13 @@ impl<G: Group> Serialize for ElementWrapper<G> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for Composites<CS> {
+impl<Cs: CipherSuite> Clone for Composites<Cs> {
 	fn clone(&self) -> Self {
 		*self
 	}
 }
 
-impl<CS: CipherSuite> Copy for Composites<CS> {}
+impl<Cs: CipherSuite> Copy for Composites<Cs> {}
 
 /// Corresponds to
 /// [`GenerateProof()` in RFC 9497 § 2.2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.1-3).
@@ -249,25 +249,25 @@ impl<CS: CipherSuite> Copy for Composites<CS> {}
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
 /// - [`Error::Random`] if the given `rng` fails.
-pub(crate) fn generate_proof<CS, R>(
+pub(crate) fn generate_proof<Cs, R>(
 	mode: Mode,
 	rng: &mut R,
-	k: NonZeroScalar<CS>,
-	composites: Composites<CS>,
-	B: &ElementWrapper<CS::Group>,
-) -> Result<Proof<CS>, Error<R::Error>>
+	k: NonZeroScalar<Cs>,
+	composites: Composites<Cs>,
+	B: &ElementWrapper<Cs::Group>,
+) -> Result<Proof<Cs>, Error<R::Error>>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 	R: ?Sized + TryCryptoRng,
 {
-	let Composites::<CS> { M, Z } = composites;
+	let Composites::<Cs> { M, Z } = composites;
 
-	let r = CS::Group::scalar_random(rng).map_err(Error::Random)?.into();
+	let r = Cs::Group::scalar_random(rng).map_err(Error::Random)?.into();
 	// `A` is always the generator element.
-	let t2 = CS::Group::scalar_mul_by_generator(&CS::Group::scalar_maybe_halve(&r));
+	let t2 = Cs::Group::scalar_mul_by_generator(&Cs::Group::scalar_maybe_halve(&r));
 	let t3 = r * &M;
 
-	let c = compute_c::<CS>(mode, B, M, Z, t2, t3).map_err(Error::into_random::<R>)?;
+	let c = compute_c::<Cs>(mode, B, M, Z, t2, t3).map_err(Error::into_random::<R>)?;
 	let s = r - &(c * k.deref());
 
 	Ok(Proof { c, s })
@@ -282,28 +282,28 @@ where
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
 /// - [`Error::Proof`] if the [`Proof`] is invalid.
-pub(crate) fn verify_proof<CS>(
+pub(crate) fn verify_proof<Cs>(
 	mode: Mode,
-	composites: Composites<CS>,
-	B: &ElementWrapper<CS::Group>,
-	proof: &Proof<CS>,
+	composites: Composites<Cs>,
+	B: &ElementWrapper<Cs::Group>,
+	proof: &Proof<Cs>,
 ) -> Result<()>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 {
-	let Composites::<CS> { M, Z } = composites;
+	let Composites::<Cs> { M, Z } = composites;
 	let Proof { c, s } = proof;
 
-	let t2 = CS::Group::lincomb(&[
+	let t2 = Cs::Group::lincomb(&[
 		(
-			CS::Group::element_generator(),
-			CS::Group::scalar_maybe_halve(s),
+			Cs::Group::element_generator(),
+			Cs::Group::scalar_maybe_halve(s),
 		),
-		(B.element.into(), CS::Group::scalar_maybe_halve(c)),
+		(B.element.into(), Cs::Group::scalar_maybe_halve(c)),
 	]);
-	let t3 = CS::Group::lincomb(&[(M, *s), (Z, *c)]);
+	let t3 = Cs::Group::lincomb(&[(M, *s), (Z, *c)]);
 
-	let expected_c = compute_c::<CS>(mode, B, M, Z, t2, t3)?;
+	let expected_c = compute_c::<Cs>(mode, B, M, Z, t2, t3)?;
 
 	if &expected_c == c {
 		Ok(())
@@ -324,29 +324,29 @@ where
 /// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 /// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 /// are incompatible.
-fn compute_c<CS: CipherSuite>(
+fn compute_c<Cs: CipherSuite>(
 	mode: Mode,
-	B: &ElementWrapper<CS::Group>,
-	M: Element<CS>,
-	Z: Element<CS>,
-	t2: Element<CS>,
-	t3: Element<CS>,
-) -> Result<Scalar<CS>> {
+	B: &ElementWrapper<Cs::Group>,
+	M: Element<Cs>,
+	Z: Element<Cs>,
+	t2: Element<Cs>,
+	t3: Element<Cs>,
+) -> Result<Scalar<Cs>> {
 	let Bm = &B.repr;
-	let [a0, a1, a2, a3] = CS::Group::element_batch_maybe_double_to_repr(&[M, Z, t2, t3]);
+	let [a0, a1, a2, a3] = Cs::Group::element_batch_maybe_double_to_repr(&[M, Z, t2, t3]);
 
-	CS::hash_to_scalar(
+	Cs::hash_to_scalar(
 		mode,
 		&[
-			&CS::I2OSP_ELEMENT_LEN,
+			&Cs::I2OSP_ELEMENT_LEN,
 			Bm,
-			&CS::I2OSP_ELEMENT_LEN,
+			&Cs::I2OSP_ELEMENT_LEN,
 			&a0,
-			&CS::I2OSP_ELEMENT_LEN,
+			&Cs::I2OSP_ELEMENT_LEN,
 			&a1,
-			&CS::I2OSP_ELEMENT_LEN,
+			&Cs::I2OSP_ELEMENT_LEN,
 			&a2,
-			&CS::I2OSP_ELEMENT_LEN,
+			&Cs::I2OSP_ELEMENT_LEN,
 			&a3,
 			b"Challenge",
 		],
@@ -364,27 +364,27 @@ fn compute_c<CS: CipherSuite>(
 /// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 /// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 /// are incompatible.
-pub(crate) fn compute_composites<'items, CS, const N: usize>(
+pub(crate) fn compute_composites<'items, Cs, const N: usize>(
 	mode: Mode,
-	k: Option<NonZeroScalar<CS>>,
-	B: &ElementWrapper<CS::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-) -> Result<Composites<CS>>
+	k: Option<NonZeroScalar<Cs>>,
+	B: &ElementWrapper<Cs::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+) -> Result<Composites<Cs>>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 {
 	debug_assert_ne!(N, 0, "found zero item length");
 	debug_assert_eq!(N, C.len(), "found unequal item length");
 	debug_assert_eq!(N, D.len(), "found unequal item length");
 	debug_assert!(N <= u16::MAX.into(), "found overflowing item length");
 
-	let mut Ms = [(Element::<CS>::default(), Scalar::<CS>::default()); N];
+	let mut Ms = [(Element::<Cs>::default(), Scalar::<Cs>::default()); N];
 	let mut Zs = k
 		.is_none()
-		.then(|| [(Element::<CS>::default(), Scalar::<CS>::default()); N]);
+		.then(|| [(Element::<Cs>::default(), Scalar::<Cs>::default()); N]);
 
-	internal_compute_composites::<CS>(
+	internal_compute_composites::<Cs>(
 		mode,
 		N,
 		B,
@@ -395,9 +395,9 @@ where
 	)?;
 
 	// We skip the initial addition to the identity point, which is a no-op.
-	let M = CS::Group::lincomb(&Ms);
+	let M = Cs::Group::lincomb(&Ms);
 	let Z = k.map_or_else(
-		|| CS::Group::lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
+		|| Cs::Group::lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
 		|k| k.into() * &M,
 	);
 
@@ -415,32 +415,32 @@ where
 /// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 /// are incompatible.
 #[cfg(feature = "alloc")]
-pub(crate) fn alloc_compute_composites<'items, CS>(
+pub(crate) fn alloc_compute_composites<'items, Cs>(
 	mode: Mode,
 	length: usize,
-	k: Option<NonZeroScalar<CS>>,
-	B: &ElementWrapper<CS::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-) -> Result<Composites<CS>>
+	k: Option<NonZeroScalar<Cs>>,
+	B: &ElementWrapper<Cs::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+) -> Result<Composites<Cs>>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 {
 	debug_assert_ne!(length, 0, "found zero item length");
 	debug_assert_eq!(length, C.len(), "found unequal item length");
 	debug_assert_eq!(length, D.len(), "found unequal item length");
 	debug_assert!(length <= u16::MAX.into(), "found overflowing item length");
 
-	let mut Ms = vec![(Element::<CS>::default(), Scalar::<CS>::default()); length];
+	let mut Ms = vec![(Element::<Cs>::default(), Scalar::<Cs>::default()); length];
 	let mut Zs = k
 		.is_none()
-		.then(|| vec![(Element::<CS>::default(), Scalar::<CS>::default()); length]);
+		.then(|| vec![(Element::<Cs>::default(), Scalar::<Cs>::default()); length]);
 
-	internal_compute_composites::<CS>(mode, length, B, C, D, &mut Ms, Zs.as_deref_mut())?;
+	internal_compute_composites::<Cs>(mode, length, B, C, D, &mut Ms, Zs.as_deref_mut())?;
 
-	let M = CS::Group::alloc_lincomb(&Ms);
+	let M = Cs::Group::alloc_lincomb(&Ms);
 	let Z = k.map_or_else(
-		|| CS::Group::alloc_lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
+		|| Cs::Group::alloc_lincomb(&Zs.expect("`Zs` must be present if `k` is not")),
 		|k| k.into() * &M,
 	);
 
@@ -457,17 +457,17 @@ where
 /// Returns [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 /// [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 /// are incompatible.
-fn internal_compute_composites<'items, CS>(
+fn internal_compute_composites<'items, Cs>(
 	mode: Mode,
 	length: usize,
-	B: &ElementWrapper<CS::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<CS::Group>>,
-	Ms: &mut [(Element<CS>, Scalar<CS>)],
-	Zs: Option<&mut [(Element<CS>, Scalar<CS>)]>,
+	B: &ElementWrapper<Cs::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	Ms: &mut [(Element<Cs>, Scalar<Cs>)],
+	Zs: Option<&mut [(Element<Cs>, Scalar<Cs>)]>,
 ) -> Result<()>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 {
 	debug_assert_ne!(length, 0, "found zero item length");
 	debug_assert_eq!(length, C.len(), "found unequal item length");
@@ -485,11 +485,11 @@ where
 	debug_assert!(length <= u16::MAX.into(), "found overflowing item length");
 
 	let Bm = &B.repr;
-	let seed_dst = [b"Seed-".as_slice()].concat(create_context_string::<CS>(mode));
-	let seed = CS::Hash::default()
-		.chain(CS::I2OSP_ELEMENT_LEN)
+	let seed_dst = [b"Seed-".as_slice()].concat(create_context_string::<Cs>(mode));
+	let seed = Cs::Hash::default()
+		.chain(Cs::I2OSP_ELEMENT_LEN)
 		.chain(Bm)
-		.chain(seed_dst.i2osp_length().expect("`CS::Id` too long"))
+		.chain(seed_dst.i2osp_length().expect("`Cs::Id` too long"))
 		.chain_iter(seed_dst.into_iter())
 		.finalize_fixed();
 
@@ -503,22 +503,22 @@ where
 			),
 		),
 	) {
-		let mut di = CS::hash_to_scalar(
+		let mut di = Cs::hash_to_scalar(
 			mode,
 			&[
-				&<CS::Hash as OutputSizeUser>::OutputSize::U16.i2osp(),
+				&<Cs::Hash as OutputSizeUser>::OutputSize::U16.i2osp(),
 				&seed,
 				&i.i2osp(),
-				&CS::I2OSP_ELEMENT_LEN,
+				&Cs::I2OSP_ELEMENT_LEN,
 				&Ci.repr,
-				&CS::I2OSP_ELEMENT_LEN,
+				&Cs::I2OSP_ELEMENT_LEN,
 				&Di.repr,
 				b"Composite",
 			],
 			None,
 		)?;
 
-		di = CS::Group::scalar_maybe_halve(&di);
+		di = Cs::Group::scalar_maybe_halve(&di);
 
 		*M = (Ci.element.into(), di);
 
@@ -532,8 +532,8 @@ where
 
 /// Corresponds to
 /// [`CreateContextString()` in RFC 9497 § 3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.1-5).
-pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> [&'static [u8]; 4] {
-	[b"OPRFV1-", mode.i2osp(), b"-", &CS::ID]
+pub(crate) fn create_context_string<Cs: CipherSuite>(mode: Mode) -> [&'static [u8]; 4] {
+	[b"OPRFV1-", mode.i2osp(), b"-", &Cs::ID]
 }
 
 /// Corresponds to
@@ -548,18 +548,18 @@ pub(crate) fn create_context_string<CS: CipherSuite>(mode: Mode) -> [&'static [u
 /// - [`Error::InvalidInput`] if a given input can never produce a valid
 ///   [`BlindedElement`].
 /// - [`Error::Random`] if the given `rng` fails.
-pub(crate) fn batch_blind<CS, R, const N: usize>(
+pub(crate) fn batch_blind<Cs, R, const N: usize>(
 	mode: Mode,
 	rng: &mut R,
 	inputs: &[&[&[u8]]; N],
-) -> Result<BlindResult<CS, N>, Error<R::Error>>
+) -> Result<BlindResult<Cs, N>, Error<R::Error>>
 where
-	[NonIdentityElement<CS>; N]: AssocArraySize<
-		Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+	[NonIdentityElement<Cs>; N]: AssocArraySize<
+		Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
 	>,
-	[NonZeroScalar<CS>; N]:
-		AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
-	CS: CipherSuite,
+	[NonZeroScalar<Cs>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<Cs>> = [NonZeroScalar<Cs>; N]>>,
+	Cs: CipherSuite,
 	R: ?Sized + TryCryptoRng,
 {
 	let input_elements = ArrayN::<_, N>::try_from_fn(|index| {
@@ -569,13 +569,13 @@ where
 		// Fail early.
 		input.i2osp_length().ok_or(Error::InputLength)?;
 
-		CS::hash_to_curve(mode, input).map_err(Error::into_random::<R>)
+		Cs::hash_to_curve(mode, input).map_err(Error::into_random::<R>)
 	})?
 	.0;
 
 	let blinds = ArrayN::<_, N>::try_from_fn(|_| {
 		// Moved `blind` after to fail early.
-		CS::Group::scalar_random(rng).map_err(Error::Random)
+		Cs::Group::scalar_random(rng).map_err(Error::Random)
 	})?
 	.0;
 
@@ -601,13 +601,13 @@ where
 ///   [`BlindedElement`].
 /// - [`Error::Random`] if the given `rng` fails.
 #[cfg(feature = "alloc")]
-pub(crate) fn batch_alloc_blind<'inputs, CS, R>(
+pub(crate) fn batch_alloc_blind<'inputs, Cs, R>(
 	mode: Mode,
 	rng: &mut R,
 	mut inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-) -> Result<AllocBlindResult<CS>, Error<R::Error>>
+) -> Result<AllocBlindResult<Cs>, Error<R::Error>>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 	R: ?Sized + TryCryptoRng,
 {
 	let (blinds, blinded_elements) = inputs.try_fold(
@@ -616,10 +616,10 @@ where
 			// Fail early.
 			input.i2osp_length().ok_or(Error::InputLength)?;
 
-			let input_element = CS::hash_to_curve(mode, input).map_err(Error::into_random::<R>)?;
+			let input_element = Cs::hash_to_curve(mode, input).map_err(Error::into_random::<R>)?;
 
 			// Moved `blind` after to fail early.
-			let blind = CS::Group::scalar_random(rng).map_err(Error::Random)?;
+			let blind = Cs::Group::scalar_random(rng).map_err(Error::Random)?;
 
 			let blinded_element = (input_element, blind);
 
@@ -646,30 +646,30 @@ where
 /// Returns [`Error::InputLength`] if a given input exceeds a length of
 /// [`u16::MAX`].
 #[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_finalize<'evaluation_elements, CS, const N: usize>(
+pub(crate) fn batch_finalize<'evaluation_elements, Cs, const N: usize>(
 	inputs: &[&[&[u8]]; N],
-	blinds: [NonZeroScalar<CS>; N],
-	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
+	blinds: [NonZeroScalar<Cs>; N],
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<Cs>>,
 	info: Option<Info<'_>>,
-) -> Result<[Output<CS::Hash>; N]>
+) -> Result<[Output<Cs::Hash>; N]>
 where
-	[Output<CS::Hash>; N]:
-		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-	CS: CipherSuite,
+	[Output<Cs::Hash>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
+	Cs: CipherSuite,
 {
 	debug_assert_eq!(N, evaluation_elements.len(), "found unequal item length");
 
-	let inverted_blinds = CS::Group::scalar_batch_invert(blinds);
+	let inverted_blinds = Cs::Group::scalar_batch_invert(blinds);
 	let n = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| {
-			maybe_halve::<CS::Group>(&inverted_blind, N) * evaluation_element.deref()
+			maybe_halve::<Cs::Group>(&inverted_blind, N) * evaluation_element.deref()
 		})
 		.collect_array::<N>();
-	let unblinded_elements = batch_maybe_double_to_repr::<CS::Group, N>(&n);
+	let unblinded_elements = batch_maybe_double_to_repr::<Cs::Group, N>(&n);
 
-	let mut outputs = internal_finalize::<CS>(inputs.iter().copied(), &unblinded_elements, info);
+	let mut outputs = internal_finalize::<Cs>(inputs.iter().copied(), &unblinded_elements, info);
 	// Using `Iterator::collect()` can panic!
 	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
 		outputs
@@ -689,15 +689,15 @@ where
 /// [`u16::MAX`].
 #[cfg(feature = "alloc")]
 #[expect(single_use_lifetimes, reason = "false-positive")]
-pub(crate) fn batch_alloc_finalize<'inputs, 'evaluation_elements, CS>(
+pub(crate) fn batch_alloc_finalize<'inputs, 'evaluation_elements, Cs>(
 	length: usize,
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	blinds: Vec<NonZeroScalar<CS>>,
-	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<CS>>,
+	blinds: Vec<NonZeroScalar<Cs>>,
+	evaluation_elements: impl ExactSizeIterator<Item = &'evaluation_elements NonIdentityElement<Cs>>,
 	info: Option<Info<'_>>,
-) -> Result<Vec<Output<CS::Hash>>>
+) -> Result<Vec<Output<Cs::Hash>>>
 where
-	CS: CipherSuite,
+	Cs: CipherSuite,
 {
 	debug_assert_eq!(length, inputs.len(), "found unequal item length");
 	debug_assert_eq!(length, blinds.len(), "found unequal item length");
@@ -707,17 +707,17 @@ where
 		"found unequal item length"
 	);
 
-	let inverted_blinds = CS::Group::scalar_batch_alloc_invert(blinds);
+	let inverted_blinds = Cs::Group::scalar_batch_alloc_invert(blinds);
 	let n: Vec<_> = inverted_blinds
 		.into_iter()
 		.zip(evaluation_elements)
 		.map(|(inverted_blind, evaluation_element)| {
-			non_zero_maybe_halve::<CS::Group>(&inverted_blind, length) * evaluation_element
+			non_zero_maybe_halve::<Cs::Group>(&inverted_blind, length) * evaluation_element
 		})
 		.collect();
-	let unblinded_elements = non_identity_batch_alloc_maybe_double_to_repr::<CS::Group>(&n);
+	let unblinded_elements = non_identity_batch_alloc_maybe_double_to_repr::<Cs::Group>(&n);
 
-	internal_finalize::<CS>(inputs, &unblinded_elements, info).collect()
+	internal_finalize::<Cs>(inputs, &unblinded_elements, info).collect()
 }
 
 /// Corresponds to
@@ -727,11 +727,11 @@ where
 ///
 /// Returns [`Error::InputLength`] if a given input exceeds a length of
 /// [`u16::MAX`].
-fn internal_finalize<'inputs, CS: CipherSuite>(
+fn internal_finalize<'inputs, Cs: CipherSuite>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-	unblinded_elements: &[Array<u8, ElementLength<CS>>],
+	unblinded_elements: &[Array<u8, ElementLength<Cs>>],
 	info: Option<Info<'_>>,
-) -> impl Iterator<Item = Result<Output<CS::Hash>>> {
+) -> impl Iterator<Item = Result<Output<Cs::Hash>>> {
 	debug_assert_eq!(
 		inputs.len(),
 		unblinded_elements.len(),
@@ -741,7 +741,7 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 	inputs
 		.zip(unblinded_elements)
 		.map(move |(input, unblinded_element)| {
-			let mut hash = CS::Hash::default()
+			let mut hash = Cs::Hash::default()
 				.chain(input.i2osp_length().ok_or(Error::InputLength)?)
 				.chain_iter(input.iter().copied());
 
@@ -751,7 +751,7 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 			}
 
 			Ok(hash
-				.chain(CS::I2OSP_ELEMENT_LEN)
+				.chain(Cs::I2OSP_ELEMENT_LEN)
 				.chain(unblinded_element)
 				.chain(b"Finalize")
 				.finalize_fixed())
@@ -768,29 +768,29 @@ fn internal_finalize<'inputs, CS: CipherSuite>(
 ///   are incompatible.
 /// - [`Error::InvalidInput`] if a given input can never produce a valid output.
 /// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
-pub(crate) fn batch_evaluate<CS, const N: usize>(
+pub(crate) fn batch_evaluate<Cs, const N: usize>(
 	mode: Mode,
-	secret_key: NonZeroScalar<CS>,
+	secret_key: NonZeroScalar<Cs>,
 	inputs: &[&[&[u8]]; N],
 	info: Option<Info<'_>>,
-) -> Result<[Output<CS::Hash>; N]>
+) -> Result<[Output<Cs::Hash>; N]>
 where
-	[Element<CS>; N]: AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-	[Output<CS::Hash>; N]:
-		AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
-	CS: CipherSuite,
+	[Element<Cs>; N]: AssocArraySize<Size: ArraySize<ArrayType<Element<Cs>> = [Element<Cs>; N]>>,
+	[Output<Cs::Hash>; N]:
+		AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
+	Cs: CipherSuite,
 {
 	let evaluation_elements = ArrayN::try_from_fn(|index| {
 		#[expect(clippy::indexing_slicing, reason = "`N` matches")]
 		let input = inputs[index];
 
-		let input_element = CS::hash_to_curve(mode, input)?;
-		Ok(maybe_halve::<CS::Group>(&secret_key, N) * input_element.deref())
+		let input_element = Cs::hash_to_curve(mode, input)?;
+		Ok(maybe_halve::<Cs::Group>(&secret_key, N) * input_element.deref())
 	})?
 	.0;
-	let issued_elements = batch_maybe_double_to_repr::<CS::Group, N>(&evaluation_elements);
+	let issued_elements = batch_maybe_double_to_repr::<Cs::Group, N>(&evaluation_elements);
 
-	let mut outputs = internal_evaluate::<CS>(inputs, &issued_elements, info);
+	let mut outputs = internal_evaluate::<Cs>(inputs, &issued_elements, info);
 
 	// Using `Iterator::collect()` can panic!
 	let outputs = ArrayN::<_, N>::try_from_fn(|_| {
@@ -813,23 +813,23 @@ where
 /// - [`Error::InvalidInput`] if a given input can never produce a valid output.
 /// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
 #[cfg(feature = "alloc")]
-pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
+pub(crate) fn batch_alloc_evaluate<Cs: CipherSuite>(
 	mode: Mode,
-	secret_key: NonZeroScalar<CS>,
+	secret_key: NonZeroScalar<Cs>,
 	inputs: &[&[&[u8]]],
 	info: Option<Info<'_>>,
-) -> Result<Vec<Output<CS::Hash>>> {
+) -> Result<Vec<Output<Cs::Hash>>> {
 	let evaluation_elements = inputs
 		.iter()
 		.map(|input| {
-			let input_element = CS::hash_to_curve(mode, input)?;
-			Ok(non_zero_maybe_halve::<CS::Group>(&secret_key, inputs.len()) * &input_element)
+			let input_element = Cs::hash_to_curve(mode, input)?;
+			Ok(non_zero_maybe_halve::<Cs::Group>(&secret_key, inputs.len()) * &input_element)
 		})
 		.collect::<Result<Vec<_>>>()?;
 	let issued_elements =
-		non_identity_batch_alloc_maybe_double_to_repr::<CS::Group>(&evaluation_elements);
+		non_identity_batch_alloc_maybe_double_to_repr::<Cs::Group>(&evaluation_elements);
 
-	internal_evaluate::<CS>(inputs, &issued_elements, info).collect()
+	internal_evaluate::<Cs>(inputs, &issued_elements, info).collect()
 }
 
 /// Corresponds to
@@ -839,16 +839,16 @@ pub(crate) fn batch_alloc_evaluate<CS: CipherSuite>(
 ///
 /// Returns [`Error::InputLength`] if a given input exceeds a length of
 /// [`u16::MAX`].
-fn internal_evaluate<CS: CipherSuite>(
+fn internal_evaluate<Cs: CipherSuite>(
 	inputs: &[&[&[u8]]],
-	issued_elements: &[Array<u8, ElementLength<CS>>],
+	issued_elements: &[Array<u8, ElementLength<Cs>>],
 	info: Option<Info<'_>>,
-) -> impl Iterator<Item = Result<Output<CS::Hash>>> {
+) -> impl Iterator<Item = Result<Output<Cs::Hash>>> {
 	inputs
 		.iter()
 		.zip(issued_elements)
 		.map(move |(input, issued_element)| {
-			let mut hash = CS::Hash::default()
+			let mut hash = Cs::Hash::default()
 				.chain(input.i2osp_length().ok_or(Error::InputLength)?)
 				.chain_iter(input.iter().copied());
 
@@ -858,7 +858,7 @@ fn internal_evaluate<CS: CipherSuite>(
 			}
 
 			Ok(hash
-				.chain(CS::I2OSP_ELEMENT_LEN)
+				.chain(Cs::I2OSP_ELEMENT_LEN)
 				.chain(issued_element)
 				.chain(b"Finalize")
 				.finalize_fixed())

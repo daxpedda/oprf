@@ -43,74 +43,74 @@ use rand_core::{OsRng, TryRngCore};
 use super::{INFO, INPUT};
 use crate::rng::MockRng;
 
-type CsGroup<CS> = <CS as CipherSuite>::Group;
-type NonZeroScalar<CS> = <CsGroup<CS> as Group>::NonZeroScalar;
-type NonIdentityElement<CS> = <CsGroup<CS> as Group>::NonIdentityElement;
-type Element<CS> = <CsGroup<CS> as Group>::Element;
+type CsGroup<Cs> = <Cs as CipherSuite>::Group;
+type NonZeroScalar<Cs> = <CsGroup<Cs> as Group>::NonZeroScalar;
+type NonIdentityElement<Cs> = <CsGroup<Cs> as Group>::NonIdentityElement;
+type Element<Cs> = <CsGroup<Cs> as Group>::Element;
 
 /// Wrapper around clients in all [`Mode`]s.
 #[derive_where(Debug)]
-enum Client<CS: CipherSuite> {
-	Oprf(OprfClient<CS>),
-	Voprf(VoprfClient<CS>),
-	Poprf(PoprfClient<CS>),
+enum Client<Cs: CipherSuite> {
+	Oprf(OprfClient<Cs>),
+	Voprf(VoprfClient<Cs>),
+	Poprf(PoprfClient<Cs>),
 }
 
 /// Wrapper around clients in all [`Mode`]s and their `Blind` output.
 #[derive_where(Debug)]
-pub struct CommonClient<CS: CipherSuite> {
-	client: Client<CS>,
-	blinded_element: BlindedElement<CS>,
+pub struct CommonClient<Cs: CipherSuite> {
+	client: Client<Cs>,
+	blinded_element: BlindedElement<Cs>,
 }
 
 /// Wrapper around multiple clients in all [`Mode`]s.
 #[derive_where(Debug, Eq, PartialEq)]
-enum ClientBatch<CS: CipherSuite> {
-	Oprf(Vec<OprfClient<CS>>),
-	Voprf(Vec<VoprfClient<CS>>),
-	Poprf(Vec<PoprfClient<CS>>),
+enum ClientBatch<Cs: CipherSuite> {
+	Oprf(Vec<OprfClient<Cs>>),
+	Voprf(Vec<VoprfClient<Cs>>),
+	Poprf(Vec<PoprfClient<Cs>>),
 }
 
 /// Wrapper around multiple clients in all [`Mode`]s and their `Blind` output.
 #[derive_where(Debug, Eq, PartialEq)]
-pub struct CommonClientBatch<CS: CipherSuite> {
-	clients: ClientBatch<CS>,
-	blinded_elements: Vec<BlindedElement<CS>>,
+pub struct CommonClientBatch<Cs: CipherSuite> {
+	clients: ClientBatch<Cs>,
+	blinded_elements: Vec<BlindedElement<Cs>>,
 }
 
 /// Wrapper around servers in all [`Mode`]s and potentially their
 /// `BlindEvaluate` [`Proof`] output.
 #[derive_where(Debug, Eq, PartialEq)]
-enum Server<CS: CipherSuite> {
-	Oprf(OprfServer<CS>),
+enum Server<Cs: CipherSuite> {
+	Oprf(OprfServer<Cs>),
 	Voprf {
-		server: VoprfServer<CS>,
-		proof: Proof<CS>,
+		server: VoprfServer<Cs>,
+		proof: Proof<Cs>,
 	},
 	Poprf {
-		server: PoprfServer<CS>,
-		proof: Proof<CS>,
+		server: PoprfServer<Cs>,
+		proof: Proof<Cs>,
 	},
 }
 
 /// Wrapper around servers in all [`Mode`]s and their `BlindEvalaute` output.
 #[derive_where(Debug)]
-pub struct CommonServer<CS: CipherSuite> {
-	server: Server<CS>,
-	evaluation_element: EvaluationElement<CS>,
+pub struct CommonServer<Cs: CipherSuite> {
+	server: Server<Cs>,
+	evaluation_element: EvaluationElement<Cs>,
 }
 
 /// Wrapper around servers in all [`Mode`]s and their batched `BlindEvalaute`
 /// output.
 #[derive_where(Debug, Eq, PartialEq)]
-pub struct CommonServerBatch<CS: CipherSuite> {
-	server: Server<CS>,
-	evaluation_elements: Vec<EvaluationElement<CS>>,
+pub struct CommonServerBatch<Cs: CipherSuite> {
+	server: Server<Cs>,
+	evaluation_elements: Vec<EvaluationElement<Cs>>,
 }
 
-impl<CS: CipherSuite> CommonClient<CS> {
+impl<Cs: CipherSuite> CommonClient<Cs> {
 	#[must_use]
-	pub const fn blinded_element(&self) -> &BlindedElement<CS> {
+	pub const fn blinded_element(&self) -> &BlindedElement<Cs> {
 		&self.blinded_element
 	}
 
@@ -131,7 +131,7 @@ impl<CS: CipherSuite> CommonClient<CS> {
 				let OprfBlindResult {
 					client,
 					blinded_element,
-				} = OprfClient::<CS>::blind(&mut rng, input)?;
+				} = OprfClient::<Cs>::blind(&mut rng, input)?;
 
 				Ok(Self {
 					client: client.into(),
@@ -164,13 +164,13 @@ impl<CS: CipherSuite> CommonClient<CS> {
 	}
 
 	#[must_use]
-	pub fn batch<const N: usize>(mode: Mode) -> CommonClientBatch<CS>
+	pub fn batch<const N: usize>(mode: Mode) -> CommonClientBatch<Cs>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[NonIdentityElement<Cs>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
 		>,
-		[NonZeroScalar<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		[NonZeroScalar<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<Cs>> = [NonZeroScalar<Cs>; N]>>,
 	{
 		Self::batch_with(mode, None, &[INPUT; N]).unwrap()
 	}
@@ -179,13 +179,13 @@ impl<CS: CipherSuite> CommonClient<CS> {
 		mode: Mode,
 		blinds: Option<&[&[u8]; N]>,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<CommonClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<CommonClientBatch<Cs>, Error<<OsRng as TryRngCore>::Error>>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[NonIdentityElement<Cs>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
 		>,
-		[NonZeroScalar<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		[NonZeroScalar<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<Cs>> = [NonZeroScalar<Cs>; N]>>,
 	{
 		let blinds = blinds.map(|blinds| {
 			assert_eq!(blinds.len(), inputs.len(), "found unequal items");
@@ -234,7 +234,7 @@ impl<CS: CipherSuite> CommonClient<CS> {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc(mode: Mode, count: usize) -> CommonClientBatch<CS> {
+	pub fn batch_alloc(mode: Mode, count: usize) -> CommonClientBatch<Cs> {
 		Self::batch_alloc_with(mode, None, iter::repeat_n(INPUT, count)).unwrap()
 	}
 
@@ -243,7 +243,7 @@ impl<CS: CipherSuite> CommonClient<CS> {
 		mode: Mode,
 		blinds: Option<&[&[u8]]>,
 		inputs: I,
-	) -> Result<CommonClientBatch<CS>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<CommonClientBatch<Cs>, Error<<OsRng as TryRngCore>::Error>>
 	where
 		I: ExactSizeIterator<Item = &'input [&'input [u8]]>,
 	{
@@ -293,7 +293,7 @@ impl<CS: CipherSuite> CommonClient<CS> {
 	}
 
 	#[must_use]
-	pub fn batch_clone(mode: Mode, count: usize) -> CommonClientBatch<CS> {
+	pub fn batch_clone(mode: Mode, count: usize) -> CommonClientBatch<Cs> {
 		let Self {
 			client,
 			blinded_element,
@@ -310,7 +310,7 @@ impl<CS: CipherSuite> CommonClient<CS> {
 	}
 
 	#[must_use]
-	pub fn finalize(&self, server: &CommonServer<CS>) -> Output<CS::Hash> {
+	pub fn finalize(&self, server: &CommonServer<Cs>) -> Output<Cs::Hash> {
 		self.finalize_with(
 			server.public_key(),
 			INPUT,
@@ -323,12 +323,12 @@ impl<CS: CipherSuite> CommonClient<CS> {
 
 	pub fn finalize_with(
 		&self,
-		public_key: Option<&PublicKey<CS::Group>>,
+		public_key: Option<&PublicKey<Cs::Group>>,
 		input: &[&[u8]],
-		evaluation_element: &EvaluationElement<CS>,
-		proof: Option<&Proof<CS>>,
+		evaluation_element: &EvaluationElement<Cs>,
+		proof: Option<&Proof<Cs>>,
 		info: &[u8],
-	) -> Result<Output<CS::Hash>> {
+	) -> Result<Output<Cs::Hash>> {
 		match &self.client {
 			Client::Oprf(client) => client.finalize(input, evaluation_element),
 			Client::Voprf(client) => client.finalize(
@@ -348,7 +348,7 @@ impl<CS: CipherSuite> CommonClient<CS> {
 	}
 }
 
-impl<CS: CipherSuite> CommonClientBatch<CS> {
+impl<Cs: CipherSuite> CommonClientBatch<Cs> {
 	#[must_use]
 	const fn mode(&self) -> Mode {
 		match self.clients {
@@ -359,7 +359,7 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 	}
 
 	#[must_use]
-	pub fn blinded_elements(&self) -> &[BlindedElement<CS>] {
+	pub fn blinded_elements(&self) -> &[BlindedElement<Cs>] {
 		&self.blinded_elements
 	}
 
@@ -371,10 +371,10 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 		}
 	}
 
-	pub fn finalize<const N: usize>(&self, server: &CommonServerBatch<CS>) -> [Output<CS::Hash>; N]
+	pub fn finalize<const N: usize>(&self, server: &CommonServerBatch<Cs>) -> [Output<Cs::Hash>; N]
 	where
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		self.finalize_with::<N>(
 			server.public_key(),
@@ -388,15 +388,15 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 
 	pub fn finalize_with<const N: usize>(
 		&self,
-		public_key: Option<&PublicKey<CS::Group>>,
+		public_key: Option<&PublicKey<Cs::Group>>,
 		inputs: &[&[&[u8]]],
-		evaluation_elements: &[EvaluationElement<CS>],
-		proof: Option<&Proof<CS>>,
+		evaluation_elements: &[EvaluationElement<Cs>],
+		proof: Option<&Proof<Cs>>,
 		info: &[u8],
-	) -> Result<[Output<CS::Hash>; N]>
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		match &self.clients {
 			ClientBatch::Oprf(clients) => OprfClient::batch_finalize(
@@ -423,7 +423,7 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn finalize_alloc(&self, server: &CommonServerBatch<CS>) -> Vec<Output<CS::Hash>> {
+	pub fn finalize_alloc(&self, server: &CommonServerBatch<Cs>) -> Vec<Output<Cs::Hash>> {
 		self.finalize_alloc_with(
 			..,
 			server.public_key(),
@@ -436,21 +436,21 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn finalize_alloc_with<'inputs, 'evaluation_elements, CI, II, IEE>(
+	pub fn finalize_alloc_with<'inputs, 'evaluation_elements, Ci, Ii, Iee>(
 		&self,
-		index: CI,
-		public_key: Option<&PublicKey<CS::Group>>,
-		inputs: II,
-		evaluation_elements: IEE,
-		proof: Option<&Proof<CS>>,
+		index: Ci,
+		public_key: Option<&PublicKey<Cs::Group>>,
+		inputs: Ii,
+		evaluation_elements: Iee,
+		proof: Option<&Proof<Cs>>,
 		info: &[u8],
-	) -> Result<Vec<Output<CS::Hash>>>
+	) -> Result<Vec<Output<Cs::Hash>>>
 	where
-		CI: SliceIndex<[OprfClient<CS>], Output = [OprfClient<CS>]>
-			+ SliceIndex<[VoprfClient<CS>], Output = [VoprfClient<CS>]>
-			+ SliceIndex<[PoprfClient<CS>], Output = [PoprfClient<CS>]>,
-		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+		Ci: SliceIndex<[OprfClient<Cs>], Output = [OprfClient<Cs>]>
+			+ SliceIndex<[VoprfClient<Cs>], Output = [VoprfClient<Cs>]>
+			+ SliceIndex<[PoprfClient<Cs>], Output = [PoprfClient<Cs>]>,
+		Ii: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		Iee: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<Cs>>,
 	{
 		match &self.clients {
 			ClientBatch::Oprf(clients) => OprfClient::batch_alloc_finalize(
@@ -477,9 +477,9 @@ impl<CS: CipherSuite> CommonClientBatch<CS> {
 	}
 }
 
-impl<CS: CipherSuite> CommonServer<CS> {
+impl<Cs: CipherSuite> CommonServer<Cs> {
 	#[must_use]
-	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
+	pub const fn secret_key(&self) -> &SecretKey<Cs::Group> {
 		match &self.server {
 			Server::Oprf(server) => server.secret_key(),
 			Server::Voprf { server, .. } => server.key_pair().secret_key(),
@@ -488,7 +488,7 @@ impl<CS: CipherSuite> CommonServer<CS> {
 	}
 
 	#[must_use]
-	pub const fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
+	pub const fn public_key(&self) -> Option<&PublicKey<Cs::Group>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { server, .. } => Some(server.public_key()),
@@ -497,12 +497,12 @@ impl<CS: CipherSuite> CommonServer<CS> {
 	}
 
 	#[must_use]
-	pub const fn evaluation_element(&self) -> &EvaluationElement<CS> {
+	pub const fn evaluation_element(&self) -> &EvaluationElement<Cs> {
 		&self.evaluation_element
 	}
 
 	#[must_use]
-	pub const fn proof(&self) -> Option<&Proof<CS>> {
+	pub const fn proof(&self) -> Option<&Proof<Cs>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { proof, .. } | Server::Poprf { proof, .. } => Some(proof),
@@ -510,7 +510,7 @@ impl<CS: CipherSuite> CommonServer<CS> {
 	}
 
 	#[must_use]
-	pub fn blind_evaluate(client: &CommonClient<CS>) -> Self {
+	pub fn blind_evaluate(client: &CommonClient<Cs>) -> Self {
 		let mode = match &client.client {
 			Client::Oprf(_) => Mode::Oprf,
 			Client::Voprf(_) => Mode::Voprf,
@@ -522,8 +522,8 @@ impl<CS: CipherSuite> CommonServer<CS> {
 
 	pub fn blind_evaluate_with(
 		mode: Mode,
-		secret_key: Option<SecretKey<CS::Group>>,
-		blinded_element: &BlindedElement<CS>,
+		secret_key: Option<SecretKey<Cs::Group>>,
+		blinded_element: &BlindedElement<Cs>,
 		r: Option<&[u8]>,
 		info: &[u8],
 	) -> Result<Self, Error<<OsRng as TryRngCore>::Error>> {
@@ -583,17 +583,17 @@ impl<CS: CipherSuite> CommonServer<CS> {
 	}
 
 	#[must_use]
-	pub fn batch<const N: usize>(clients: &CommonClientBatch<CS>) -> CommonServerBatch<CS> {
+	pub fn batch<const N: usize>(clients: &CommonClientBatch<Cs>) -> CommonServerBatch<Cs> {
 		Self::batch_with::<N>(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
 	}
 
 	pub fn batch_with<const N: usize>(
 		mode: Mode,
-		secret_key: Option<SecretKey<CS::Group>>,
-		blinded_elements: &[BlindedElement<CS>],
+		secret_key: Option<SecretKey<Cs::Group>>,
+		blinded_elements: &[BlindedElement<Cs>],
 		r: Option<&[u8]>,
 		info: &[u8],
-	) -> Result<CommonServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
+	) -> Result<CommonServerBatch<Cs>, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
 		match mode {
@@ -654,18 +654,18 @@ impl<CS: CipherSuite> CommonServer<CS> {
 
 	#[must_use]
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc(clients: &CommonClientBatch<CS>) -> CommonServerBatch<CS> {
+	pub fn batch_alloc(clients: &CommonClientBatch<Cs>) -> CommonServerBatch<Cs> {
 		Self::batch_alloc_with(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
 	}
 
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_with(
 		mode: Mode,
-		secret_key: Option<SecretKey<CS::Group>>,
-		blinded_elements: &[BlindedElement<CS>],
+		secret_key: Option<SecretKey<Cs::Group>>,
+		blinded_elements: &[BlindedElement<Cs>],
 		r: Option<&[u8]>,
 		info: &[u8],
-	) -> Result<CommonServerBatch<CS>, Error<<OsRng as TryRngCore>::Error>> {
+	) -> Result<CommonServerBatch<Cs>, Error<<OsRng as TryRngCore>::Error>> {
 		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
 
 		match mode {
@@ -722,11 +722,11 @@ impl<CS: CipherSuite> CommonServer<CS> {
 		}
 	}
 
-	pub fn evaluate(&self) -> Output<CS::Hash> {
+	pub fn evaluate(&self) -> Output<Cs::Hash> {
 		self.evaluate_with(INPUT, INFO).unwrap()
 	}
 
-	pub fn evaluate_with(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
+	pub fn evaluate_with(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<Cs::Hash>> {
 		match &self.server {
 			Server::Oprf(server) => server.evaluate(input),
 			Server::Voprf { server, .. } => server.evaluate(input),
@@ -735,9 +735,9 @@ impl<CS: CipherSuite> CommonServer<CS> {
 	}
 }
 
-impl<CS: CipherSuite> CommonServerBatch<CS> {
+impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 	#[must_use]
-	pub const fn secret_key(&self) -> &SecretKey<CS::Group> {
+	pub const fn secret_key(&self) -> &SecretKey<Cs::Group> {
 		match &self.server {
 			Server::Oprf(server) => server.secret_key(),
 			Server::Voprf { server, .. } => server.key_pair().secret_key(),
@@ -746,7 +746,7 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 	}
 
 	#[must_use]
-	pub const fn public_key(&self) -> Option<&PublicKey<CS::Group>> {
+	pub const fn public_key(&self) -> Option<&PublicKey<Cs::Group>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { server, .. } => Some(server.public_key()),
@@ -755,28 +755,28 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 	}
 
 	#[must_use]
-	pub fn evaluation_elements(&self) -> &[EvaluationElement<CS>] {
+	pub fn evaluation_elements(&self) -> &[EvaluationElement<Cs>] {
 		&self.evaluation_elements
 	}
 
 	#[must_use]
-	pub const fn proof(&self) -> Option<&Proof<CS>> {
+	pub const fn proof(&self) -> Option<&Proof<Cs>> {
 		match &self.server {
 			Server::Oprf(_) => None,
 			Server::Voprf { proof, .. } | Server::Poprf { proof, .. } => Some(proof),
 		}
 	}
 
-	pub fn push(&mut self, evaluation_element: EvaluationElement<CS>) {
+	pub fn push(&mut self, evaluation_element: EvaluationElement<Cs>) {
 		self.evaluation_elements.push(evaluation_element);
 	}
 
-	pub fn evaluate<const N: usize>(&self) -> [Output<CS::Hash>; N]
+	pub fn evaluate<const N: usize>(&self) -> [Output<Cs::Hash>; N]
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Element<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<Cs>> = [Element<Cs>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		self.evaluate_with(&[INPUT; N], INFO).unwrap()
 	}
@@ -785,12 +785,12 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 		&self,
 		inputs: &[&[&[u8]]],
 		info: &[u8],
-	) -> Result<[Output<CS::Hash>; N]>
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Element<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<Cs>> = [Element<Cs>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		match &self.server {
 			Server::Oprf(server) => server.batch_evaluate(inputs.try_into().unwrap()),
@@ -800,7 +800,7 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 	}
 
 	#[cfg(feature = "alloc")]
-	pub fn evaluate_alloc(&self) -> Vec<Output<CS::Hash>> {
+	pub fn evaluate_alloc(&self) -> Vec<Output<Cs::Hash>> {
 		self.evaluate_alloc_with(&vec![INPUT; self.evaluation_elements.len()], INFO)
 			.unwrap()
 	}
@@ -810,7 +810,7 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 		&self,
 		inputs: &[&[&[u8]]],
 		info: &[u8],
-	) -> Result<Vec<Output<CS::Hash>>> {
+	) -> Result<Vec<Output<Cs::Hash>>> {
 		match &self.server {
 			Server::Oprf(server) => server.batch_alloc_evaluate(inputs),
 			Server::Voprf { server, .. } => server.batch_alloc_evaluate(inputs),
@@ -819,20 +819,20 @@ impl<CS: CipherSuite> CommonServerBatch<CS> {
 	}
 }
 
-impl<CS: CipherSuite> From<OprfClient<CS>> for Client<CS> {
-	fn from(client: OprfClient<CS>) -> Self {
+impl<Cs: CipherSuite> From<OprfClient<Cs>> for Client<Cs> {
+	fn from(client: OprfClient<Cs>) -> Self {
 		Self::Oprf(client)
 	}
 }
 
-impl<CS: CipherSuite> From<VoprfClient<CS>> for Client<CS> {
-	fn from(client: VoprfClient<CS>) -> Self {
+impl<Cs: CipherSuite> From<VoprfClient<Cs>> for Client<Cs> {
+	fn from(client: VoprfClient<Cs>) -> Self {
 		Self::Voprf(client)
 	}
 }
 
-impl<CS: CipherSuite> From<PoprfClient<CS>> for Client<CS> {
-	fn from(client: PoprfClient<CS>) -> Self {
+impl<Cs: CipherSuite> From<PoprfClient<Cs>> for Client<Cs> {
+	fn from(client: PoprfClient<Cs>) -> Self {
 		Self::Poprf(client)
 	}
 }

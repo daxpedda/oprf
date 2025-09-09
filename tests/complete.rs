@@ -26,8 +26,8 @@ test_ciphersuites!(
 );
 
 /// Tests complete protocol.
-fn basic<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::blind(mode);
+fn basic<Cs: CipherSuite>(mode: Mode) {
+	let client = CommonClient::<Cs>::blind(mode);
 	let server = CommonServer::blind_evaluate(&client);
 	let client_output = client.finalize(&server);
 	let server_output = server.evaluate();
@@ -49,8 +49,8 @@ test_ciphersuites!(
 );
 
 /// Tests complete protocol when using batching methods.
-fn batch<CS: CipherSuite>(mode: Mode) {
-	let clients = CommonClient::<CS>::batch::<2>(mode);
+fn batch<Cs: CipherSuite>(mode: Mode) {
+	let clients = CommonClient::<Cs>::batch::<2>(mode);
 	let server = CommonServer::batch::<2>(&clients);
 	let client_outputs = clients.finalize::<2>(&server);
 	let server_output = server.evaluate();
@@ -74,8 +74,8 @@ test_ciphersuites!(
 
 /// Tests complete protocol when using batching methods with `alloc`.
 #[cfg(feature = "alloc")]
-fn batch_alloc<CS: CipherSuite>(mode: Mode) {
-	let clients = CommonClient::<CS>::batch_alloc(mode, 2);
+fn batch_alloc<Cs: CipherSuite>(mode: Mode) {
+	let clients = CommonClient::<Cs>::batch_alloc(mode, 2);
 	let server = CommonServer::batch_alloc(&clients);
 	let client_outputs = clients.finalize_alloc(&server);
 	let server_output = server.evaluate_alloc();

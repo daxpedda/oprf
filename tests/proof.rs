@@ -15,10 +15,10 @@ test_ciphersuites!(basic, Voprf);
 test_ciphersuites!(basic, Poprf);
 
 /// Tests correct failure if the [`Proof`] is invalid.
-fn basic<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::blind(mode);
-	let server = CommonServer::<CS>::blind_evaluate(&client);
-	let wrong_server = CommonServer::<CS>::blind_evaluate_with(
+fn basic<Cs: CipherSuite>(mode: Mode) {
+	let client = CommonClient::<Cs>::blind(mode);
+	let server = CommonServer::<Cs>::blind_evaluate(&client);
+	let wrong_server = CommonServer::<Cs>::blind_evaluate_with(
 		mode,
 		None,
 		client.blinded_element(),
@@ -75,10 +75,10 @@ test_ciphersuites!(batch, Poprf);
 
 /// Tests correct failure if the [`Proof`] is invalid when using batching
 /// methods.
-fn batch<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::batch::<1>(mode);
-	let server = CommonServer::<CS>::batch::<1>(&client);
-	let wrong_server = CommonServer::<CS>::batch::<1>(&client);
+fn batch<Cs: CipherSuite>(mode: Mode) {
+	let client = CommonClient::<Cs>::batch::<1>(mode);
+	let server = CommonServer::<Cs>::batch::<1>(&client);
+	let wrong_server = CommonServer::<Cs>::batch::<1>(&client);
 
 	// Failure on wrong public key.
 	let result = client.finalize_with::<1>(
@@ -131,10 +131,10 @@ test_ciphersuites!(batch_alloc, Poprf);
 /// Tests correct failure if the [`Proof`] is invalid when using batching
 /// methods with alloc.
 #[cfg(feature = "alloc")]
-fn batch_alloc<CS: CipherSuite>(mode: Mode) {
-	let client = CommonClient::<CS>::batch_alloc(mode, 1);
-	let server = CommonServer::<CS>::batch_alloc(&client);
-	let wrong_server = CommonServer::<CS>::batch_alloc(&client);
+fn batch_alloc<Cs: CipherSuite>(mode: Mode) {
+	let client = CommonClient::<Cs>::batch_alloc(mode, 1);
+	let server = CommonServer::<Cs>::batch_alloc(&client);
+	let wrong_server = CommonServer::<Cs>::batch_alloc(&client);
 
 	// Failure on wrong public key.
 	let result = client.finalize_alloc_with(

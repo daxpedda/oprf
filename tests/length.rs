@@ -21,13 +21,13 @@ static TEST: LazyLock<Vec<u8>> = LazyLock::new(|| vec![0; usize::from(u16::MAX) 
 test_ciphersuites!(basic, Mode);
 
 /// Tests correct failure on invalid `input` and `info` length.
-fn basic<CS: CipherSuite>(mode: Mode) {
+fn basic<Cs: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
-	let result = CommonClient::<CS>::blind_with(mode, None, &[&TEST]);
+	let result = CommonClient::<Cs>::blind_with(mode, None, &[&TEST]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Success on maximum length of input.
-	let client = CommonClient::<CS>::blind_with(mode, None, &[&TEST[..u16::MAX.into()]]).unwrap();
+	let client = CommonClient::<Cs>::blind_with(mode, None, &[&TEST[..u16::MAX.into()]]).unwrap();
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
@@ -100,25 +100,25 @@ test_ciphersuites!(batch, Mode);
 /// Tests correct failure on invalid `input` and `info` length when using
 /// batching methods.
 #[expect(clippy::too_many_lines, reason = "test")]
-fn batch<CS: CipherSuite>(mode: Mode) {
+fn batch<Cs: CipherSuite>(mode: Mode) {
 	// Failure on too large input.
-	let result = CommonClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST]]);
+	let result = CommonClient::<Cs>::batch_with::<1>(mode, None, &[&[&TEST]]);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large input with `alloc`.
 	#[cfg(feature = "alloc")]
 	assert_eq!(
-		CommonClient::<CS>::batch_alloc_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
+		CommonClient::<Cs>::batch_alloc_with(mode, None, iter::once([TEST.as_slice()].as_slice())),
 		Err(Error::InputLength)
 	);
 
 	// Success on maximum length of input.
 	let clients =
-		CommonClient::<CS>::batch_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]]).unwrap();
+		CommonClient::<Cs>::batch_with::<1>(mode, None, &[&[&TEST[..u16::MAX.into()]]]).unwrap();
 
 	// Success on maximum length of input with `alloc`.
 	#[cfg(feature = "alloc")]
-	CommonClient::<CS>::batch_alloc_with(
+	CommonClient::<Cs>::batch_alloc_with(
 		mode,
 		None,
 		iter::once([&TEST[..u16::MAX.into()]].as_slice()),

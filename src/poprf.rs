@@ -38,14 +38,14 @@ use crate::util::CollectArray;
 /// POPRF client.
 ///
 /// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
-pub struct PoprfClient<CS: CipherSuite> {
+pub struct PoprfClient<Cs: CipherSuite> {
 	/// `blind`.
-	blind: NonZeroScalar<CS>,
+	blind: NonZeroScalar<Cs>,
 	/// `blindedElement`.
-	blinded_element: BlindedElement<CS>,
+	blinded_element: BlindedElement<Cs>,
 }
 
-impl<CS: CipherSuite> PoprfClient<CS> {
+impl<Cs: CipherSuite> PoprfClient<Cs> {
 	/// Blinds the given `input`.
 	///
 	/// Corresponds to
@@ -61,7 +61,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
 	///   [`BlindedElement`].
 	/// - [`Error::Random`] if the given `rng` fails.
-	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<PoprfBlindResult<CS>, Error<R::Error>>
+	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<PoprfBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -94,13 +94,13 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<PoprfBatchBlindResult<CS, N>, Error<R::Error>>
+	) -> Result<PoprfBatchBlindResult<Cs, N>, Error<R::Error>>
 	where
-		[NonIdentityElement<CS>; N]: AssocArraySize<
-			Size: ArraySize<ArrayType<NonIdentityElement<CS>> = [NonIdentityElement<CS>; N]>,
+		[NonIdentityElement<Cs>; N]: AssocArraySize<
+			Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
 		>,
-		[NonZeroScalar<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<CS>> = [NonZeroScalar<CS>; N]>>,
+		[NonZeroScalar<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<NonZeroScalar<Cs>> = [NonZeroScalar<Cs>; N]>>,
 		R: ?Sized + TryCryptoRng,
 	{
 		let BlindResult {
@@ -142,7 +142,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
 		inputs: I,
-	) -> Result<PoprfBatchAllocBlindResult<CS>, Error<R::Error>>
+	) -> Result<PoprfBatchAllocBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 		I: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -184,12 +184,12 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	///   [`u16::MAX`].
 	pub fn finalize(
 		&self,
-		public_key: &PublicKey<CS::Group>,
+		public_key: &PublicKey<Cs::Group>,
 		input: &[&[u8]],
-		evaluation_element: &EvaluationElement<CS>,
-		proof: &Proof<CS>,
+		evaluation_element: &EvaluationElement<Cs>,
+		proof: &Proof<Cs>,
 		info: &[u8],
-	) -> Result<Output<CS::Hash>> {
+	) -> Result<Output<Cs::Hash>> {
 		let [output] = Self::batch_finalize(
 			array::from_ref(self),
 			public_key,
@@ -223,15 +223,15 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	///   [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
-		public_key: &PublicKey<CS::Group>,
+		public_key: &PublicKey<Cs::Group>,
 		inputs: &[&[&[u8]]; N],
-		evaluation_elements: &[EvaluationElement<CS>; N],
-		proof: &Proof<CS>,
+		evaluation_elements: &[EvaluationElement<Cs>; N],
+		proof: &Proof<Cs>,
 		info: &[u8],
-	) -> Result<[Output<CS::Hash>; N]>
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
 		if N == 0 || N > u16::MAX.into() {
 			return Err(Error::Batch);
@@ -252,7 +252,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 			.iter()
 			.map(EvaluationElement::as_element);
 
-		internal::batch_finalize::<CS, N>(inputs, blinds, evaluation_elements, Some(info))
+		internal::batch_finalize::<Cs, N>(inputs, blinds, evaluation_elements, Some(info))
 	}
 
 	/// Batch completes evaluations with a combined [`Proof`].
@@ -275,18 +275,18 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	/// - [`Error::InputLength`] if the given `input` exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
-	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, IC, II, IEE>(
-		clients: IC,
-		public_key: &PublicKey<CS::Group>,
-		inputs: II,
-		evaluation_elements: IEE,
-		proof: &Proof<CS>,
+	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, Ic, Ii, Iee>(
+		clients: Ic,
+		public_key: &PublicKey<Cs::Group>,
+		inputs: Ii,
+		evaluation_elements: Iee,
+		proof: &Proof<Cs>,
 		info: &[u8],
-	) -> Result<Vec<Output<CS::Hash>>>
+	) -> Result<Vec<Output<Cs::Hash>>>
 	where
-		IC: ExactSizeIterator<Item = &'clients Self>,
-		II: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
-		IEE: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<CS>>,
+		Ic: ExactSizeIterator<Item = &'clients Self>,
+		Ii: ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
+		Iee: ExactSizeIterator<Item = &'evaluation_elements EvaluationElement<Cs>>,
 	{
 		let length = clients.len();
 
@@ -318,7 +318,7 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 
 		let evaluation_elements = c.into_iter().map(ElementWrapper::as_element);
 
-		internal::batch_alloc_finalize::<CS>(
+		internal::batch_alloc_finalize::<Cs>(
 			length,
 			inputs,
 			blinds,
@@ -335,12 +335,12 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
 	///   output.
 	fn tweaked_key(
-		public_key: &PublicKey<CS::Group>,
+		public_key: &PublicKey<Cs::Group>,
 		info: Info<'_>,
-	) -> Result<PublicKey<CS::Group>> {
+	) -> Result<PublicKey<Cs::Group>> {
 		let framed_info = [b"Info".as_slice(), &info.i2osp(), info.info()];
-		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
-		let t = CS::Group::scalar_mul_by_generator(&m);
+		let m = Cs::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
+		let t = Cs::Group::scalar_mul_by_generator(&m);
 		let element = (t + public_key.as_element())
 			.try_into()
 			.map_err(|_| Error::InvalidInfo)?;
@@ -352,18 +352,18 @@ impl<CS: CipherSuite> PoprfClient<CS> {
 /// POPRF server.
 ///
 /// See [RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#name-poprf-protocol).
-pub struct PoprfServer<CS: CipherSuite> {
+pub struct PoprfServer<Cs: CipherSuite> {
 	/// [`KeyPair`].
-	key_pair: KeyPair<CS::Group>,
+	key_pair: KeyPair<Cs::Group>,
 	/// Cached `t`.
-	t: NonZeroScalar<CS>,
+	t: NonZeroScalar<Cs>,
 	/// Cached inverted `t`.
-	t_inverted: NonZeroScalar<CS>,
+	t_inverted: NonZeroScalar<Cs>,
 	/// Cached `tweakedKey`.
-	tweaked_key: PublicKey<CS::Group>,
+	tweaked_key: PublicKey<Cs::Group>,
 }
 
-impl<CS: CipherSuite> PoprfServer<CS> {
+impl<Cs: CipherSuite> PoprfServer<Cs> {
 	/// Creates a new [`PoprfServer`] by generating a random [`SecretKey`].
 	///
 	/// # Errors
@@ -401,7 +401,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	///   [`SecretKey`] of the server, the client can be assumed to know it and
 	///   it should be replaced.
 	pub fn from_seed(seed: &[u8; 32], key_info: &[u8], info: &[u8]) -> Result<Self> {
-		let key_pair = KeyPair::derive::<CS>(Mode::Poprf, seed, key_info)?;
+		let key_pair = KeyPair::derive::<Cs>(Mode::Poprf, seed, key_info)?;
 		Self::from_key_pair(key_pair, info)
 	}
 
@@ -417,16 +417,16 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
 	///   [`SecretKey`] of the server, the client can be assumed to know it and
 	///   it should be replaced.
-	pub fn from_key_pair(key_pair: KeyPair<CS::Group>, info: &[u8]) -> Result<Self> {
+	pub fn from_key_pair(key_pair: KeyPair<Cs::Group>, info: &[u8]) -> Result<Self> {
 		let info = Info::new(info)?;
 		let framed_info = [b"Info".as_slice(), &info.i2osp(), info.info()];
-		let m = CS::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
+		let m = Cs::hash_to_scalar(Mode::Poprf, &framed_info, None)?;
 		// https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-6
 		let t = (key_pair.secret_key().to_scalar().into() + &m)
 			.try_into()
 			.map_err(|_| Error::InvalidInfoDanger)?;
-		let t_inverted = CS::Group::scalar_invert(&t);
-		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
+		let t_inverted = Cs::Group::scalar_invert(&t);
+		let tweaked_key = Cs::Group::non_zero_scalar_mul_by_generator(&t);
 		let tweaked_key = PublicKey::new(tweaked_key);
 
 		Ok(Self {
@@ -438,12 +438,12 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	}
 
 	/// Returns the [`KeyPair`].
-	pub const fn key_pair(&self) -> &KeyPair<CS::Group> {
+	pub const fn key_pair(&self) -> &KeyPair<Cs::Group> {
 		&self.key_pair
 	}
 
 	/// Returns the [`PublicKey`].
-	pub const fn public_key(&self) -> &PublicKey<CS::Group> {
+	pub const fn public_key(&self) -> &PublicKey<Cs::Group> {
 		self.key_pair.public_key()
 	}
 
@@ -461,8 +461,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
-		blinded_element: &BlindedElement<CS>,
-	) -> Result<BlindEvaluateResult<CS>, Error<R::Error>>
+		blinded_element: &BlindedElement<Cs>,
+	) -> Result<BlindEvaluateResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -493,8 +493,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	pub fn batch_blind_evaluate<R, const N: usize>(
 		&self,
 		rng: &mut R,
-		blinded_elements: &[BlindedElement<CS>; N],
-	) -> Result<BatchBlindEvaluateResult<CS, N>, Error<R::Error>>
+		blinded_elements: &[BlindedElement<Cs>; N],
+	) -> Result<BatchBlindEvaluateResult<Cs, N>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
 	{
@@ -549,10 +549,10 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		rng: &mut R,
 		blinded_elements: I,
-	) -> Result<BatchAllocBlindEvaluateResult<CS>, Error<R::Error>>
+	) -> Result<BatchAllocBlindEvaluateResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
-		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<CS>>,
+		I: ExactSizeIterator<Item = &'blinded_elements BlindedElement<Cs>>,
 	{
 		let blinded_elements_length = blinded_elements.len();
 
@@ -606,7 +606,7 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 	///   output.
 	/// - [`Error::InputLength`] if the given `input` exceeds a length of
 	///   [`u16::MAX`].
-	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<CS::Hash>> {
+	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<Cs::Hash>> {
 		let [output] = self.batch_evaluate(&[input], info)?;
 		Ok(output)
 	}
@@ -631,14 +631,14 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		inputs: &[&[&[u8]]; N],
 		info: &[u8],
-	) -> Result<[Output<CS::Hash>; N]>
+	) -> Result<[Output<Cs::Hash>; N]>
 	where
-		[Element<CS>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Element<CS>> = [Element<CS>; N]>>,
-		[Output<CS::Hash>; N]:
-			AssocArraySize<Size: ArraySize<ArrayType<Output<CS::Hash>> = [Output<CS::Hash>; N]>>,
+		[Element<Cs>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Element<Cs>> = [Element<Cs>; N]>>,
+		[Output<Cs::Hash>; N]:
+			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
-		internal::batch_evaluate::<CS, N>(
+		internal::batch_evaluate::<Cs, N>(
 			Mode::Poprf,
 			self.t_inverted,
 			inputs,
@@ -667,8 +667,8 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 		&self,
 		inputs: &[&[&[u8]]],
 		info: &[u8],
-	) -> Result<Vec<Output<CS::Hash>>> {
-		internal::batch_alloc_evaluate::<CS>(
+	) -> Result<Vec<Output<Cs::Hash>>> {
+		internal::batch_alloc_evaluate::<Cs>(
 			Mode::Poprf,
 			self.t_inverted,
 			inputs,
@@ -678,34 +678,34 @@ impl<CS: CipherSuite> PoprfServer<CS> {
 }
 
 /// Returned from [`PoprfClient::blind()`].
-pub struct PoprfBlindResult<CS: CipherSuite> {
+pub struct PoprfBlindResult<Cs: CipherSuite> {
 	/// The [`PoprfClient`].
-	pub client: PoprfClient<CS>,
+	pub client: PoprfClient<Cs>,
 	/// The [`BlindedElement`].
-	pub blinded_element: BlindedElement<CS>,
+	pub blinded_element: BlindedElement<Cs>,
 }
 
 /// Returned from [`PoprfClient::batch_blind()`].
-pub struct PoprfBatchBlindResult<CS: CipherSuite, const N: usize> {
+pub struct PoprfBatchBlindResult<Cs: CipherSuite, const N: usize> {
 	/// The [`PoprfClient`]s.
-	pub clients: [PoprfClient<CS>; N],
+	pub clients: [PoprfClient<Cs>; N],
 	/// The [`BlindedElement`]s each corresponding to a [`PoprfClient`] in
 	/// order.
-	pub blinded_elements: [BlindedElement<CS>; N],
+	pub blinded_elements: [BlindedElement<Cs>; N],
 }
 
 /// Returned from [`PoprfClient::batch_alloc_blind()`].
 #[cfg(feature = "alloc")]
-pub struct PoprfBatchAllocBlindResult<CS: CipherSuite> {
+pub struct PoprfBatchAllocBlindResult<Cs: CipherSuite> {
 	/// The [`PoprfClient`]s.
-	pub clients: Vec<PoprfClient<CS>>,
+	pub clients: Vec<PoprfClient<Cs>>,
 	/// The [`BlindedElement`]s each corresponding to a [`PoprfClient`] in
 	/// order.
-	pub blinded_elements: Vec<BlindedElement<CS>>,
+	pub blinded_elements: Vec<BlindedElement<Cs>>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for PoprfClient<CS> {
+impl<Cs: CipherSuite> Clone for PoprfClient<Cs> {
 	fn clone(&self) -> Self {
 		Self {
 			blind: self.blind,
@@ -715,7 +715,7 @@ impl<CS: CipherSuite> Clone for PoprfClient<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfClient<CS> {
+impl<Cs: CipherSuite> Debug for PoprfClient<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfClient")
 			.field("blind", &self.blind)
@@ -725,13 +725,13 @@ impl<CS: CipherSuite> Debug for PoprfClient<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for PoprfClient<CS>
+impl<'de, Cs> Deserialize<'de> for PoprfClient<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let (blind, wrapper): (_, ElementWrapper<CS::Group>) =
+		let (blind, wrapper): (_, ElementWrapper<Cs::Group>) =
 			serde::struct_2(deserializer, "PoprfClient", &["blind", "blinded_element"])?;
 		let blinded_element = BlindedElement::from(wrapper);
 
@@ -743,26 +743,26 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for PoprfClient<CS> {
+impl<Cs: CipherSuite> Drop for PoprfClient<Cs> {
 	fn drop(&mut self) {
 		self.blind.zeroize();
 	}
 }
 
-impl<CS: CipherSuite> Eq for PoprfClient<CS> {}
+impl<Cs: CipherSuite> Eq for PoprfClient<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for PoprfClient<CS> {
+impl<Cs: CipherSuite> PartialEq for PoprfClient<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.blind.eq(&other.blind) && self.blinded_element.eq(&other.blinded_element)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for PoprfClient<CS>
+impl<Cs> Serialize for PoprfClient<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Serialize,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -775,10 +775,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfClient<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for PoprfClient<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Clone for PoprfServer<CS> {
+impl<Cs: CipherSuite> Clone for PoprfServer<Cs> {
 	fn clone(&self) -> Self {
 		Self {
 			key_pair: self.key_pair.clone(),
@@ -790,7 +790,7 @@ impl<CS: CipherSuite> Clone for PoprfServer<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfServer<CS> {
+impl<Cs: CipherSuite> Debug for PoprfServer<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfServer")
 			.field("key_pair", &self.key_pair)
@@ -802,7 +802,7 @@ impl<CS: CipherSuite> Debug for PoprfServer<CS> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Drop for PoprfServer<CS> {
+impl<Cs: CipherSuite> Drop for PoprfServer<Cs> {
 	fn drop(&mut self) {
 		self.t.zeroize();
 		self.t_inverted.zeroize();
@@ -810,17 +810,17 @@ impl<CS: CipherSuite> Drop for PoprfServer<CS> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, CS> Deserialize<'de> for PoprfServer<CS>
+impl<'de, Cs> Deserialize<'de> for PoprfServer<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Deserialize<'de>,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let (scalar, t) = serde::struct_2(deserializer, "PoprfServer", &["secret_key", "t"])?;
 		let secret_key = SecretKey::new(scalar);
 		let key_pair = KeyPair::from_secret_key(secret_key);
-		let t_inverted = CS::Group::scalar_invert(&t);
-		let tweaked_key = CS::Group::non_zero_scalar_mul_by_generator(&t);
+		let t_inverted = Cs::Group::scalar_invert(&t);
+		let tweaked_key = Cs::Group::non_zero_scalar_mul_by_generator(&t);
 		let tweaked_key = PublicKey::new(tweaked_key);
 
 		Ok(Self {
@@ -832,20 +832,20 @@ where
 	}
 }
 
-impl<CS: CipherSuite> Eq for PoprfServer<CS> {}
+impl<Cs: CipherSuite> Eq for PoprfServer<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> PartialEq for PoprfServer<CS> {
+impl<Cs: CipherSuite> PartialEq for PoprfServer<Cs> {
 	fn eq(&self, other: &Self) -> bool {
 		self.key_pair.eq(&other.key_pair) & self.t.eq(&other.t)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<CS> Serialize for PoprfServer<CS>
+impl<Cs> Serialize for PoprfServer<Cs>
 where
-	CS: CipherSuite,
-	NonZeroScalar<CS>: Serialize,
+	Cs: CipherSuite,
+	NonZeroScalar<Cs>: Serialize,
 {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -858,10 +858,10 @@ where
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfServer<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for PoprfServer<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
+impl<Cs: CipherSuite> Debug for PoprfBlindResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBlindResult")
 			.field("client", &self.client)
@@ -870,10 +870,10 @@ impl<CS: CipherSuite> Debug for PoprfBlindResult<CS> {
 	}
 }
 
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBlindResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for PoprfBlindResult<Cs> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindResult<CS, N> {
+impl<Cs: CipherSuite, const N: usize> Debug for PoprfBatchBlindResult<Cs, N> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBatchBlindResult")
 			.field("clients", &self.clients)
@@ -882,11 +882,11 @@ impl<CS: CipherSuite, const N: usize> Debug for PoprfBatchBlindResult<CS, N> {
 	}
 }
 
-impl<CS: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindResult<CS, N> {}
+impl<Cs: CipherSuite, const N: usize> ZeroizeOnDrop for PoprfBatchBlindResult<Cs, N> {}
 
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<CS: CipherSuite> Debug for PoprfBatchAllocBlindResult<CS> {
+impl<Cs: CipherSuite> Debug for PoprfBatchAllocBlindResult<Cs> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		f.debug_struct("PoprfBatchAllocBlindResult")
 			.field("clients", &self.clients)
@@ -896,4 +896,4 @@ impl<CS: CipherSuite> Debug for PoprfBatchAllocBlindResult<CS> {
 }
 
 #[cfg(feature = "alloc")]
-impl<CS: CipherSuite> ZeroizeOnDrop for PoprfBatchAllocBlindResult<CS> {}
+impl<Cs: CipherSuite> ZeroizeOnDrop for PoprfBatchAllocBlindResult<Cs> {}

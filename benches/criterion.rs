@@ -31,10 +31,10 @@ fn criterion() -> Criterion {
 }
 
 /// Code to bench.
-fn bench<CS: CipherSuite>(group: &mut BenchmarkGroup<'_, WallTime>, mode: Mode) {
-	group.bench_function(str::from_utf8(CS::ID.deref()).unwrap(), |bencher| {
+fn bench<Cs: CipherSuite>(group: &mut BenchmarkGroup<'_, WallTime>, mode: Mode) {
+	group.bench_function(str::from_utf8(Cs::ID.deref()).unwrap(), |bencher| {
 		bencher.iter_batched(
-			Setup::<CS>::default,
+			Setup::<Cs>::default,
 			|setup| oprf_test::bench(mode, setup),
 			BatchSize::SmallInput,
 		);
