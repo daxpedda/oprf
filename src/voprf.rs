@@ -25,7 +25,7 @@ use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
 use crate::internal::AllocBlindResult;
 #[cfg(feature = "serde")]
-use crate::internal::ElementWrapper;
+use crate::internal::ElementWithRepr;
 use crate::internal::{self, BlindResult};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
@@ -295,7 +295,7 @@ impl<Cs: CipherSuite> VoprfClient<Cs> {
 		)?;
 		internal::verify_proof(Mode::Voprf, composites, public_key.as_ref(), proof)?;
 
-		let evaluation_elements = d.into_iter().map(ElementWrapper::as_element);
+		let evaluation_elements = d.into_iter().map(ElementWithRepr::as_element);
 
 		internal::batch_alloc_finalize::<Cs>(length, inputs, blinds, evaluation_elements, None)
 	}
@@ -636,7 +636,7 @@ where
 	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let (blind, wrapper): (_, ElementWrapper<Cs::Group>) =
+		let (blind, wrapper): (_, ElementWithRepr<Cs::Group>) =
 			serde::struct_2(deserializer, "VoprfClient", &["blind", "blinded_element"])?;
 		let blinded_element = BlindedElement::from(wrapper);
 

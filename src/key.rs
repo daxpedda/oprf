@@ -13,7 +13,7 @@ use crate::cipher_suite::CipherSuite;
 use crate::common::Mode;
 use crate::error::{Error, Result};
 use crate::group::{CipherSuiteExt, Group};
-use crate::internal::ElementWrapper;
+use crate::internal::ElementWithRepr;
 #[cfg(feature = "serde")]
 use crate::serde;
 use crate::util::{Concat, I2ospLength};
@@ -226,12 +226,12 @@ impl<G: Group> SecretKey<G> {
 }
 
 /// A public key.
-pub struct PublicKey<G: Group>(ElementWrapper<G>);
+pub struct PublicKey<G: Group>(ElementWithRepr<G>);
 
 impl<G: Group> PublicKey<G> {
 	/// Creates a [`PublicKey`].
 	pub(crate) fn new(element: G::NonIdentityElement) -> Self {
-		Self(ElementWrapper::new(element))
+		Self(ElementWithRepr::new(element))
 	}
 
 	/// Derives the corresponding [`PublicKey`] from the given [`SecretKey`].
@@ -246,7 +246,7 @@ impl<G: Group> PublicKey<G> {
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(repr: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(repr).map(Self)
+		ElementWithRepr::from_repr(repr).map(Self)
 	}
 
 	/// Returns the [`NonIdentityElement`](Group::NonIdentityElement).
@@ -383,8 +383,8 @@ where
 
 impl<G: Group> ZeroizeOnDrop for SecretKey<G> {}
 
-impl<G: Group> AsRef<ElementWrapper<G>> for PublicKey<G> {
-	fn as_ref(&self) -> &ElementWrapper<G> {
+impl<G: Group> AsRef<ElementWithRepr<G>> for PublicKey<G> {
+	fn as_ref(&self) -> &ElementWithRepr<G> {
 		&self.0
 	}
 }

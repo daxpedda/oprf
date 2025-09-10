@@ -17,7 +17,7 @@ use crate::cipher_suite::{
 };
 use crate::error::{Error, Result};
 use crate::group::Group;
-use crate::internal::ElementWrapper;
+use crate::internal::ElementWithRepr;
 #[cfg(feature = "serde")]
 use crate::serde;
 
@@ -62,7 +62,7 @@ impl Mode {
 /// [`*Client::blind()`]: crate::oprf::OprfClient::blind
 /// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
 #[repr(transparent)]
-pub struct BlindedElement<Cs: CipherSuite>(ElementWrapper<Cs::Group>);
+pub struct BlindedElement<Cs: CipherSuite>(ElementWithRepr<Cs::Group>);
 
 /// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be
 /// [`*Client::finalize()`]d.
@@ -70,7 +70,7 @@ pub struct BlindedElement<Cs: CipherSuite>(ElementWrapper<Cs::Group>);
 /// [`*Server::blind_evaluate()`]: crate::oprf::OprfServer::blind_evaluate
 /// [`*Client::finalize()`]: crate::oprf::OprfClient::finalize
 #[repr(transparent)]
-pub struct EvaluationElement<Cs: CipherSuite>(ElementWrapper<Cs::Group>);
+pub struct EvaluationElement<Cs: CipherSuite>(ElementWithRepr<Cs::Group>);
 
 /// Returned by [`*Server::blind_evaluate()`]. Sent to the client to be verified
 /// by [`*Client::finalize()`].
@@ -123,7 +123,7 @@ impl<Cs: CipherSuite> BlindedElement<Cs> {
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> [Self; N] {
-		ElementWrapper::new_batch(elements_and_scalars).map(Self)
+		ElementWithRepr::new_batch(elements_and_scalars).map(Self)
 	}
 
 	/// Creates a [`Vec`] of [`BlindedElement`]s.
@@ -131,7 +131,7 @@ impl<Cs: CipherSuite> BlindedElement<Cs> {
 	pub(crate) fn new_batch_alloc(
 		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> Vec<Self> {
-		ElementWrapper::new_batch_alloc(elements_and_scalars)
+		ElementWithRepr::new_batch_alloc(elements_and_scalars)
 			.into_iter()
 			.map(Self)
 			.collect()
@@ -143,7 +143,7 @@ impl<Cs: CipherSuite> BlindedElement<Cs> {
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(repr: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(repr).map(Self)
+		ElementWithRepr::from_repr(repr).map(Self)
 	}
 
 	/// Returns the [`NonIdentityElement`].
@@ -163,7 +163,7 @@ impl<Cs: CipherSuite> EvaluationElement<Cs> {
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> [Self; N] {
-		ElementWrapper::new_batch(elements_and_scalars).map(Self)
+		ElementWithRepr::new_batch(elements_and_scalars).map(Self)
 	}
 
 	/// Creates a [`Vec`] of [`EvaluationElement`]s.
@@ -171,7 +171,7 @@ impl<Cs: CipherSuite> EvaluationElement<Cs> {
 	pub(crate) fn new_batch_alloc(
 		elements_and_scalars: impl ExactSizeIterator<Item = (NonIdentityElement<Cs>, NonZeroScalar<Cs>)>,
 	) -> Vec<Self> {
-		ElementWrapper::new_batch_alloc(elements_and_scalars)
+		ElementWithRepr::new_batch_alloc(elements_and_scalars)
 			.into_iter()
 			.map(Self)
 			.collect()
@@ -183,7 +183,7 @@ impl<Cs: CipherSuite> EvaluationElement<Cs> {
 	///
 	/// Returns [`Error::FromRepr`] if deserialization fails.
 	pub fn from_repr(repr: &[u8]) -> Result<Self> {
-		ElementWrapper::from_repr(repr).map(Self)
+		ElementWithRepr::from_repr(repr).map(Self)
 	}
 
 	/// Returns the [`NonIdentityElement`].
@@ -228,8 +228,8 @@ impl<Cs: CipherSuite> Proof<Cs> {
 	}
 }
 
-impl<Cs: CipherSuite> AsRef<ElementWrapper<Cs::Group>> for BlindedElement<Cs> {
-	fn as_ref(&self) -> &ElementWrapper<Cs::Group> {
+impl<Cs: CipherSuite> AsRef<ElementWithRepr<Cs::Group>> for BlindedElement<Cs> {
+	fn as_ref(&self) -> &ElementWithRepr<Cs::Group> {
 		&self.0
 	}
 }
@@ -257,8 +257,8 @@ impl<'de, Cs: CipherSuite> Deserialize<'de> for BlindedElement<Cs> {
 
 impl<Cs: CipherSuite> Eq for BlindedElement<Cs> {}
 
-impl<Cs: CipherSuite> From<ElementWrapper<Cs::Group>> for BlindedElement<Cs> {
-	fn from(value: ElementWrapper<Cs::Group>) -> Self {
+impl<Cs: CipherSuite> From<ElementWithRepr<Cs::Group>> for BlindedElement<Cs> {
+	fn from(value: ElementWithRepr<Cs::Group>) -> Self {
 		Self(value)
 	}
 }
@@ -282,8 +282,8 @@ impl<Cs: CipherSuite> Serialize for BlindedElement<Cs> {
 
 impl<Cs: CipherSuite> ZeroizeOnDrop for BlindedElement<Cs> {}
 
-impl<Cs: CipherSuite> AsRef<ElementWrapper<Cs::Group>> for EvaluationElement<Cs> {
-	fn as_ref(&self) -> &ElementWrapper<Cs::Group> {
+impl<Cs: CipherSuite> AsRef<ElementWithRepr<Cs::Group>> for EvaluationElement<Cs> {
+	fn as_ref(&self) -> &ElementWithRepr<Cs::Group> {
 		&self.0
 	}
 }

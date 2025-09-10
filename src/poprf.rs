@@ -26,7 +26,7 @@ use crate::group::{CipherSuiteExt, Group};
 #[cfg(feature = "alloc")]
 use crate::internal::AllocBlindResult;
 #[cfg(feature = "serde")]
-use crate::internal::ElementWrapper;
+use crate::internal::ElementWithRepr;
 use crate::internal::{self, BlindResult, Info};
 #[cfg(feature = "serde")]
 use crate::key::SecretKey;
@@ -316,7 +316,7 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 		)?;
 		internal::verify_proof(Mode::Poprf, composites, tweaked_key.as_ref(), proof)?;
 
-		let evaluation_elements = c.into_iter().map(ElementWrapper::as_element);
+		let evaluation_elements = c.into_iter().map(ElementWithRepr::as_element);
 
 		internal::batch_alloc_finalize::<Cs>(
 			length,
@@ -731,7 +731,7 @@ where
 	NonZeroScalar<Cs>: Deserialize<'de>,
 {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let (blind, wrapper): (_, ElementWrapper<Cs::Group>) =
+		let (blind, wrapper): (_, ElementWithRepr<Cs::Group>) =
 			serde::struct_2(deserializer, "PoprfClient", &["blind", "blinded_element"])?;
 		let blinded_element = BlindedElement::from(wrapper);
 

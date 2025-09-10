@@ -51,7 +51,7 @@ pub(crate) struct AllocBlindResult<Cs: CipherSuite> {
 pub(crate) struct Info<'info>(&'info [u8]);
 
 /// Holds a [`NonIdentityElement`] and its representation.
-pub(crate) struct ElementWrapper<G: Group> {
+pub(crate) struct ElementWithRepr<G: Group> {
 	/// The [`NonIdentityElement`].
 	element: G::NonIdentityElement,
 	/// Its representation.
@@ -90,8 +90,8 @@ impl<'info> Info<'info> {
 	}
 }
 
-impl<G: Group> ElementWrapper<G> {
-	/// Creates an [`ElementWrapper`].
+impl<G: Group> ElementWithRepr<G> {
+	/// Creates an [`ElementWithRepr`].
 	pub(crate) fn new(element: G::NonIdentityElement) -> Self {
 		Self {
 			element,
@@ -99,7 +99,7 @@ impl<G: Group> ElementWrapper<G> {
 		}
 	}
 
-	/// Creates an [`ElementWrapper`] from the given representation.
+	/// Creates an [`ElementWithRepr`] from the given representation.
 	///
 	/// # Errors
 	///
@@ -108,7 +108,7 @@ impl<G: Group> ElementWrapper<G> {
 		Self::from_array(repr.try_into().map_err(|_| Error::FromRepr)?)
 	}
 
-	/// Creates an [`ElementWrapper`] from the given representation.
+	/// Creates an [`ElementWithRepr`] from the given representation.
 	///
 	/// # Errors
 	///
@@ -119,7 +119,7 @@ impl<G: Group> ElementWrapper<G> {
 		Ok(Self { element, repr })
 	}
 
-	/// Creates a fixed-sized array of [`ElementWrapper`]s from multiplying the
+	/// Creates a fixed-sized array of [`ElementWithRepr`]s from multiplying the
 	/// given elements and scalars.
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (G::NonIdentityElement, G::NonZeroScalar)>,
@@ -137,7 +137,7 @@ impl<G: Group> ElementWrapper<G> {
 			.collect_array()
 	}
 
-	/// Creates a [`Vec`] of [`ElementWrapper`]s from multiplying the given
+	/// Creates a [`Vec`] of [`ElementWithRepr`]s from multiplying the given
 	/// elements and scalars.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
@@ -174,7 +174,7 @@ impl<G: Group> ElementWrapper<G> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<G: Group> Clone for ElementWrapper<G> {
+impl<G: Group> Clone for ElementWithRepr<G> {
 	fn clone(&self) -> Self {
 		Self {
 			element: self.element,
@@ -184,9 +184,9 @@ impl<G: Group> Clone for ElementWrapper<G> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<G: Group> Debug for ElementWrapper<G> {
+impl<G: Group> Debug for ElementWithRepr<G> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("ElementWrapper")
+		f.debug_struct("ElementWithRepr")
 			.field("element", &self.element)
 			.field("repr", &self.repr)
 			.finish()
@@ -194,7 +194,7 @@ impl<G: Group> Debug for ElementWrapper<G> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de, G: Group> Deserialize<'de> for ElementWrapper<G> {
+impl<'de, G: Group> Deserialize<'de> for ElementWithRepr<G> {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let mut array = Array::default();
 		serdect::array::deserialize_hex_or_bin(&mut array, deserializer)?;
@@ -204,7 +204,7 @@ impl<'de, G: Group> Deserialize<'de> for ElementWrapper<G> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<G: Group> Drop for ElementWrapper<G> {
+impl<G: Group> Drop for ElementWithRepr<G> {
 	fn drop(&mut self) {
 		self.element.zeroize();
 		self.repr.zeroize();
@@ -212,14 +212,14 @@ impl<G: Group> Drop for ElementWrapper<G> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<G: Group> PartialEq for ElementWrapper<G> {
+impl<G: Group> PartialEq for ElementWithRepr<G> {
 	fn eq(&self, other: &Self) -> bool {
 		self.repr.eq(&other.repr)
 	}
 }
 
 #[cfg(feature = "serde")]
-impl<G: Group> Serialize for ElementWrapper<G> {
+impl<G: Group> Serialize for ElementWithRepr<G> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -254,7 +254,7 @@ pub(crate) fn generate_proof<Cs, R>(
 	rng: &mut R,
 	k: NonZeroScalar<Cs>,
 	composites: Composites<Cs>,
-	B: &ElementWrapper<Cs::Group>,
+	B: &ElementWithRepr<Cs::Group>,
 ) -> Result<Proof<Cs>, Error<R::Error>>
 where
 	Cs: CipherSuite,
@@ -285,7 +285,7 @@ where
 pub(crate) fn verify_proof<Cs>(
 	mode: Mode,
 	composites: Composites<Cs>,
-	B: &ElementWrapper<Cs::Group>,
+	B: &ElementWithRepr<Cs::Group>,
 	proof: &Proof<Cs>,
 ) -> Result<()>
 where
@@ -326,7 +326,7 @@ where
 /// are incompatible.
 fn compute_c<Cs: CipherSuite>(
 	mode: Mode,
-	B: &ElementWrapper<Cs::Group>,
+	B: &ElementWithRepr<Cs::Group>,
 	M: Element<Cs>,
 	Z: Element<Cs>,
 	t2: Element<Cs>,
@@ -367,9 +367,9 @@ fn compute_c<Cs: CipherSuite>(
 pub(crate) fn compute_composites<'items, Cs, const N: usize>(
 	mode: Mode,
 	k: Option<NonZeroScalar<Cs>>,
-	B: &ElementWrapper<Cs::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	B: &ElementWithRepr<Cs::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWithRepr<Cs::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWithRepr<Cs::Group>>,
 ) -> Result<Composites<Cs>>
 where
 	Cs: CipherSuite,
@@ -419,9 +419,9 @@ pub(crate) fn alloc_compute_composites<'items, Cs>(
 	mode: Mode,
 	length: usize,
 	k: Option<NonZeroScalar<Cs>>,
-	B: &ElementWrapper<Cs::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	B: &ElementWithRepr<Cs::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWithRepr<Cs::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWithRepr<Cs::Group>>,
 ) -> Result<Composites<Cs>>
 where
 	Cs: CipherSuite,
@@ -460,9 +460,9 @@ where
 fn internal_compute_composites<'items, Cs>(
 	mode: Mode,
 	length: usize,
-	B: &ElementWrapper<Cs::Group>,
-	C: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
-	D: impl ExactSizeIterator<Item = &'items ElementWrapper<Cs::Group>>,
+	B: &ElementWithRepr<Cs::Group>,
+	C: impl ExactSizeIterator<Item = &'items ElementWithRepr<Cs::Group>>,
+	D: impl ExactSizeIterator<Item = &'items ElementWithRepr<Cs::Group>>,
 	Ms: &mut [(Element<Cs>, Scalar<Cs>)],
 	Zs: Option<&mut [(Element<Cs>, Scalar<Cs>)]>,
 ) -> Result<()>
