@@ -5,13 +5,13 @@ use alloc::vec::Vec;
 use core::ops::Add;
 
 use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
+use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination, Reduce};
 use elliptic_curve::point::NonIdentity;
-use elliptic_curve::sec1::{CompressedPointSize, ModulusSize};
+use elliptic_curve::sec1::{CompressedPointSize, ModulusSize, UncompressedPointSize};
 use elliptic_curve::{
 	BatchNormalize, FieldBytes, FieldBytesSize, Group as _, NonZeroScalar, PrimeField, Scalar,
 };
-use hash2curve::{ExpandMsg, GroupDigest, OprfParameters};
+use hash2curve::{ExpandMsg, GroupDigest, MapToCurve, OprfParameters};
 use hybrid_array::typenum::{IsLess, True, U65536};
 use hybrid_array::{Array, ArraySize};
 use primeorder::{AffinePoint, PrimeCurveParams, ProjectivePoint};
@@ -23,12 +23,12 @@ use crate::error::{InternalError, Result};
 
 impl<G> CipherSuite for G
 where
-	G: Group<SecurityLevel = <G as GroupDigest>::SecurityLevel> + OprfParameters,
+	G: Group<SecurityLevel = <G as MapToCurve>::SecurityLevel> + OprfParameters,
 {
 	const ID: Id = Id::new(G::ID).unwrap();
 
 	type Group = G;
-	type Hash = G::Hash;
+	type Hash = <G::ExpandMsg as ExpandMsg<<G as MapToCurve>::SecurityLevel>>::Hash;
 	type ExpandMsg = G::ExpandMsg;
 }
 
@@ -38,13 +38,17 @@ where
 	FieldBytes<C>: Copy,
 	FieldBytesSize<C>: Add<FieldBytesSize<C>, Output: ArraySize> + ModulusSize,
 	CompressedPointSize<C>: IsLess<U65536, Output = True>,
-	ProjectivePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
+	ProjectivePoint<C>: elliptic_curve::Group<Scalar = Scalar<C>>
+		+ GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 	AffinePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
+	Scalar<C>: Reduce<Array<u8, C::Length>>,
+	<CompressedPointSize<C> as ArraySize>::ArrayType<u8>: Copy,
+	<UncompressedPointSize<C> as ArraySize>::ArrayType<u8>: Copy,
 {
 	type SecurityLevel = C::SecurityLevel;
 
 	type NonZeroScalar = NonZeroScalar<C>;
-	type Scalar = C::Scalar;
+	type Scalar = Scalar<C>;
 	type ScalarLength = FieldBytesSize<C>;
 
 	type NonIdentityElement = NonIdentity<ProjectivePoint<C>>;
@@ -70,7 +74,7 @@ where
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		C::hash_to_scalar::<E>(input, dst).map_err(|_| InternalError)
+		hash2curve::hash_to_scalar::<C, E, C::Length>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -128,7 +132,7 @@ where
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		C::hash_from_bytes::<E>(input, dst).map_err(|_| InternalError)
+		hash2curve::hash_from_bytes::<C, E>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {

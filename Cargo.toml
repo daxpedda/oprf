@@ -80,21 +80,21 @@ curve25519-dalek = { version = "5.0.0-pre.0", default-features = false, features
 	"zeroize",
 ] }
 derive-where = "1"
-digest = { version = "=0.11.0-rc.1", default-features = false }
-ed448-goldilocks = { version = "=0.14.0-pre.3", default-features = false }
-elliptic-curve = "=0.14.0-rc.13"
-hash2curve = "=0.14.0-rc.1"
+digest = { version = "=0.11.0-rc.2", default-features = false }
+ed448-goldilocks = { version = "=0.14.0-pre.4", default-features = false }
+elliptic-curve = "=0.14.0-rc.14"
+hash2curve = "=0.14.0-rc.2"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
 hybrid-array = "0.4"
 iai-callgrind = "0.16"
 oprf = { path = "", features = ["decaf448", "ristretto255-ciphersuite", "primeorder"] }
 oprf-test = { path = "test" }
-p256 = { version = "=0.14.0-pre.10", default-features = false, features = ["oprf", "serde"] }
-p384 = { version = "=0.14.0-pre.10", default-features = false, features = ["oprf", "serde"] }
-p521 = { version = "=0.14.0-pre.10", default-features = false, features = ["oprf", "serde"] }
+p256 = { version = "=0.14.0-pre.11", default-features = false, features = ["oprf", "serde"] }
+p384 = { version = "=0.14.0-pre.11", default-features = false, features = ["oprf", "serde"] }
+p521 = { version = "=0.14.0-pre.11", default-features = false, features = ["oprf", "serde"] }
 paste = "1"
-primeorder = "=0.14.0-pre.8"
+primeorder = "=0.14.0-pre.9"
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false }
 serde_json = "1"

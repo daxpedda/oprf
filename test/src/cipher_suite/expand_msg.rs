@@ -13,6 +13,7 @@ use hash2curve::{ExpandMsg, Expander};
 pub struct MockExpandMsg<H>(PhantomData<H>);
 
 impl<H, K> ExpandMsg<K> for MockExpandMsg<H> {
+	type Hash = H;
 	type Expander<'dst> = Self;
 	type Error = Infallible;
 
