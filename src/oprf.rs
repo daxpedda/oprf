@@ -33,21 +33,21 @@ pub struct OprfClient<Cs: CipherSuite> {
 }
 
 impl<Cs: CipherSuite> OprfClient<Cs> {
-	/// Blinds the given `input`.
+	/// Blinds the provided `input`.
 	///
 	/// Corresponds to
 	/// [`Blind()` in RFC 9497 § 3.3.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.1-2).
 	///
 	/// # Errors
 	///
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
-	///   [`BlindedElement`].
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::InvalidInput`] if the provided `input` can never produce a
+	///   valid [`BlindedElement`].
+	/// - [`Error::Random`] if the provided `rng` fails.
 	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<OprfBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -63,21 +63,21 @@ impl<Cs: CipherSuite> OprfClient<Cs> {
 		})
 	}
 
-	/// Batch blinds the given `inputs` *without allocation*.
+	/// Batch blinds the provided `inputs` *without allocation*.
 	///
 	/// It is expected that a part of the computation is as efficient as
 	/// [`blind()`](Self::blind)ing a single `input`.
 	///
 	/// # Errors
 	///
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   [`BlindedElement`].
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
@@ -106,21 +106,21 @@ impl<Cs: CipherSuite> OprfClient<Cs> {
 		})
 	}
 
-	/// Batch blinds the given `inputs`.
+	/// Batch blinds the provided `inputs`.
 	///
 	/// It is expected that a part of the computation is as efficient as
 	/// [`blind()`](Self::blind)ing a single `input`.
 	///
 	/// # Errors
 	///
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   [`BlindedElement`].
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
@@ -150,8 +150,8 @@ impl<Cs: CipherSuite> OprfClient<Cs> {
 	///
 	/// # Errors
 	///
-	/// Returns [`Error::InputLength`] if the given `input` exceeds a length of
-	/// [`u16::MAX`].
+	/// Returns [`Error::InputLength`] if the provided `input` exceeds a length
+	/// of [`u16::MAX`].
 	pub fn finalize(
 		&self,
 		input: &[&[u8]],
@@ -172,7 +172,7 @@ impl<Cs: CipherSuite> OprfClient<Cs> {
 	///
 	/// # Errors
 	///
-	/// Returns [`Error::InputLength`] if a given input exceeds a length of
+	/// Returns [`Error::InputLength`] if a provided input exceeds a length of
 	/// [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
@@ -200,7 +200,7 @@ impl<Cs: CipherSuite> OprfClient<Cs> {
 	///
 	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
 	///   `evaluation_elements` don't match.
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, Ic, Ii, Iee>(
@@ -239,7 +239,7 @@ impl<Cs: CipherSuite> OprfServer<Cs> {
 	///
 	/// # Errors
 	///
-	/// Returns [`Error::Random`] if the given `rng` fails.
+	/// Returns [`Error::Random`] if the provided `rng` fails.
 	pub fn new<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -259,14 +259,14 @@ impl<Cs: CipherSuite> OprfServer<Cs> {
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
-	///   the given input.
+	///   the provided input.
 	pub fn from_seed(seed: &[u8; 32], info: &[u8]) -> Result<Self> {
 		Ok(Self {
 			secret_key: SecretKey::derive::<Cs>(Mode::Oprf, seed, info)?,
 		})
 	}
 
-	/// Creates a new [`OprfServer`] from the given [`SecretKey`].
+	/// Creates a new [`OprfServer`] from the provided [`SecretKey`].
 	#[must_use]
 	pub const fn from_key(secret_key: SecretKey<Cs::Group>) -> Self {
 		Self { secret_key }
@@ -333,9 +333,9 @@ impl<Cs: CipherSuite> OprfServer<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
-	///   output.
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InvalidInput`] if the provided `input` can never produce a
+	///   valid output.
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	pub fn evaluate(&self, input: &[&[u8]]) -> Result<Output<Cs::Hash>> {
 		let [output] = self.batch_evaluate(&[input])?;
@@ -352,9 +352,9 @@ impl<Cs: CipherSuite> OprfServer<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   output.
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	pub fn batch_evaluate<const N: usize>(
 		&self,
@@ -379,9 +379,9 @@ impl<Cs: CipherSuite> OprfServer<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   output.
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_evaluate(&self, inputs: &[&[&[u8]]]) -> Result<Vec<Output<Cs::Hash>>> {

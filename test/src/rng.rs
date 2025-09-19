@@ -2,8 +2,8 @@
 
 use rand_core::{OsRng, TryCryptoRng, TryRngCore};
 
-/// A mock RNG. Will panic if the given `bytes` are exhausted. Can function like
-/// a redirect to [`OsRng`] as well.
+/// A mock RNG. Will panic if the provided `bytes` are exhausted. Can function
+/// like a redirect to [`OsRng`] as well.
 pub(crate) struct MockRng<'bytes>(Option<&'bytes [u8]>);
 
 impl<'bytes> MockRng<'bytes> {
@@ -13,7 +13,7 @@ impl<'bytes> MockRng<'bytes> {
 		Self(None)
 	}
 
-	/// Creates a new [`MockRng`] which will panic if the given `bytes` are
+	/// Creates a new [`MockRng`] which will panic if the provided `bytes` are
 	/// exhausted.
 	#[must_use]
 	pub(crate) const fn new(bytes: &'bytes [u8]) -> Self {

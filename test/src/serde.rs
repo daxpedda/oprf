@@ -19,7 +19,7 @@ use serde_test::Token;
 /// Defines how certain cipher suites differ in their serialization format of
 /// scalars. By default this assumes [`Token::Bytes`] is used.
 pub trait ScalarRepr {
-	/// The [`Token`] expected for the given field index of this type.
+	/// The [`Token`] expected for the provided field index of this type.
 	#[must_use]
 	fn scalar_repr(bytes: &'static [u8]) -> impl Iterator<Item = Token> {
 		iter::once(Token::Bytes(bytes))
@@ -45,7 +45,7 @@ impl ScalarRepr for Decaf448 {}
 /// Defines how types differ in their serialization format of
 /// byte strings. By default this assumes [`Token::Bytes`] is used.
 pub trait TypeRepr {
-	/// The [`Token`] expected for the given field index of this type.
+	/// The [`Token`] expected for the provided field index of this type.
 	#[must_use]
 	fn repr(_index: usize, bytes: &'static [u8]) -> impl Iterator<Item = Token> {
 		iter::once(Token::Bytes(bytes))

@@ -25,7 +25,7 @@ pub use self::common::{CommonClient, CommonServer};
 pub use self::serde::{ScalarRepr, TypeRepr};
 pub use self::serialized::*;
 
-/// Generates `#[test]` functions pre-fixed with the given `name` for all
+/// Generates `#[test]` functions pre-fixed with the provided `name` for all
 /// available [`CipherSuite`](oprf::CipherSuite)s and passes the appropriate
 /// [`Mode`](oprf::common::Mode).
 #[macro_export]

@@ -137,7 +137,7 @@ impl<Cs: CipherSuite> BlindedElement<Cs> {
 			.collect()
 	}
 
-	/// Deserializes the given `repr` to a [`BlindedElement`].
+	/// Deserializes the provided `repr` to a [`BlindedElement`].
 	///
 	/// # Errors
 	///
@@ -177,7 +177,7 @@ impl<Cs: CipherSuite> EvaluationElement<Cs> {
 			.collect()
 	}
 
-	/// Deserializes the given `repr` to a [`EvaluationElement`].
+	/// Deserializes the provided `repr` to a [`EvaluationElement`].
 	///
 	/// # Errors
 	///
@@ -205,7 +205,7 @@ impl<Cs: CipherSuite> Proof<Cs> {
 		Cs::Group::scalar_to_repr(&self.c).concat(Cs::Group::scalar_to_repr(&self.s))
 	}
 
-	/// Deserializes the given `repr` to a [`Proof`].
+	/// Deserializes the provided `repr` to a [`Proof`].
 	///
 	/// # Errors
 	///

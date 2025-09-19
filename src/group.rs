@@ -75,15 +75,15 @@ pub trait Group {
 	/// Length of a serialized [`Element`](Group::Element).
 	type ElementLength: ArraySize + IsLess<U65536, Output = True>;
 
-	/// Generates a random scalar with the given `rng`. Implementation
+	/// Generates a random scalar with the provided `rng`. Implementation
 	/// guidelines can be found in [RFC 9497 § 4.7](https://www.rfc-editor.org/rfc/rfc9497.html#random-scalar).
 	///
 	/// Corresponds to [`RandomScalar()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.12).
 	///
 	/// # Errors
 	///
-	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the given
-	/// `rng` fails.
+	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the
+	/// provided `rng` fails.
 	fn scalar_random<R>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>
 	where
 		R: ?Sized + TryCryptoRng;
@@ -101,7 +101,7 @@ pub trait Group {
 	where
 		E: ExpandMsg<Self::SecurityLevel>;
 
-	/// Multiply the given [`NonZeroScalar`](Group::NonZeroScalar) with the
+	/// Multiply the provided [`NonZeroScalar`](Group::NonZeroScalar) with the
 	/// generator element of this prime-order subgroup.
 	///
 	/// This is expected to be cheaper to compute than via regular
@@ -109,15 +109,15 @@ pub trait Group {
 	#[must_use]
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement;
 
-	/// Multiply the given [`Scalar`](Group::Scalar) with the generator element
-	/// of this prime-order subgroup.
+	/// Multiply the provided [`Scalar`](Group::Scalar) with the generator
+	/// element of this prime-order subgroup.
 	///
 	/// This is expected to be cheaper to compute than via regular
 	/// multiplication, e.g. via precomputed tables.
 	#[must_use]
 	fn scalar_mul_by_generator(scalar: &Self::Scalar) -> Self::Element;
 
-	/// Computes the inverse of the given
+	/// Computes the inverse of the provided
 	/// [`NonZeroScalar`](Group::NonZeroScalar).
 	///
 	/// Corresponds to [`ScalarInverse()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.14).
@@ -140,7 +140,7 @@ pub trait Group {
 		*scalar
 	}
 
-	/// Batch computes the inverse of the given
+	/// Batch computes the inverse of the provided
 	/// [`NonZeroScalar`](Group::NonZeroScalar)s *without allocation*.
 	///
 	/// This is expected to reduce the problem of computing `N` inverses to
@@ -152,7 +152,7 @@ pub trait Group {
 		scalars.map(|scalar| Self::scalar_invert(&scalar))
 	}
 
-	/// Batch computes the inverse of the given
+	/// Batch computes the inverse of the provided
 	/// [`NonZeroScalar`](Group::NonZeroScalar)s.
 	///
 	/// This is expected to reduce the problem of computing `N` inverses to
@@ -166,13 +166,13 @@ pub trait Group {
 			.collect()
 	}
 
-	/// Serializes the given [`Scalar`](Group::Scalar).
+	/// Serializes the provided [`Scalar`](Group::Scalar).
 	///
 	/// Corresponds to [`SerializeScalar()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.20).
 	#[must_use]
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength>;
 
-	/// Deserializes the given `repr` to a
+	/// Deserializes the provided `repr` to a
 	/// [`NonZeroScalar`](Group::NonZeroScalar).
 	///
 	/// Corresponds to [`DeserializeScalar()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.22).
@@ -184,7 +184,7 @@ pub trait Group {
 		repr: Array<u8, Self::ScalarLength>,
 	) -> Result<Self::NonZeroScalar, InternalError>;
 
-	/// Deserializes the given `repr` to a [`Scalar`](Group::Scalar).
+	/// Deserializes the provided `repr` to a [`Scalar`](Group::Scalar).
 	///
 	/// Corresponds to [`DeserializeScalar()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.22).
 	///
@@ -230,13 +230,13 @@ pub trait Group {
 		*element
 	}
 
-	/// Serializes the given [`Element`](Group::Element).
+	/// Serializes the provided [`Element`](Group::Element).
 	///
 	/// Corresponds to
 	/// [`SerializeElement()` in RFC 9497 § 2.1](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.1-4.16).
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength>;
 
-	/// Batch serialization of the given
+	/// Batch serialization of the provided
 	/// [`NonIdentityElement`](Group::NonIdentityElement)s, potentially doubling
 	/// them, *without allocation*.
 	///
@@ -251,7 +251,7 @@ pub trait Group {
 			.collect_array()
 	}
 
-	/// Batch serialization of the given
+	/// Batch serialization of the provided
 	/// [`NonIdentityElement`](Group::NonIdentityElement)s, potentially doubling
 	/// them.
 	///
@@ -267,7 +267,7 @@ pub trait Group {
 			.collect()
 	}
 
-	/// Batch serialization of the given [`Element`](Group::Element)s,
+	/// Batch serialization of the provided [`Element`](Group::Element)s,
 	/// potentially doubling them, *without allocation*.
 	///
 	/// This is expected to be practically as efficient as a single
@@ -278,7 +278,7 @@ pub trait Group {
 		elements.iter().map(Self::element_to_repr).collect_array()
 	}
 
-	/// Deserializes the given `repr` to a
+	/// Deserializes the provided `repr` to a
 	/// [`NonIdentityElement`](Group::NonIdentityElement).
 	///
 	/// Corresponds to
@@ -344,8 +344,8 @@ pub(crate) trait CipherSuiteExt: CipherSuite {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
-	///   output.
+	/// - [`Error::InvalidInput`] if the provided `input` can never produce a
+	///   valid output.
 	fn hash_to_curve(mode: Mode, input: &[&[u8]]) -> Result<NonIdentityElement<Self>>;
 }
 

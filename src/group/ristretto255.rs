@@ -227,8 +227,8 @@ impl Group for Ristretto255 {
 pub struct NonZeroScalar(Scalar);
 
 impl NonZeroScalar {
-	/// Creates a [`NonZeroScalar`]. Returns [`None`] if the given [`Scalar`] is
-	/// the zero-scalar.
+	/// Creates a [`NonZeroScalar`]. Returns [`None`] if the provided [`Scalar`]
+	/// is the zero-scalar.
 	#[must_use]
 	pub fn new(scalar: Scalar) -> CtOption<Self> {
 		CtOption::new(Self(scalar), !scalar.ct_eq(&Scalar::ZERO))
@@ -310,7 +310,7 @@ impl Zeroize for NonZeroScalar {
 pub struct NonIdentityElement(RistrettoPoint);
 
 impl NonIdentityElement {
-	/// Creates a [`NonIdentityElement`]. Returns [`None`] if the given
+	/// Creates a [`NonIdentityElement`]. Returns [`None`] if the provided
 	/// [`RistrettoPoint`] is the identity point.
 	#[must_use]
 	pub fn new(point: RistrettoPoint) -> CtOption<Self> {

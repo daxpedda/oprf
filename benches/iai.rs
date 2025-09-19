@@ -13,7 +13,7 @@ use p384::NistP384;
 use p521::NistP521;
 use paste::paste;
 
-/// Benchmark the given [`Mode`].
+/// Benchmark the provided [`Mode`].
 macro_rules! group {
 	($mode:ident) => {
 		paste! {

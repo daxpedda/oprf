@@ -46,21 +46,21 @@ pub struct PoprfClient<Cs: CipherSuite> {
 }
 
 impl<Cs: CipherSuite> PoprfClient<Cs> {
-	/// Blinds the given `input`.
+	/// Blinds the provided `input`.
 	///
 	/// Corresponds to
 	/// [`Blind()` in RFC 9497 § 3.3.3](https://www.rfc-editor.org/rfc/rfc9497.html#section-3.3.3-2).
 	///
 	/// # Errors
 	///
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
-	///   [`BlindedElement`].
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::InvalidInput`] if the provided `input` can never produce a
+	///   valid [`BlindedElement`].
+	/// - [`Error::Random`] if the provided `rng` fails.
 	pub fn blind<R>(rng: &mut R, input: &[&[u8]]) -> Result<PoprfBlindResult<Cs>, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -76,21 +76,21 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 		})
 	}
 
-	/// Batch blinds the given `inputs` *without allocation*.
+	/// Batch blinds the provided `inputs` *without allocation*.
 	///
 	/// It is expected that a part of the computation is as efficient as
 	/// [`blind()`](Self::blind)ing a single `input`.
 	///
 	/// # Errors
 	///
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   [`BlindedElement`].
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	pub fn batch_blind<R, const N: usize>(
 		rng: &mut R,
 		inputs: &[&[&[u8]]; N],
@@ -123,21 +123,21 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 		})
 	}
 
-	/// Batch blinds the given `inputs`.
+	/// Batch blinds the provided `inputs`.
 	///
 	/// It is expected that a part of the computation is as efficient as
 	/// [`blind()`](Self::blind)ing a single `input`.
 	///
 	/// # Errors
 	///
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   [`BlindedElement`].
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind<'inputs, R, I>(
 		rng: &mut R,
@@ -174,13 +174,13 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 	///
 	/// # Errors
 	///
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::Proof`] if the [`Proof`] is invalid.
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	pub fn finalize(
 		&self,
@@ -211,15 +211,15 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
 	///   `evaluation_elements` are zero, don't match or exceed a length of
 	///   [`u16::MAX`].
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
-	///   output.
+	/// - [`Error::InvalidInfo`] if the provided `info` can never produce a
+	///   valid output.
 	/// - [`Error::Proof`] if the [`Proof`] is invalid.
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	pub fn batch_finalize<const N: usize>(
 		clients: &[Self; N],
@@ -264,15 +264,15 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 	/// - [`Error::Batch`] if the number of items in `clients`,`inputs` and
 	///   `evaluation_elements` are zero, don't match or exceed a length of
 	///   [`u16::MAX`].
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
-	///   output.
+	/// - [`Error::InvalidInfo`] if the provided `info` can never produce a
+	///   valid output.
 	/// - [`Error::Proof`] if the [`Proof`] is invalid.
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_finalize<'clients, 'inputs, 'evaluation_elements, Ic, Ii, Iee>(
@@ -332,8 +332,8 @@ impl<Cs: CipherSuite> PoprfClient<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInfo`] if the given `info` can never produce a valid
-	///   output.
+	/// - [`Error::InvalidInfo`] if the provided `info` can never produce a
+	///   valid output.
 	fn tweaked_key(
 		public_key: &PublicKey<Cs::Group>,
 		info: Info<'_>,
@@ -368,13 +368,13 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///
 	/// # Errors
 	///
-	/// - [`Error::Random`] if the given `rng` fails.
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::Random`] if the provided `rng` fails.
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
+	/// - [`Error::InvalidInfoDanger`] if the provided `info` maps to the
 	///   [`SecretKey`] of the server, the client can be assumed to know it and
 	///   it should be replaced.
 	pub fn new<R>(rng: &mut R, info: &[u8]) -> Result<Self, Error<R::Error>>
@@ -396,8 +396,8 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
-	///   the given input.
-	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
+	///   the provided input.
+	/// - [`Error::InvalidInfoDanger`] if the provided `info` maps to the
 	///   [`SecretKey`] of the server, the client can be assumed to know it and
 	///   it should be replaced.
 	pub fn from_seed(seed: &[u8; 32], key_info: &[u8], info: &[u8]) -> Result<Self> {
@@ -405,16 +405,16 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 		Self::from_key_pair(key_pair, info)
 	}
 
-	/// Creates a new [`PoprfServer`] from the given [`KeyPair`].
+	/// Creates a new [`PoprfServer`] from the provided [`KeyPair`].
 	///
 	/// # Errors
 	///
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInfoDanger`] if the given `info` maps to the
+	/// - [`Error::InvalidInfoDanger`] if the provided `info` maps to the
 	///   [`SecretKey`] of the server, the client can be assumed to know it and
 	///   it should be replaced.
 	pub fn from_key_pair(key_pair: KeyPair<Cs::Group>, info: &[u8]) -> Result<Self> {
@@ -457,7 +457,7 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	pub fn blind_evaluate<R>(
 		&self,
 		rng: &mut R,
@@ -489,7 +489,7 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	pub fn batch_blind_evaluate<R, const N: usize>(
 		&self,
 		rng: &mut R,
@@ -543,7 +543,7 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::Random`] if the given `rng` fails.
+	/// - [`Error::Random`] if the provided `rng` fails.
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_blind_evaluate<'blinded_elements, R, I>(
 		&self,
@@ -597,14 +597,14 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///
 	/// # Errors
 	///
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if the given `input` can never produce a valid
-	///   output.
-	/// - [`Error::InputLength`] if the given `input` exceeds a length of
+	/// - [`Error::InvalidInput`] if the provided `input` can never produce a
+	///   valid output.
+	/// - [`Error::InputLength`] if the provided `input` exceeds a length of
 	///   [`u16::MAX`].
 	pub fn evaluate(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<Cs::Hash>> {
 		let [output] = self.batch_evaluate(&[input], info)?;
@@ -618,14 +618,14 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///
 	/// # Errors
 	///
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   output.
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	pub fn batch_evaluate<const N: usize>(
 		&self,
@@ -653,14 +653,14 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///
 	/// # Errors
 	///
-	/// - [`Error::InfoLength`] if the given `info` exceeds a length of
+	/// - [`Error::InfoLength`] if the provided `info` exceeds a length of
 	///   [`u16::MAX`].
 	/// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
-	/// - [`Error::InvalidInput`] if a given input can never produce a valid
+	/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 	///   output.
-	/// - [`Error::InputLength`] if a given input exceeds a length of
+	/// - [`Error::InputLength`] if a provided input exceeds a length of
 	///   [`u16::MAX`].
 	#[cfg(feature = "alloc")]
 	pub fn batch_alloc_evaluate(

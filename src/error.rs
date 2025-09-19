@@ -20,7 +20,7 @@ pub enum Error<E = Infallible> {
 	/// `info` exceeds a length of [`u16::MAX`].
 	InfoLength,
 	/// A [`SecretKey`](crate::key::SecretKey) can never be derived from the
-	/// given input.
+	/// provided input.
 	DeriveKeyPair,
 	/// `input` exceeds a length of [`u16::MAX`].
 	InputLength,
@@ -30,23 +30,24 @@ pub enum Error<E = Infallible> {
 	/// [`Group`]: crate::cipher_suite::CipherSuite::Group
 	/// [`ExpandMsg`]: crate::cipher_suite::CipherSuite::ExpandMsg
 	InvalidCipherSuite,
-	/// The given `input` can never produce a valid output.
+	/// The provided `input` can never produce a valid output.
 	InvalidInput,
-	/// The given `info` can never produce a valid output.
+	/// The provided `info` can never produce a valid output.
 	InvalidInfo,
-	/// The given `info` maps to the [`SecretKey`](crate::key::SecretKey) of the
-	/// server, the client can be assumed to know it and it should be replaced.
+	/// The provided `info` maps to the [`SecretKey`](crate::key::SecretKey) of
+	/// the server, the client can be assumed to know it and it should be
+	/// replaced.
 	InvalidInfoDanger,
-	/// The given `repr` can't be deserialized into the output type.
+	/// The provided `repr` can't be deserialized into the output type.
 	FromRepr,
-	/// The given RNG failed.
+	/// The provided RNG failed.
 	Random(E),
 }
 
 impl Error {
-	/// Converts this [`Error`] to `Error::<R::Error>` with the given `R`. This
-	/// is useful when wanting to align types between errors with and without a
-	/// [`Error::Random`] type.
+	/// Converts this [`Error`] to `Error::<R::Error>` with the provided `R`.
+	/// This is useful when wanting to align types between errors with and
+	/// without a [`Error::Random`] type.
 	///
 	/// # Examples
 	///
@@ -92,18 +93,18 @@ impl<E: Display> Display for Error<E> {
 			Self::Batch => "number of passed items don't match, are 0 or larger than `u16::MAX`",
 			Self::Proof => "the `Proof` is invalid",
 			Self::InfoLength => "`info` exceeds a length of `u16::MAX`",
-			Self::DeriveKeyPair => "`SecretKey` can never be derived from the given input",
+			Self::DeriveKeyPair => "`SecretKey` can never be derived from the provided input",
 			Self::InputLength => "`input` exceeds a length of `u16::MAX`",
 			Self::InvalidCipherSuite => {
 				"this `CipherSuite`s `Group` and `ExpandMsg` are incompatible"
 			}
-			Self::InvalidInput => "the given `input` can never produce a valid output",
-			Self::InvalidInfo => "the given `info` can never produce a valid output",
+			Self::InvalidInput => "the provided `input` can never produce a valid output",
+			Self::InvalidInfo => "the provided `info` can never produce a valid output",
 			Self::InvalidInfoDanger => {
-				"the given `info` maps to the `SecretKey` of the server, the client can be assumed \
-				 to know it and it should be replaced"
+				"the provided `info` maps to the `SecretKey` of the server, the client can be \
+				 assumed to know it and it should be replaced"
 			}
-			Self::FromRepr => "the given `repr` can't be deserialized into the output type",
+			Self::FromRepr => "the provided `repr` can't be deserialized into the output type",
 			Self::Random(error) => return error.fmt(formatter),
 		})
 	}

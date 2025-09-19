@@ -99,7 +99,7 @@ impl<G: Group> ElementWithRepr<G> {
 		}
 	}
 
-	/// Creates an [`ElementWithRepr`] from the given representation.
+	/// Creates an [`ElementWithRepr`] from the provided representation.
 	///
 	/// # Errors
 	///
@@ -108,7 +108,7 @@ impl<G: Group> ElementWithRepr<G> {
 		Self::from_array(repr.try_into().map_err(|_| Error::FromRepr)?)
 	}
 
-	/// Creates an [`ElementWithRepr`] from the given representation.
+	/// Creates an [`ElementWithRepr`] from the provided representation.
 	///
 	/// # Errors
 	///
@@ -120,7 +120,7 @@ impl<G: Group> ElementWithRepr<G> {
 	}
 
 	/// Creates a fixed-sized array of [`ElementWithRepr`]s from multiplying the
-	/// given elements and scalars.
+	/// provided elements and scalars.
 	pub(crate) fn new_batch<const N: usize>(
 		elements_and_scalars: impl Iterator<Item = (G::NonIdentityElement, G::NonZeroScalar)>,
 	) -> [Self; N] {
@@ -137,7 +137,7 @@ impl<G: Group> ElementWithRepr<G> {
 			.collect_array()
 	}
 
-	/// Creates a [`Vec`] of [`ElementWithRepr`]s from multiplying the given
+	/// Creates a [`Vec`] of [`ElementWithRepr`]s from multiplying the provided
 	/// elements and scalars.
 	#[cfg(feature = "alloc")]
 	pub(crate) fn new_batch_alloc(
@@ -248,7 +248,7 @@ impl<Cs: CipherSuite> Copy for Composites<Cs> {}
 /// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
-/// - [`Error::Random`] if the given `rng` fails.
+/// - [`Error::Random`] if the provided `rng` fails.
 pub(crate) fn generate_proof<Cs, R>(
 	mode: Mode,
 	rng: &mut R,
@@ -317,7 +317,8 @@ where
 /// and
 /// [`VerifyProof()` in RFC 9497 § 2.2.2](https://www.rfc-editor.org/rfc/rfc9497.html#section-2.2.2-2).
 ///
-/// The given [`Element`]s may be halved for the purpose of batch serialization.
+/// The provided [`Element`]s may be halved for the purpose of batch
+/// serialization.
 ///
 /// # Errors
 ///
@@ -541,13 +542,14 @@ pub(crate) fn create_context_string<Cs: CipherSuite>(mode: Mode) -> [&'static [u
 ///
 /// # Errors
 ///
-/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
+/// - [`Error::InputLength`] if a provided input exceeds a length of
+///   [`u16::MAX`].
 /// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
-/// - [`Error::InvalidInput`] if a given input can never produce a valid
+/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 ///   [`BlindedElement`].
-/// - [`Error::Random`] if the given `rng` fails.
+/// - [`Error::Random`] if the provided `rng` fails.
 pub(crate) fn batch_blind<Cs, R, const N: usize>(
 	mode: Mode,
 	rng: &mut R,
@@ -593,13 +595,14 @@ where
 ///
 /// # Errors
 ///
-/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
+/// - [`Error::InputLength`] if a provided input exceeds a length of
+///   [`u16::MAX`].
 /// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
-/// - [`Error::InvalidInput`] if a given input can never produce a valid
+/// - [`Error::InvalidInput`] if a provided input can never produce a valid
 ///   [`BlindedElement`].
-/// - [`Error::Random`] if the given `rng` fails.
+/// - [`Error::Random`] if the provided `rng` fails.
 #[cfg(feature = "alloc")]
 pub(crate) fn batch_alloc_blind<'inputs, Cs, R>(
 	mode: Mode,
@@ -643,7 +646,7 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// Returns [`Error::InputLength`] if a provided input exceeds a length of
 /// [`u16::MAX`].
 #[expect(single_use_lifetimes, reason = "false-positive")]
 pub(crate) fn batch_finalize<'evaluation_elements, Cs, const N: usize>(
@@ -685,7 +688,7 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// Returns [`Error::InputLength`] if a provided input exceeds a length of
 /// [`u16::MAX`].
 #[cfg(feature = "alloc")]
 #[expect(single_use_lifetimes, reason = "false-positive")]
@@ -725,7 +728,7 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// Returns [`Error::InputLength`] if a provided input exceeds a length of
 /// [`u16::MAX`].
 fn internal_finalize<'inputs, Cs: CipherSuite>(
 	inputs: impl ExactSizeIterator<Item = &'inputs [&'inputs [u8]]>,
@@ -766,8 +769,10 @@ fn internal_finalize<'inputs, Cs: CipherSuite>(
 /// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
-/// - [`Error::InvalidInput`] if a given input can never produce a valid output.
-/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
+/// - [`Error::InvalidInput`] if a provided input can never produce a valid
+///   output.
+/// - [`Error::InputLength`] if a provided input exceeds a length of
+///   [`u16::MAX`].
 pub(crate) fn batch_evaluate<Cs, const N: usize>(
 	mode: Mode,
 	secret_key: NonZeroScalar<Cs>,
@@ -810,8 +815,10 @@ where
 /// - [`Error::InvalidCipherSuite`] if the [`CipherSuite`]s
 ///   [`Group`](CipherSuite::Group) and [`ExpandMsg`](CipherSuite::ExpandMsg)
 ///   are incompatible.
-/// - [`Error::InvalidInput`] if a given input can never produce a valid output.
-/// - [`Error::InputLength`] if a given input exceeds a length of [`u16::MAX`].
+/// - [`Error::InvalidInput`] if a provided input can never produce a valid
+///   output.
+/// - [`Error::InputLength`] if a provided input exceeds a length of
+///   [`u16::MAX`].
 #[cfg(feature = "alloc")]
 pub(crate) fn batch_alloc_evaluate<Cs: CipherSuite>(
 	mode: Mode,
@@ -837,7 +844,7 @@ pub(crate) fn batch_alloc_evaluate<Cs: CipherSuite>(
 ///
 /// # Errors
 ///
-/// Returns [`Error::InputLength`] if a given input exceeds a length of
+/// Returns [`Error::InputLength`] if a provided input exceeds a length of
 /// [`u16::MAX`].
 fn internal_evaluate<Cs: CipherSuite>(
 	inputs: &[&[&[u8]]],

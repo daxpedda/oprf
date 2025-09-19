@@ -34,8 +34,8 @@ impl<G: Group> KeyPair<G> {
 	///
 	/// # Errors
 	///
-	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the given
-	/// `rng` fails.
+	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the
+	/// provided `rng` fails.
 	pub fn generate<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -56,7 +56,7 @@ impl<G: Group> KeyPair<G> {
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
-	///   the given input.
+	///   the provided input.
 	pub fn derive<Cs: CipherSuite<Group = G>>(
 		mode: Mode,
 		seed: &[u8; 32],
@@ -65,7 +65,7 @@ impl<G: Group> KeyPair<G> {
 		SecretKey::derive::<Cs>(mode, seed, info).map(Self::from_secret_key)
 	}
 
-	/// Returns a [`KeyPair`] with the given [`SecretKey`] and deriving its
+	/// Returns a [`KeyPair`] with the provided [`SecretKey`] and deriving its
 	/// [`PublicKey`].
 	#[must_use]
 	pub fn from_secret_key(secret_key: SecretKey<G>) -> Self {
@@ -77,7 +77,7 @@ impl<G: Group> KeyPair<G> {
 		}
 	}
 
-	/// Deserializes the given `repr` to a [`SecretKey`], deriving its
+	/// Deserializes the provided `repr` to a [`SecretKey`], deriving its
 	/// [`PublicKey`] and creating a [`KeyPair`].
 	///
 	/// # Errors
@@ -134,8 +134,8 @@ impl<G: Group> SecretKey<G> {
 	///
 	/// # Errors
 	///
-	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the given
-	/// `rng` fails.
+	/// Returns [`TryRngCore::Error`](rand_core::TryRngCore::Error) if the
+	/// provided `rng` fails.
 	pub fn generate<R>(rng: &mut R) -> Result<Self, R::Error>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -155,7 +155,7 @@ impl<G: Group> SecretKey<G> {
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
-	///   the given input.
+	///   the provided input.
 	pub fn derive<Cs: CipherSuite<Group = G>>(
 		mode: Mode,
 		seed: &[u8; 32],
@@ -182,7 +182,7 @@ impl<G: Group> SecretKey<G> {
 		Err(Error::DeriveKeyPair)
 	}
 
-	/// Deserializes the given `repr` to a [`SecretKey`].
+	/// Deserializes the provided `repr` to a [`SecretKey`].
 	///
 	/// # Errors
 	///
@@ -234,13 +234,13 @@ impl<G: Group> PublicKey<G> {
 		Self(ElementWithRepr::new(element))
 	}
 
-	/// Derives the corresponding [`PublicKey`] from the given [`SecretKey`].
+	/// Derives the corresponding [`PublicKey`] from the provided [`SecretKey`].
 	#[must_use]
 	pub fn from_secret_key(secret_key: &SecretKey<G>) -> Self {
 		Self::new(G::non_zero_scalar_mul_by_generator(&secret_key.0))
 	}
 
-	/// Deserializes the given `repr` to a [`PublicKey`].
+	/// Deserializes the provided `repr` to a [`PublicKey`].
 	///
 	/// # Errors
 	///

@@ -99,7 +99,7 @@ impl I2osp for u16 {
 /// [`I2OSP`](https://datatracker.ietf.org/doc/html/rfc8017#section-4.1) implementation directly on types.
 pub(crate) trait I2ospLength {
 	/// [`I2OSP(length, 2)`](https://datatracker.ietf.org/doc/html/rfc8017#section-4.1)
-	/// where `length` is the number of bytes of the given slice(s).
+	/// where `length` is the number of bytes of the provided slice(s).
 	fn i2osp_length(&self) -> Option<[u8; 2]>;
 }
 
