@@ -375,8 +375,8 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::InvalidInfoDanger`] if the provided `info` maps to the
-	///   [`SecretKey`] of the server, the client can be assumed to know it and
-	///   it should be replaced.
+	///   servers [`SecretKey`], the client can be assumed to know it and it
+	///   should be replaced.
 	pub fn new<R>(rng: &mut R, info: &[u8]) -> Result<Self, Error<R::Error>>
 	where
 		R: ?Sized + TryCryptoRng,
@@ -398,8 +398,8 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	/// - [`Error::DeriveKeyPair`] if a [`SecretKey`] can never be derived from
 	///   the provided input.
 	/// - [`Error::InvalidInfoDanger`] if the provided `info` maps to the
-	///   [`SecretKey`] of the server, the client can be assumed to know it and
-	///   it should be replaced.
+	///   servers [`SecretKey`], the client can be assumed to know it and it
+	///   should be replaced.
 	pub fn from_seed(seed: &[u8; 32], key_info: &[u8], info: &[u8]) -> Result<Self> {
 		let key_pair = KeyPair::derive::<Cs>(Mode::Poprf, seed, key_info)?;
 		Self::from_key_pair(key_pair, info)
@@ -415,8 +415,8 @@ impl<Cs: CipherSuite> PoprfServer<Cs> {
 	///   [`Group`](CipherSuite::Group) and
 	///   [`ExpandMsg`](CipherSuite::ExpandMsg) are incompatible.
 	/// - [`Error::InvalidInfoDanger`] if the provided `info` maps to the
-	///   [`SecretKey`] of the server, the client can be assumed to know it and
-	///   it should be replaced.
+	///   servers [`SecretKey`], the client can be assumed to know it and it
+	///   should be replaced.
 	pub fn from_key_pair(key_pair: KeyPair<Cs::Group>, info: &[u8]) -> Result<Self> {
 		let info = Info::new(info)?;
 		let framed_info = [b"Info".as_slice(), &info.i2osp(), info.info()];

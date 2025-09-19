@@ -34,9 +34,14 @@ pub enum Error<E = Infallible> {
 	InvalidInput,
 	/// The provided `info` can never produce a valid output.
 	InvalidInfo,
-	/// The provided `info` maps to the [`SecretKey`](crate::key::SecretKey) of
-	/// the server, the client can be assumed to know it and it should be
-	/// replaced.
+	/// The provided `info` maps to the servers [`SecretKey`].
+	///
+	/// # ⚠️ Warning
+	///
+	/// The client can be assumed to know the servers [`SecretKey`] and it
+	/// should be replaced!
+	///
+	/// [`SecretKey`]: crate::key::SecretKey
 	InvalidInfoDanger,
 	/// The provided `repr` can't be deserialized into the output type.
 	FromRepr,
@@ -101,8 +106,8 @@ impl<E: Display> Display for Error<E> {
 			Self::InvalidInput => "the provided `input` can never produce a valid output",
 			Self::InvalidInfo => "the provided `info` can never produce a valid output",
 			Self::InvalidInfoDanger => {
-				"the provided `info` maps to the `SecretKey` of the server, the client can be \
-				 assumed to know it and it should be replaced"
+				"the provided `info` maps to the servers `SecretKey`, the client can be assumed to \
+				 know it and it should be replaced"
 			}
 			Self::FromRepr => "the provided `repr` can't be deserialized into the output type",
 			Self::Random(error) => return error.fmt(formatter),
