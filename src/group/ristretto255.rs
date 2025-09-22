@@ -6,9 +6,7 @@ use core::ops::{Deref, Mul};
 
 use curve25519_dalek::traits::MultiscalarMul;
 use curve25519_dalek::{RistrettoPoint, Scalar};
-use elliptic_curve::Group as _;
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::subtle::{ConstantTimeEq, CtOption};
+use group::{Group as _, GroupEncoding};
 #[cfg(feature = "ristretto255-ciphersuite")]
 use hash2curve::ExpandMsgXmd;
 use hash2curve::{ExpandMsg, Expander};
@@ -19,6 +17,7 @@ use rand_core::TryCryptoRng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "ristretto255-ciphersuite")]
 use sha2::Sha512;
+use subtle::{ConstantTimeEq, CtOption};
 use zeroize::Zeroize;
 
 use super::Group;

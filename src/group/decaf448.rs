@@ -4,12 +4,12 @@
 use alloc::vec::Vec;
 
 use digest::XofFixedWrapper;
+use ed448_goldilocks::elliptic_curve::group::GroupEncoding;
+use ed448_goldilocks::elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
+use ed448_goldilocks::elliptic_curve::point::NonIdentity;
+use ed448_goldilocks::elliptic_curve::{Group as _, PrimeField};
 use ed448_goldilocks::sha3::Shake256;
 use ed448_goldilocks::{Decaf448NonZeroScalar, DecafPoint, DecafScalar};
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
-use elliptic_curve::point::NonIdentity;
-use elliptic_curve::{Group as _, PrimeField};
 use hash2curve::{ExpandMsg, ExpandMsgXof};
 use hybrid_array::Array;
 use hybrid_array::typenum::{U28, U56, U64};

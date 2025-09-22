@@ -4,16 +4,16 @@
 use alloc::vec::Vec;
 use core::ops::Add;
 
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination, Reduce};
-use elliptic_curve::point::NonIdentity;
-use elliptic_curve::sec1::{CompressedPointSize, ModulusSize, UncompressedPointSize};
-use elliptic_curve::{
-	BatchNormalize, FieldBytes, FieldBytesSize, Group as _, NonZeroScalar, PrimeField, Scalar,
-};
+use group::GroupEncoding;
 use hash2curve::{ExpandMsg, GroupDigest, MapToCurve, OprfParameters};
 use hybrid_array::typenum::{IsLess, True, U65536};
 use hybrid_array::{Array, ArraySize};
+use primeorder::elliptic_curve::ops::{BatchInvert, Invert, LinearCombination, Reduce};
+use primeorder::elliptic_curve::point::NonIdentity;
+use primeorder::elliptic_curve::sec1::{CompressedPointSize, ModulusSize, UncompressedPointSize};
+use primeorder::elliptic_curve::{
+	BatchNormalize, FieldBytes, FieldBytesSize, Group as _, NonZeroScalar, PrimeField, Scalar,
+};
 use primeorder::{AffinePoint, PrimeCurveParams, ProjectivePoint};
 use rand_core::TryCryptoRng;
 
@@ -38,8 +38,8 @@ where
 	FieldBytes<C>: Copy,
 	FieldBytesSize<C>: Add<FieldBytesSize<C>, Output: ArraySize> + ModulusSize,
 	CompressedPointSize<C>: IsLess<U65536, Output = True>,
-	ProjectivePoint<C>: elliptic_curve::Group<Scalar = Scalar<C>>
-		+ GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
+	ProjectivePoint<C>:
+		group::Group<Scalar = Scalar<C>> + GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 	AffinePoint<C>: GroupEncoding<Repr = Array<u8, CompressedPointSize<C>>>,
 	Scalar<C>: Reduce<Array<u8, C::Length>>,
 	<CompressedPointSize<C> as ArraySize>::ArrayType<u8>: Copy,
