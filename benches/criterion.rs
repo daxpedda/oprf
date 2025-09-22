@@ -13,12 +13,8 @@ use criterion::measurement::WallTime;
 use criterion::{BatchSize, BenchmarkGroup, Criterion};
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
-use oprf::group::decaf448::Decaf448;
-use oprf::group::ristretto255::Ristretto255;
+use oprf::{Decaf448, NistP256, NistP384, NistP521, Ristretto255};
 use oprf_test::Setup;
-use p256::NistP256;
-use p384::NistP384;
-use p521::NistP521;
 
 /// Default [`Criterion`] configuration.
 fn criterion() -> Criterion {

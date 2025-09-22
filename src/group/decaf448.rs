@@ -16,8 +16,7 @@ use hybrid_array::typenum::{U28, U56, U64};
 use rand_core::TryCryptoRng;
 
 use super::Group;
-use crate::CipherSuite;
-use crate::cipher_suite::Id;
+use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
 
 impl CipherSuite for Decaf448 {

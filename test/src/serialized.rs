@@ -3,7 +3,7 @@
 #![expect(clippy::missing_panics_doc, reason = "tests")]
 
 use hybrid_array::Array;
-use oprf::CipherSuite;
+use oprf::cipher_suite::CipherSuite;
 use oprf::group::Group;
 use rand_core::OsRng;
 

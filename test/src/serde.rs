@@ -2,7 +2,6 @@
 
 use std::iter;
 
-use ed448_goldilocks::Decaf448;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Proof};
 use oprf::group::Group;
@@ -11,9 +10,7 @@ use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfClient, OprfServer};
 use oprf::poprf::{PoprfClient, PoprfServer};
 use oprf::voprf::{VoprfClient, VoprfServer};
-use p256::NistP256;
-use p384::NistP384;
-use p521::NistP521;
+use oprf::{Decaf448, NistP256, NistP384, NistP521};
 use serde_test::Token;
 
 /// Defines how certain cipher suites differ in their serialization format of

@@ -12,8 +12,6 @@ use std::hash::Hash;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::{error, io};
 
-use ed448_goldilocks::Decaf448;
-use oprf::Error;
 use oprf::cipher_suite::{CipherSuite, Id};
 #[cfg(feature = "alloc")]
 use oprf::common::BatchAllocBlindEvaluateResult;
@@ -31,9 +29,7 @@ use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfSer
 #[cfg(feature = "alloc")]
 use oprf::voprf::VoprfBatchAllocBlindResult;
 use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
-use p256::NistP256;
-use p384::NistP384;
-use p521::NistP521;
+use oprf::{Decaf448, Error, NistP256, NistP384, NistP521};
 use paste::paste;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

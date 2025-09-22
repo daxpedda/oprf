@@ -5,12 +5,9 @@
 
 use ::oprf::cipher_suite::CipherSuite;
 use ::oprf::common::Mode;
-use ::oprf::group::{decaf448, ristretto255};
+use ::oprf::{NistP256, NistP384, NistP521};
 use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use oprf_test::Setup;
-use p256::NistP256;
-use p384::NistP384;
-use p521::NistP521;
 use paste::paste;
 
 /// Benchmark the provided [`Mode`].
@@ -23,8 +20,8 @@ macro_rules! group {
 			#[bench::P256(args = (NistP256), setup = setup)]
 			#[bench::P384(args = (NistP384), setup = setup)]
 			#[bench::P521(args = (NistP521), setup = setup)]
-			#[bench::Ristretto255(args = (ristretto255::Ristretto255), setup = setup)]
-			#[bench::Decaf448(args = (decaf448::Decaf448), setup = setup)]
+			#[bench::Ristretto255(args = (::oprf::Ristretto255), setup = setup)]
+			#[bench::Decaf448(args = (::oprf::Decaf448), setup = setup)]
 			fn [<$mode:lower>]<Cs: CipherSuite>(setup: Setup<Cs>) {
 				oprf_test::bench(Mode::$mode, setup);
 			}

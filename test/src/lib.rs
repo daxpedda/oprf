@@ -16,7 +16,7 @@ mod rng;
 mod serde;
 mod serialized;
 
-pub use {ed448_goldilocks, oprf, p256, p384, p521, paste};
+pub use {oprf, paste};
 
 pub use self::bench::{Setup, bench};
 pub use self::cipher_suite::{MockCs, MockCurve, MockExpandMsg, MockHash};
@@ -58,11 +58,11 @@ macro_rules! test_ciphersuites {
 			internal: $name,
 			$($mode,)?
 			[
-				$crate::p256::NistP256 as p256,
-				$crate::p384::NistP384 as p384,
-				$crate::p521::NistP521 as p521,
-				$crate::oprf::group::ristretto255::Ristretto255 as ristretto255,
-				$crate::ed448_goldilocks::Decaf448 as decaf448
+				$crate::oprf::NistP256 as p256,
+				$crate::oprf::NistP384 as p384,
+				$crate::oprf::NistP521 as p521,
+				$crate::oprf::Ristretto255 as ristretto255,
+				$crate::oprf::Decaf448 as decaf448
 			]
 		);
 	};
