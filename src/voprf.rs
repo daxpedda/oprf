@@ -24,7 +24,7 @@ use crate::common::{
 use crate::error::{Error, Result};
 #[cfg(feature = "alloc")]
 use crate::internal::AllocBlindResult;
-#[cfg(feature = "serde")]
+#[cfg(any(feature = "alloc", feature = "serde"))]
 use crate::internal::ElementWithRepr;
 use crate::internal::{self, BlindResult};
 #[cfg(feature = "serde")]

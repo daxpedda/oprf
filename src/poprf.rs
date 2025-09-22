@@ -25,7 +25,7 @@ use crate::error::{Error, Result};
 use crate::group::{CipherSuiteExt, Group};
 #[cfg(feature = "alloc")]
 use crate::internal::AllocBlindResult;
-#[cfg(feature = "serde")]
+#[cfg(any(feature = "alloc", feature = "serde"))]
 use crate::internal::ElementWithRepr;
 use crate::internal::{self, BlindResult, Info};
 #[cfg(feature = "serde")]

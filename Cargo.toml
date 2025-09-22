@@ -4,7 +4,12 @@ name = "oprf"
 version = "0.0.0"
 
 [features]
-alloc = ["curve25519-dalek?/alloc", "primeorder?/alloc", "oprf-test/alloc"]
+alloc = [
+	"curve25519-dalek?/alloc",
+	"ed448-goldilocks?/alloc",
+	"primeorder?/alloc",
+	"oprf-test/alloc",
+]
 decaf448 = ["dep:ed448-goldilocks"]
 primeorder = ["dep:primeorder", "dep:group"]
 ristretto255 = ["dep:curve25519-dalek", "dep:group", "dep:subtle"]

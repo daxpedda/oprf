@@ -21,6 +21,7 @@ use subtle::{ConstantTimeEq, CtOption};
 use zeroize::Zeroize;
 
 use super::Group;
+#[cfg(feature = "ristretto255-ciphersuite")]
 use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::{InternalError, Result};
 use crate::util::CollectArray;
