@@ -9,7 +9,7 @@ use ed448_goldilocks::elliptic_curve::ops::{BatchInvert, Invert, LinearCombinati
 use ed448_goldilocks::elliptic_curve::point::NonIdentity;
 use ed448_goldilocks::elliptic_curve::{Group as _, PrimeField};
 use ed448_goldilocks::sha3::Shake256;
-use ed448_goldilocks::{Decaf448NonZeroScalar, DecafPoint, DecafScalar};
+use ed448_goldilocks::{Decaf448, Decaf448NonZeroScalar, DecafPoint, DecafScalar};
 use hash2curve::{ExpandMsg, ExpandMsgXof};
 use hybrid_array::Array;
 use hybrid_array::typenum::{U28, U56, U64};
@@ -19,12 +19,6 @@ use super::Group;
 use crate::CipherSuite;
 use crate::cipher_suite::Id;
 use crate::error::{InternalError, Result};
-
-/// Implementation for Decaf448.
-///
-/// See [RFC 9497 § 4.2](https://www.rfc-editor.org/rfc/rfc9497.html#name-oprfdecaf448-shake-256).
-#[derive(Clone, Copy, Debug)]
-pub struct Decaf448;
 
 impl CipherSuite for Decaf448 {
 	const ID: Id = Id::new(b"decaf448-SHAKE256").unwrap();
@@ -64,8 +58,7 @@ impl Group for Decaf448 {
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		hash2curve::hash_to_scalar::<ed448_goldilocks::Decaf448, E, U64>(input, dst)
-			.map_err(|_| InternalError)
+		hash2curve::hash_to_scalar::<Self, E, U64>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn non_zero_scalar_mul_by_generator(scalar: &Self::NonZeroScalar) -> Self::NonIdentityElement {
@@ -123,8 +116,7 @@ impl Group for Decaf448 {
 	where
 		E: ExpandMsg<Self::SecurityLevel>,
 	{
-		hash2curve::hash_from_bytes::<ed448_goldilocks::Decaf448, E>(input, dst)
-			.map_err(|_| InternalError)
+		hash2curve::hash_from_bytes::<Self, E>(input, dst).map_err(|_| InternalError)
 	}
 
 	fn element_to_repr(element: &Self::Element) -> Array<u8, Self::ElementLength> {

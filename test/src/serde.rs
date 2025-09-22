@@ -2,10 +2,10 @@
 
 use std::iter;
 
+use ed448_goldilocks::Decaf448;
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Proof};
 use oprf::group::Group;
-use oprf::group::decaf448::Decaf448;
 use oprf::group::ristretto255::Ristretto255;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfClient, OprfServer};

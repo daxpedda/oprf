@@ -1,11 +1,8 @@
 //! Tests for [`Error::Batch`] cases.
 
 #![cfg(test)]
-#![expect(
-	clippy::cargo_common_metadata,
-	clippy::indexing_slicing,
-	reason = "tests"
-)]
+#![expect(clippy::cargo_common_metadata, reason = "tests")]
+#![cfg_attr(feature = "alloc", expect(clippy::indexing_slicing, reason = "tests"))]
 
 #[cfg(feature = "alloc")]
 use std::iter;

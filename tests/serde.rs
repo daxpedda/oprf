@@ -1,8 +1,8 @@
 //! Tests for Serde implementations.
 
 #![cfg(test)]
-#![cfg(feature = "serde")]
 #![expect(clippy::cargo_common_metadata, reason = "tests")]
+#![cfg(feature = "serde")]
 
 use std::fmt::Debug;
 use std::iter;

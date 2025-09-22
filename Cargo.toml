@@ -7,11 +7,18 @@ version = "0.0.0"
 alloc = [
 	"curve25519-dalek?/alloc",
 	"ed448-goldilocks?/alloc",
-	"primeorder?/alloc",
+	"p256?/alloc",
+	"p384?/alloc",
+	"p521?/alloc",
 	"oprf-test/alloc",
 ]
 decaf448 = ["dep:ed448-goldilocks"]
-primeorder = ["dep:primeorder", "dep:group"]
+p256 = ["dep:p256"]
+p256-ciphersuite = ["p256", "p256/oprf"]
+p384 = ["dep:p384"]
+p384-ciphersuite = ["p384", "p384/oprf"]
+p521 = ["dep:p521"]
+p521-ciphersuite = ["p521", "p521/oprf"]
 ristretto255 = ["dep:curve25519-dalek", "dep:group", "dep:subtle"]
 ristretto255-ciphersuite = ["ristretto255", "dep:sha2"]
 serde = [
@@ -19,6 +26,9 @@ serde = [
 	"dep:serdect",
 	"ed448-goldilocks?/serde",
 	"curve25519-dalek?/serde",
+	"p256?/serde",
+	"p384?/serde",
+	"p521?/serde",
 	"oprf-test/serde",
 ]
 
@@ -29,7 +39,9 @@ ed448-goldilocks = { workspace = true, optional = true }
 group = { workspace = true, optional = true }
 hash2curve = { workspace = true }
 hybrid-array = { workspace = true }
-primeorder = { workspace = true, optional = true }
+p256 = { workspace = true, optional = true }
+p384 = { workspace = true, optional = true }
+p521 = { workspace = true, optional = true }
 rand_core = { workspace = true }
 serde = { workspace = true, optional = true }
 serdect = { workspace = true, optional = true }
@@ -95,13 +107,18 @@ hex = { version = "0.4", default-features = false, features = ["alloc", "serde"]
 hex-literal = "1"
 hybrid-array = "0.4"
 iai-callgrind = "0.16"
-oprf = { path = "", features = ["decaf448", "ristretto255-ciphersuite", "primeorder"] }
+oprf = { path = "", features = [
+	"decaf448",
+	"ristretto255-ciphersuite",
+	"p256-ciphersuite",
+	"p384-ciphersuite",
+	"p521-ciphersuite",
+] }
 oprf-test = { path = "test" }
-p256 = { version = "=0.14.0-pre.11", default-features = false, features = ["oprf", "serde"] }
-p384 = { version = "=0.14.0-pre.11", default-features = false, features = ["oprf", "serde"] }
-p521 = { version = "=0.14.0-pre.11", default-features = false, features = ["oprf", "serde"] }
+p256 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
+p384 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
+p521 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
 paste = "1"
-primeorder = "=0.14.0-pre.9"
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false }
 serde_json = "1"

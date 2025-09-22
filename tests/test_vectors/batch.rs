@@ -15,7 +15,11 @@ test_ciphersuites!(test, Voprf);
 test_ciphersuites!(test, Poprf);
 
 /// Tests batched test vectors.
-#[expect(clippy::cognitive_complexity, clippy::too_many_lines, reason = "test")]
+#[expect(clippy::too_many_lines, reason = "test")]
+#[cfg_attr(
+	feature = "alloc",
+	expect(clippy::cognitive_complexity, reason = "test")
+)]
 fn test<Cs: CipherSuite>(mode: Mode) {
 	let mut tests = 0;
 

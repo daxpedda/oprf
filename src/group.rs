@@ -1,8 +1,8 @@
 //! The [`Group`] trait.
 
 #[cfg(feature = "decaf448")]
-pub mod decaf448;
-#[cfg(feature = "primeorder")]
+mod decaf448;
+#[cfg(any(feature = "p256", feature = "p384", feature = "p521"))]
 mod primeorder;
 #[cfg(feature = "ristretto255")]
 pub mod ristretto255;

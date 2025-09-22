@@ -12,6 +12,7 @@ use std::hash::Hash;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::{error, io};
 
+use ed448_goldilocks::Decaf448;
 use oprf::Error;
 use oprf::cipher_suite::{CipherSuite, Id};
 #[cfg(feature = "alloc")]
@@ -19,7 +20,6 @@ use oprf::common::BatchAllocBlindEvaluateResult;
 use oprf::common::{
 	BatchBlindEvaluateResult, BlindEvaluateResult, BlindedElement, EvaluationElement, Mode, Proof,
 };
-use oprf::group::decaf448::Decaf448;
 use oprf::group::ristretto255::Ristretto255;
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 #[cfg(feature = "alloc")]
