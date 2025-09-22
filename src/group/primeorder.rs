@@ -137,11 +137,11 @@ macro_rules! group {
 				}
 
 				fn element_identity() -> Self::Element {
-					ProjectivePoint::identity()
+					ProjectivePoint::IDENTITY
 				}
 
 				fn element_generator() -> Self::Element {
-					ProjectivePoint::generator()
+					ProjectivePoint::GENERATOR
 				}
 
 				fn hash_to_curve<E>(

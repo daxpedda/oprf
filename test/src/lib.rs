@@ -11,16 +11,23 @@
 mod bench;
 pub mod cipher_suite;
 pub mod common;
+pub mod edwards25519;
+mod edwards448;
+mod k256;
 mod rng;
 #[cfg(feature = "serde")]
 mod serde;
 mod serialized;
+mod util;
 
 pub use {oprf, paste};
 
 pub use self::bench::{Setup, bench};
 pub use self::cipher_suite::{MockCs, MockCurve, MockExpandMsg, MockHash};
 pub use self::common::{CommonClient, CommonServer};
+pub use self::edwards448::Edwards448;
+pub use self::edwards25519::Edwards25519;
+pub use self::k256::Secp256k1;
 #[cfg(feature = "serde")]
 pub use self::serde::{ScalarRepr, TypeRepr};
 pub use self::serialized::*;

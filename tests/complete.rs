@@ -7,16 +7,21 @@ use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf::group::ristretto255::Ristretto255;
 use oprf::{Decaf448, NistP256, NistP384, NistP521};
-use oprf_test::{CommonClient, CommonServer, MockCs, test_ciphersuites};
+use oprf_test::{
+	CommonClient, CommonServer, Edwards448, Edwards25519, MockCs, Secp256k1, test_ciphersuites,
+};
 
 test_ciphersuites!(
 	basic,
 	Mode,
 	[
+		Secp256k1 as k256,
 		NistP256 as p256,
 		NistP384 as p384,
 		NistP521 as p521,
+		Edwards25519 as edwards25519,
 		Ristretto255 as ristretto255,
+		Edwards448 as edwards448,
 		Decaf448 as decaf448,
 		MockCs as mock
 	]
@@ -36,10 +41,13 @@ test_ciphersuites!(
 	batch,
 	Mode,
 	[
+		Secp256k1 as k256,
 		NistP256 as p256,
 		NistP384 as p384,
 		NistP521 as p521,
+		Edwards25519 as edwards25519,
 		Ristretto255 as ristretto255,
+		Edwards448 as edwards448,
 		Decaf448 as decaf448,
 		MockCs as mock
 	]
