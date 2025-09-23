@@ -107,6 +107,10 @@ hex = { version = "0.4", default-features = false, features = ["alloc", "serde"]
 hex-literal = "1"
 hybrid-array = "0.4"
 iai-callgrind = "0.16"
+k256 = { version = "=0.14.0-pre.11", default-features = false, features = [
+	"arithmetic",
+	"hash2curve",
+] }
 oprf = { path = "", features = [
 	"decaf448",
 	"ristretto255-ciphersuite",
@@ -115,10 +119,18 @@ oprf = { path = "", features = [
 	"p521-ciphersuite",
 ] }
 oprf-test = { path = "test" }
-k256 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
-p256 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
-p384 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
-p521 = { version = "=0.14.0-pre.11", default-features = false, features = ["arithmetic", "hash2curve"] }
+p256 = { version = "=0.14.0-pre.11", default-features = false, features = [
+	"arithmetic",
+	"hash2curve",
+] }
+p384 = { version = "=0.14.0-pre.11", default-features = false, features = [
+	"arithmetic",
+	"hash2curve",
+] }
+p521 = { version = "=0.14.0-pre.11", default-features = false, features = [
+	"arithmetic",
+	"hash2curve",
+] }
 paste = "1"
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false }
