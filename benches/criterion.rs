@@ -14,7 +14,7 @@ use criterion::{BatchSize, BenchmarkGroup, Criterion};
 use oprf::cipher_suite::CipherSuite;
 use oprf::common::Mode;
 use oprf::{Decaf448, NistP256, NistP384, NistP521, Ristretto255};
-use oprf_test::Setup;
+use oprf_test::{Edwards448, Edwards25519, Secp256k1, Setup};
 
 /// Default [`Criterion`] configuration.
 fn criterion() -> Criterion {
@@ -43,10 +43,13 @@ fn group(mode: Mode) {
 	let mut criterion = criterion();
 	let mut group = criterion.benchmark_group(format!("{mode:?}").to_uppercase());
 
+	bench::<Secp256k1>(&mut group, mode);
 	bench::<NistP256>(&mut group, mode);
 	bench::<NistP384>(&mut group, mode);
 	bench::<NistP521>(&mut group, mode);
+	bench::<Edwards25519>(&mut group, mode);
 	bench::<Ristretto255>(&mut group, mode);
+	bench::<Edwards448>(&mut group, mode);
 	bench::<Decaf448>(&mut group, mode);
 }
 
