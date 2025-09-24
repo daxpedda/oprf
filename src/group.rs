@@ -3,7 +3,7 @@
 #[cfg(feature = "decaf448")]
 mod decaf448;
 #[cfg(any(feature = "p256", feature = "p384", feature = "p521"))]
-mod primeorder;
+mod elliptic_curve;
 #[cfg(feature = "ristretto255")]
 pub mod ristretto255;
 

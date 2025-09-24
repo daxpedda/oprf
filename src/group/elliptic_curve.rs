@@ -1,69 +1,61 @@
-//! NIST curves implementation.
+//! [`CipherSuite`](crate::cipher_suite::CipherSuite) and [`Group`]
+//! implementation for curves implementing the traits of [`elliptic_curve`].
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
+use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::group::ff::PrimeField;
+use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
+use elliptic_curve::point::NonIdentity;
+use elliptic_curve::{
+	BatchNormalize, FieldBytesSize, Group as _, NonZeroScalar, ProjectivePoint, Scalar,
+};
 use hash2curve::{ExpandMsg, MapToCurve};
-#[cfg(any(
-	feature = "p256-ciphersuite",
-	feature = "p384-ciphersuite",
-	feature = "p521-ciphersuite"
-))]
-use hash2curve::{GroupDigest, OprfParameters};
-use hybrid_array::Array;
+use hybrid_array::{Array, AssocArraySize, typenum};
 use rand_core::TryCryptoRng;
 
-#[cfg(any(
-	feature = "p256-ciphersuite",
-	feature = "p384-ciphersuite",
-	feature = "p521-ciphersuite"
-))]
-use crate::cipher_suite::{CipherSuite, Id};
 use crate::error::InternalError;
 use crate::group::Group;
 
-/// Implements [`CipherSuite`] for a curve.
-#[cfg(any(
-	feature = "p256-ciphersuite",
-	feature = "p384-ciphersuite",
-	feature = "p521-ciphersuite"
-))]
-macro_rules! cipher_suite {
-	($crate_:ident, $curve:ident) => {
-		impl CipherSuite for $crate_::$curve {
-			const ID: Id = Id::new(<Self as OprfParameters>::ID).unwrap();
-
-			type Group = Self;
-			type Hash = <<Self as GroupDigest>::ExpandMsg as ExpandMsg<
-				<Self as MapToCurve>::SecurityLevel,
-			>>::Hash;
-			type ExpandMsg = <Self as GroupDigest>::ExpandMsg;
-		}
-	};
-}
-
 /// Implements [`Group`] for a curve.
 macro_rules! group {
-	($crate_:ident, $curve:ident) => {
+	(
+		cipher_suite_feature = $cipher_suite_feature:literal,
+		crate = $crate_:ident,
+		type = $curve:ident,
+		ID = $id:literal,
+		Hash = $hash:ty,
+		hash_to_scalar = $hash_to_scalar:ty,
+	) => {
 		const _: () = {
-			use $crate_::elliptic_curve::group::GroupEncoding;
-			use $crate_::elliptic_curve::group::ff::PrimeField;
-			use $crate_::elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
-			use $crate_::elliptic_curve::point::NonIdentity;
-			use $crate_::elliptic_curve::sec1::CompressedPointSize;
-			use $crate_::elliptic_curve::{BatchNormalize, FieldBytesSize, Group as _};
-			use $crate_::{NonZeroScalar, ProjectivePoint, Scalar, $curve};
+			#[cfg(feature = $cipher_suite_feature)]
+			use hash2curve::GroupDigest;
+			use $crate_::$curve;
+
+			#[cfg(feature = $cipher_suite_feature)]
+			use crate::cipher_suite::{CipherSuite, Id};
+
+			#[cfg(feature = $cipher_suite_feature)]
+			impl CipherSuite for $curve {
+				const ID: Id = Id::new($id).unwrap();
+
+				type Group = Self;
+				type Hash = $hash;
+				type ExpandMsg = <Self as GroupDigest>::ExpandMsg;
+			}
 
 			impl Group for $curve {
 				type SecurityLevel = <Self as MapToCurve>::SecurityLevel;
 
-				type NonZeroScalar = NonZeroScalar;
-				type Scalar = Scalar;
+				type NonZeroScalar = NonZeroScalar<Self>;
+				type Scalar = Scalar<Self>;
 				type ScalarLength = FieldBytesSize<Self>;
 
-				type NonIdentityElement = NonIdentity<ProjectivePoint>;
-				type Element = ProjectivePoint;
-				type ElementLength = CompressedPointSize<Self>;
+				type NonIdentityElement = NonIdentity<ProjectivePoint<Self>>;
+				type Element = ProjectivePoint<Self>;
+				type ElementLength =
+					<<ProjectivePoint<Self> as GroupEncoding>::Repr as AssocArraySize>::Size;
 
 				fn scalar_random<R>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>
 				where
@@ -87,7 +79,7 @@ macro_rules! group {
 				where
 					E: ExpandMsg<Self::SecurityLevel>,
 				{
-					hash2curve::hash_to_scalar::<Self, E, <Self as MapToCurve>::Length>(input, dst)
+					hash2curve::hash_to_scalar::<Self, E, $hash_to_scalar>(input, dst)
 						.map_err(|_| InternalError)
 				}
 
@@ -98,7 +90,7 @@ macro_rules! group {
 				}
 
 				fn scalar_mul_by_generator(scalar: &Self::Scalar) -> Self::Element {
-					ProjectivePoint::mul_by_generator(scalar)
+					ProjectivePoint::<Self>::mul_by_generator(scalar)
 				}
 
 				fn scalar_invert(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar {
@@ -133,15 +125,17 @@ macro_rules! group {
 				fn scalar_from_repr(
 					repr: &Array<u8, Self::ScalarLength>,
 				) -> Result<Self::Scalar, InternalError> {
-					Scalar::from_repr(*repr).into_option().ok_or(InternalError)
+					Scalar::<Self>::from_repr(*repr)
+						.into_option()
+						.ok_or(InternalError)
 				}
 
 				fn element_identity() -> Self::Element {
-					ProjectivePoint::IDENTITY
+					ProjectivePoint::<Self>::IDENTITY
 				}
 
 				fn element_generator() -> Self::Element {
-					ProjectivePoint::GENERATOR
+					ProjectivePoint::<Self>::GENERATOR
 				}
 
 				fn hash_to_curve<E>(
@@ -161,7 +155,7 @@ macro_rules! group {
 				fn non_identity_element_batch_maybe_double_to_repr<const N: usize>(
 					elements: &[Self::NonIdentityElement; N],
 				) -> [Array<u8, Self::ElementLength>; N] {
-					NonIdentity::<ProjectivePoint>::batch_normalize(elements)
+					NonIdentity::<ProjectivePoint<Self>>::batch_normalize(elements)
 						.map(|point| point.to_bytes())
 				}
 
@@ -169,7 +163,7 @@ macro_rules! group {
 				fn non_identity_element_batch_alloc_maybe_double_to_repr(
 					elements: &[Self::NonIdentityElement],
 				) -> Vec<Array<u8, Self::ElementLength>> {
-					NonIdentity::<ProjectivePoint>::batch_normalize(elements)
+					NonIdentity::<ProjectivePoint<Self>>::batch_normalize(elements)
 						.into_iter()
 						.map(|point| point.to_bytes())
 						.collect()
@@ -178,13 +172,13 @@ macro_rules! group {
 				fn element_batch_maybe_double_to_repr<const N: usize>(
 					elements: &[Self::Element; N],
 				) -> [Array<u8, Self::ElementLength>; N] {
-					ProjectivePoint::batch_normalize(elements).map(|point| point.to_bytes())
+					ProjectivePoint::<Self>::batch_normalize(elements).map(|point| point.to_bytes())
 				}
 
 				fn non_identity_element_from_repr(
 					repr: &Array<u8, Self::ElementLength>,
 				) -> Result<Self::NonIdentityElement, InternalError> {
-					NonIdentity::<ProjectivePoint>::from_repr(repr)
+					NonIdentity::<ProjectivePoint<Self>>::from_repr(repr)
 						.into_option()
 						.ok_or(InternalError)
 				}
@@ -192,34 +186,46 @@ macro_rules! group {
 				fn lincomb<const N: usize>(
 					elements_and_scalars: &[(Self::Element, Self::Scalar); N],
 				) -> Self::Element {
-					ProjectivePoint::lincomb(elements_and_scalars)
+					ProjectivePoint::<Self>::lincomb(elements_and_scalars)
 				}
 
 				#[cfg(feature = "alloc")]
 				fn alloc_lincomb(
 					elements_and_scalars: &[(Self::Element, Self::Scalar)],
 				) -> Self::Element {
-					ProjectivePoint::lincomb(elements_and_scalars)
+					ProjectivePoint::<Self>::lincomb(elements_and_scalars)
 				}
 			}
 		};
 	};
 }
 
-#[cfg(feature = "p256-ciphersuite")]
-cipher_suite!(p256, NistP256);
-
 #[cfg(feature = "p256")]
-group!(p256, NistP256);
-
-#[cfg(feature = "p384-ciphersuite")]
-cipher_suite!(p384, NistP384);
+group!(
+	cipher_suite_feature = "p256-ciphersuite",
+	crate = p256,
+	type = NistP256,
+	ID = b"P256-SHA256",
+	Hash = sha2::Sha256,
+	hash_to_scalar = typenum::U48,
+);
 
 #[cfg(feature = "p384")]
-group!(p384, NistP384);
-
-#[cfg(feature = "p521-ciphersuite")]
-cipher_suite!(p521, NistP521);
+group!(
+	cipher_suite_feature = "p384-ciphersuite",
+	crate = p384,
+	type = NistP384,
+	ID = b"P384-SHA384",
+	Hash = sha2::Sha384,
+	hash_to_scalar = typenum::U72,
+);
 
 #[cfg(feature = "p521")]
-group!(p521, NistP521);
+group!(
+	cipher_suite_feature = "p521-ciphersuite",
+	crate = p521,
+	type = NistP521,
+	ID = b"P521-SHA512",
+	Hash = sha2::Sha512,
+	hash_to_scalar = typenum::U98,
+);

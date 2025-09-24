@@ -4,39 +4,40 @@
 use alloc::vec::Vec;
 
 use digest::XofFixedWrapper;
-use ed448_goldilocks::elliptic_curve::group::GroupEncoding;
-use ed448_goldilocks::elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
-use ed448_goldilocks::elliptic_curve::point::NonIdentity;
-use ed448_goldilocks::elliptic_curve::{Group as _, PrimeField};
-use ed448_goldilocks::sha3::Shake256;
-use ed448_goldilocks::{Decaf448, Decaf448NonZeroScalar, DecafPoint, DecafScalar};
-use hash2curve::{ExpandMsg, ExpandMsgXof};
-use hybrid_array::Array;
-use hybrid_array::typenum::{U28, U56, U64};
+use ed448_goldilocks::Decaf448;
+use elliptic_curve::group::GroupEncoding;
+use elliptic_curve::group::ff::PrimeField;
+use elliptic_curve::ops::{BatchInvert, Invert, LinearCombination};
+use elliptic_curve::point::NonIdentity;
+use elliptic_curve::{FieldBytesSize, Group as _, NonZeroScalar, ProjectivePoint, Scalar};
+use hash2curve::{ExpandMsg, GroupDigest, MapToCurve};
+use hybrid_array::typenum::U64;
+use hybrid_array::{Array, AssocArraySize};
 use rand_core::TryCryptoRng;
+use sha3::Shake256;
 
-use super::Group;
 use crate::cipher_suite::{CipherSuite, Id};
-use crate::error::{InternalError, Result};
+use crate::error::InternalError;
+use crate::group::Group;
 
 impl CipherSuite for Decaf448 {
 	const ID: Id = Id::new(b"decaf448-SHAKE256").unwrap();
 
 	type Group = Self;
 	type Hash = XofFixedWrapper<Shake256, U64>;
-	type ExpandMsg = ExpandMsgXof<Shake256>;
+	type ExpandMsg = <Self as GroupDigest>::ExpandMsg;
 }
 
 impl Group for Decaf448 {
-	type SecurityLevel = U28;
+	type SecurityLevel = <Self as MapToCurve>::SecurityLevel;
 
-	type NonZeroScalar = Decaf448NonZeroScalar;
-	type Scalar = DecafScalar;
-	type ScalarLength = U56;
+	type NonZeroScalar = NonZeroScalar<Self>;
+	type Scalar = Scalar<Self>;
+	type ScalarLength = FieldBytesSize<Self>;
 
-	type NonIdentityElement = NonIdentity<DecafPoint>;
-	type Element = DecafPoint;
-	type ElementLength = U56;
+	type NonIdentityElement = NonIdentity<ProjectivePoint<Self>>;
+	type Element = ProjectivePoint<Self>;
+	type ElementLength = <<ProjectivePoint<Self> as GroupEncoding>::Repr as AssocArraySize>::Size;
 
 	fn scalar_random<R>(rng: &mut R) -> Result<Self::NonZeroScalar, R::Error>
 	where
@@ -47,7 +48,7 @@ impl Group for Decaf448 {
 		loop {
 			rng.try_fill_bytes(&mut bytes)?;
 
-			if let Some(result) = Decaf448NonZeroScalar::from_repr(bytes).into() {
+			if let Some(result) = NonZeroScalar::from_repr(bytes).into() {
 				break Ok(result);
 			}
 		}
@@ -65,7 +66,7 @@ impl Group for Decaf448 {
 	}
 
 	fn scalar_mul_by_generator(scalar: &Self::Scalar) -> Self::Element {
-		DecafPoint::mul_by_generator(scalar)
+		ProjectivePoint::<Self>::mul_by_generator(scalar)
 	}
 
 	fn scalar_invert(scalar: &Self::NonZeroScalar) -> Self::NonZeroScalar {
@@ -75,12 +76,12 @@ impl Group for Decaf448 {
 	fn scalar_batch_invert<const N: usize>(
 		scalars: [Self::NonZeroScalar; N],
 	) -> [Self::NonZeroScalar; N] {
-		Decaf448NonZeroScalar::batch_invert(scalars)
+		NonZeroScalar::batch_invert(scalars)
 	}
 
 	#[cfg(feature = "alloc")]
 	fn scalar_batch_alloc_invert(scalars: Vec<Self::NonZeroScalar>) -> Vec<Self::NonZeroScalar> {
-		Decaf448NonZeroScalar::batch_invert(scalars)
+		NonZeroScalar::batch_invert(scalars)
 	}
 
 	fn scalar_to_repr(scalar: &Self::Scalar) -> Array<u8, Self::ScalarLength> {
@@ -90,7 +91,7 @@ impl Group for Decaf448 {
 	fn non_zero_scalar_from_repr(
 		repr: Array<u8, Self::ScalarLength>,
 	) -> Result<Self::NonZeroScalar, InternalError> {
-		Decaf448NonZeroScalar::from_repr(repr)
+		NonZeroScalar::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
@@ -98,17 +99,17 @@ impl Group for Decaf448 {
 	fn scalar_from_repr(
 		repr: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError> {
-		DecafScalar::from_repr(*repr)
+		Scalar::<Self>::from_repr(*repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
 
 	fn element_identity() -> Self::Element {
-		DecafPoint::IDENTITY
+		ProjectivePoint::<Self>::IDENTITY
 	}
 
 	fn element_generator() -> Self::Element {
-		DecafPoint::GENERATOR
+		ProjectivePoint::<Self>::GENERATOR
 	}
 
 	fn hash_to_curve<E>(input: &[&[u8]], dst: &[&[u8]]) -> Result<Self::Element, InternalError>
@@ -125,7 +126,7 @@ impl Group for Decaf448 {
 	fn non_identity_element_from_repr(
 		repr: &Array<u8, Self::ElementLength>,
 	) -> Result<Self::NonIdentityElement, InternalError> {
-		NonIdentity::from_repr(repr)
+		NonIdentity::<ProjectivePoint<Self>>::from_repr(repr)
 			.into_option()
 			.ok_or(InternalError)
 	}
@@ -133,11 +134,11 @@ impl Group for Decaf448 {
 	fn lincomb<const N: usize>(
 		elements_and_scalars: &[(Self::Element, Self::Scalar); N],
 	) -> Self::Element {
-		DecafPoint::lincomb(elements_and_scalars)
+		ProjectivePoint::<Self>::lincomb(elements_and_scalars)
 	}
 
 	#[cfg(feature = "alloc")]
 	fn alloc_lincomb(elements_and_scalars: &[(Self::Element, Self::Scalar)]) -> Self::Element {
-		DecafPoint::lincomb(elements_and_scalars)
+		ProjectivePoint::<Self>::lincomb(elements_and_scalars)
 	}
 }

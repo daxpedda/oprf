@@ -12,13 +12,13 @@ alloc = [
 	"p521?/alloc",
 	"oprf-test/alloc",
 ]
-decaf448 = ["dep:ed448-goldilocks"]
+decaf448 = ["dep:ed448-goldilocks", "dep:sha3"]
 p256 = ["dep:p256"]
-p256-ciphersuite = ["p256", "p256/oprf"]
+p256-ciphersuite = ["p256", "p256/group-digest", "dep:sha2"]
 p384 = ["dep:p384"]
-p384-ciphersuite = ["p384", "p384/oprf"]
+p384-ciphersuite = ["p384", "p384/group-digest", "dep:sha2"]
 p521 = ["dep:p521"]
-p521-ciphersuite = ["p521", "p521/oprf"]
+p521-ciphersuite = ["p521", "p521/group-digest", "dep:sha2"]
 ristretto255 = ["dep:curve25519-dalek", "dep:group", "dep:subtle"]
 ristretto255-ciphersuite = ["ristretto255", "dep:sha2"]
 serde = [
@@ -36,6 +36,7 @@ serde = [
 curve25519-dalek = { workspace = true, optional = true }
 digest = { workspace = true }
 ed448-goldilocks = { workspace = true, optional = true }
+elliptic-curve = { workspace = true }
 group = { workspace = true, optional = true }
 hash2curve = { workspace = true }
 hybrid-array = { workspace = true }
@@ -46,6 +47,7 @@ rand_core = { workspace = true }
 serde = { workspace = true, optional = true }
 serdect = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
+sha3 = { workspace = true, optional = true }
 subtle = { workspace = true, optional = true }
 zeroize = { workspace = true }
 
@@ -93,7 +95,7 @@ resolver = "3"
 
 [workspace.dependencies]
 criterion = { version = "0.7", default-features = false, features = ["cargo_bench_support"] }
-curve25519-dalek = { version = "5.0.0-pre.0", default-features = false, features = [
+curve25519-dalek = { version = "=5.0.0-pre.1", default-features = false, features = [
 	"group",
 	"zeroize",
 ] }
@@ -101,7 +103,7 @@ derive-where = "1"
 digest = { version = "=0.11.0-rc.2", default-features = false }
 ed448-goldilocks = { version = "=0.14.0-pre.4", default-features = false }
 elliptic-curve = "=0.14.0-rc.14"
-group = { version = "0.14.0-pre.0", default-features = false }
+group = { version = "=0.14.0-pre.0", default-features = false }
 hash2curve = "=0.14.0-rc.2"
 hex = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
 hex-literal = "1"
@@ -137,7 +139,8 @@ serde = { version = "1", default-features = false }
 serde_json = "1"
 serde_test = { git = "https://github.com/daxpedda/test" }
 serdect = { version = "0.4", default-features = false }
-sha2 = { version = "0.11.0-rc.0", default-features = false }
+sha2 = { version = "=0.11.0-rc.2", default-features = false }
+sha3 = { version = "=0.11.0-rc.3", default-features = false }
 static_assertions = "1"
 subtle = { version = "2", default-features = false }
 zeroize = { version = "1.5", default-features = false }
