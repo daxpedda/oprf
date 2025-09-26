@@ -38,7 +38,6 @@ use oprf::poprf::{PoprfBatchBlindResult, PoprfBlindResult, PoprfClient, PoprfSer
 use oprf::voprf::VoprfBatchAllocBlindResult;
 use oprf::voprf::{VoprfBatchBlindResult, VoprfBlindResult, VoprfClient, VoprfServer};
 use oprf::{Error, Result};
-use rand_core::{OsRng, TryRngCore};
 
 use super::{INFO, INPUT};
 use crate::rng::MockRng;
@@ -49,8 +48,8 @@ type NonIdentityElement<Cs> = <CsGroup<Cs> as Group>::NonIdentityElement;
 type Element<Cs> = <CsGroup<Cs> as Group>::Element;
 
 /// Wrapper around clients in all [`Mode`]s.
-#[derive_where(Debug)]
-enum Client<Cs: CipherSuite> {
+#[derive_where(Debug, Eq, PartialEq)]
+pub enum Client<Cs: CipherSuite> {
 	Oprf(OprfClient<Cs>),
 	Voprf(VoprfClient<Cs>),
 	Poprf(PoprfClient<Cs>),
@@ -65,7 +64,7 @@ pub struct CommonClient<Cs: CipherSuite> {
 
 /// Wrapper around multiple clients in all [`Mode`]s.
 #[derive_where(Debug, Eq, PartialEq)]
-enum ClientBatch<Cs: CipherSuite> {
+pub enum ClientBatch<Cs: CipherSuite> {
 	Oprf(Vec<OprfClient<Cs>>),
 	Voprf(Vec<VoprfClient<Cs>>),
 	Poprf(Vec<PoprfClient<Cs>>),
@@ -81,16 +80,10 @@ pub struct CommonClientBatch<Cs: CipherSuite> {
 /// Wrapper around servers in all [`Mode`]s and potentially their
 /// `BlindEvaluate` [`Proof`] output.
 #[derive_where(Debug, Eq, PartialEq)]
-enum Server<Cs: CipherSuite> {
+pub enum Server<Cs: CipherSuite> {
 	Oprf(OprfServer<Cs>),
-	Voprf {
-		server: VoprfServer<Cs>,
-		proof: Proof<Cs>,
-	},
-	Poprf {
-		server: PoprfServer<Cs>,
-		proof: Proof<Cs>,
-	},
+	Voprf(VoprfServer<Cs>),
+	Poprf(PoprfServer<Cs>),
 }
 
 /// Wrapper around servers in all [`Mode`]s and their `BlindEvalaute` output.
@@ -98,6 +91,7 @@ enum Server<Cs: CipherSuite> {
 pub struct CommonServer<Cs: CipherSuite> {
 	server: Server<Cs>,
 	evaluation_element: EvaluationElement<Cs>,
+	proof: Option<Proof<Cs>>,
 }
 
 /// Wrapper around servers in all [`Mode`]s and their batched `BlindEvalaute`
@@ -106,9 +100,15 @@ pub struct CommonServer<Cs: CipherSuite> {
 pub struct CommonServerBatch<Cs: CipherSuite> {
 	server: Server<Cs>,
 	evaluation_elements: Vec<EvaluationElement<Cs>>,
+	proof: Option<Proof<Cs>>,
 }
 
 impl<Cs: CipherSuite> CommonClient<Cs> {
+	#[must_use]
+	pub const fn client(&self) -> &Client<Cs> {
+		&self.client
+	}
+
 	#[must_use]
 	pub const fn blinded_element(&self) -> &BlindedElement<Cs> {
 		&self.blinded_element
@@ -119,12 +119,8 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 		Self::blind_with(mode, None, INPUT).unwrap()
 	}
 
-	pub fn blind_with(
-		mode: Mode,
-		blind: Option<&[u8]>,
-		input: &[&[u8]],
-	) -> Result<Self, Error<<OsRng as TryRngCore>::Error>> {
-		let mut rng = blind.map_or_else(MockRng::new_os_rng, MockRng::new);
+	pub fn blind_with(mode: Mode, blind: Option<&[u8]>, input: &[&[u8]]) -> Result<Self> {
+		let mut rng = blind.map_or_else(MockRng::new_rng, MockRng::new);
 
 		match mode {
 			Mode::Oprf => {
@@ -179,7 +175,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 		mode: Mode,
 		blinds: Option<&[&[u8]; N]>,
 		inputs: &[&[&[u8]]; N],
-	) -> Result<CommonClientBatch<Cs>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<CommonClientBatch<Cs>>
 	where
 		[NonIdentityElement<Cs>; N]: AssocArraySize<
 			Size: ArraySize<ArrayType<NonIdentityElement<Cs>> = [NonIdentityElement<Cs>; N]>,
@@ -193,7 +189,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 		});
 		let mut rng = blinds
 			.as_ref()
-			.map_or_else(MockRng::new_os_rng, |blinds| MockRng::new(blinds));
+			.map_or_else(MockRng::new_rng, |blinds| MockRng::new(blinds));
 
 		match mode {
 			Mode::Oprf => {
@@ -203,8 +199,8 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 				} = OprfClient::batch_blind(&mut rng, inputs)?;
 
 				Ok(CommonClientBatch {
-					clients: ClientBatch::Oprf(clients.to_vec()),
-					blinded_elements: blinded_elements.to_vec(),
+					clients: ClientBatch::Oprf(clients.into()),
+					blinded_elements: blinded_elements.into(),
 				})
 			}
 			Mode::Voprf => {
@@ -214,8 +210,8 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 				} = VoprfClient::batch_blind(&mut rng, inputs)?;
 
 				Ok(CommonClientBatch {
-					clients: ClientBatch::Voprf(clients.to_vec()),
-					blinded_elements: blinded_elements.to_vec(),
+					clients: ClientBatch::Voprf(clients.into()),
+					blinded_elements: blinded_elements.into(),
 				})
 			}
 			Mode::Poprf => {
@@ -225,8 +221,8 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 				} = PoprfClient::batch_blind(&mut rng, inputs)?;
 
 				Ok(CommonClientBatch {
-					clients: ClientBatch::Poprf(clients.to_vec()),
-					blinded_elements: blinded_elements.to_vec(),
+					clients: ClientBatch::Poprf(clients.into()),
+					blinded_elements: blinded_elements.into(),
 				})
 			}
 		}
@@ -243,7 +239,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 		mode: Mode,
 		blinds: Option<&[&[u8]]>,
 		inputs: I,
-	) -> Result<CommonClientBatch<Cs>, Error<<OsRng as TryRngCore>::Error>>
+	) -> Result<CommonClientBatch<Cs>>
 	where
 		I: ExactSizeIterator<Item = &'input [&'input [u8]]>,
 	{
@@ -253,7 +249,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 		});
 		let mut rng = blinds
 			.as_ref()
-			.map_or_else(MockRng::new_os_rng, |blinds| MockRng::new(blinds));
+			.map_or_else(MockRng::new_rng, |blinds| MockRng::new(blinds));
 
 		match mode {
 			Mode::Oprf => {
@@ -301,7 +297,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 
 		CommonClientBatch {
 			clients: match client {
-				Client::Oprf(_) => panic!("OPRF doesn't have batching functionality"),
+				Client::Oprf(client) => ClientBatch::Oprf(vec![client; count]),
 				Client::Voprf(client) => ClientBatch::Voprf(vec![client; count]),
 				Client::Poprf(client) => ClientBatch::Poprf(vec![client; count]),
 			},
@@ -316,7 +312,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 			INPUT,
 			&server.evaluation_element,
 			server.proof(),
-			INFO,
+			Some(INFO),
 		)
 		.unwrap()
 	}
@@ -327,7 +323,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 		input: &[&[u8]],
 		evaluation_element: &EvaluationElement<Cs>,
 		proof: Option<&Proof<Cs>>,
-		info: &[u8],
+		info: Option<&[u8]>,
 	) -> Result<Output<Cs::Hash>> {
 		match &self.client {
 			Client::Oprf(client) => client.finalize(input, evaluation_element),
@@ -342,7 +338,7 @@ impl<Cs: CipherSuite> CommonClient<Cs> {
 				input,
 				evaluation_element,
 				proof.unwrap(),
-				info,
+				info.unwrap(),
 			),
 		}
 	}
@@ -356,6 +352,11 @@ impl<Cs: CipherSuite> CommonClientBatch<Cs> {
 			ClientBatch::Voprf(_) => Mode::Voprf,
 			ClientBatch::Poprf(_) => Mode::Poprf,
 		}
+	}
+
+	#[must_use]
+	pub const fn clients(&self) -> &ClientBatch<Cs> {
+		&self.clients
 	}
 
 	#[must_use]
@@ -381,7 +382,7 @@ impl<Cs: CipherSuite> CommonClientBatch<Cs> {
 			&vec![INPUT; self.len()],
 			server.evaluation_elements(),
 			server.proof(),
-			INFO,
+			Some(INFO),
 		)
 		.unwrap()
 	}
@@ -392,7 +393,7 @@ impl<Cs: CipherSuite> CommonClientBatch<Cs> {
 		inputs: &[&[&[u8]]],
 		evaluation_elements: &[EvaluationElement<Cs>],
 		proof: Option<&Proof<Cs>>,
-		info: &[u8],
+		info: Option<&[u8]>,
 	) -> Result<[Output<Cs::Hash>; N]>
 	where
 		[Output<Cs::Hash>; N]:
@@ -417,7 +418,7 @@ impl<Cs: CipherSuite> CommonClientBatch<Cs> {
 				inputs.try_into().unwrap(),
 				evaluation_elements.try_into().unwrap(),
 				proof.unwrap(),
-				info,
+				info.unwrap(),
 			),
 		}
 	}
@@ -479,11 +480,16 @@ impl<Cs: CipherSuite> CommonClientBatch<Cs> {
 
 impl<Cs: CipherSuite> CommonServer<Cs> {
 	#[must_use]
+	pub const fn server(&self) -> &Server<Cs> {
+		&self.server
+	}
+
+	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<Cs::Group> {
 		match &self.server {
 			Server::Oprf(server) => server.secret_key(),
-			Server::Voprf { server, .. } => server.key_pair().secret_key(),
-			Server::Poprf { server, .. } => server.key_pair().secret_key(),
+			Server::Voprf(server) => server.key_pair().secret_key(),
+			Server::Poprf(server) => server.key_pair().secret_key(),
 		}
 	}
 
@@ -491,8 +497,8 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 	pub const fn public_key(&self) -> Option<&PublicKey<Cs::Group>> {
 		match &self.server {
 			Server::Oprf(_) => None,
-			Server::Voprf { server, .. } => Some(server.public_key()),
-			Server::Poprf { server, .. } => Some(server.public_key()),
+			Server::Voprf(server) => Some(server.public_key()),
+			Server::Poprf(server) => Some(server.public_key()),
 		}
 	}
 
@@ -503,10 +509,7 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 
 	#[must_use]
 	pub const fn proof(&self) -> Option<&Proof<Cs>> {
-		match &self.server {
-			Server::Oprf(_) => None,
-			Server::Voprf { proof, .. } | Server::Poprf { proof, .. } => Some(proof),
-		}
+		self.proof.as_ref()
 	}
 
 	#[must_use]
@@ -517,7 +520,7 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 			Client::Poprf(_) => Mode::Poprf,
 		};
 
-		Self::blind_evaluate_with(mode, None, client.blinded_element(), None, INFO).unwrap()
+		Self::blind_evaluate_with(mode, None, client.blinded_element(), None, Some(INFO)).unwrap()
 	}
 
 	pub fn blind_evaluate_with(
@@ -525,16 +528,16 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 		secret_key: Option<SecretKey<Cs::Group>>,
 		blinded_element: &BlindedElement<Cs>,
 		r: Option<&[u8]>,
-		info: &[u8],
-	) -> Result<Self, Error<<OsRng as TryRngCore>::Error>> {
-		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
+		info: Option<&[u8]>,
+	) -> Result<Self> {
+		let mut rng = r.map_or_else(MockRng::new_rng, MockRng::new);
 
 		match mode {
 			Mode::Oprf => {
 				let server = if let Some(secret_key) = secret_key {
 					OprfServer::from_key(secret_key)
 				} else {
-					OprfServer::new(&mut OsRng).map_err(Error::Random)?
+					OprfServer::new(&mut rand::rng()).map_err(Error::Random)?
 				};
 
 				let evaluation_element = server.blind_evaluate(blinded_element);
@@ -542,13 +545,14 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 				Ok(Self {
 					server: Server::Oprf(server),
 					evaluation_element,
+					proof: None,
 				})
 			}
 			Mode::Voprf => {
 				let server = if let Some(secret_key) = secret_key {
 					VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key))
 				} else {
-					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
+					VoprfServer::new(&mut rand::rng()).map_err(Error::Random)?
 				};
 
 				let BlindEvaluateResult {
@@ -557,16 +561,18 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 				} = server.blind_evaluate(&mut rng, blinded_element)?;
 
 				Ok(Self {
-					server: Server::Voprf { server, proof },
+					server: Server::Voprf(server),
 					evaluation_element,
+					proof: Some(proof),
 				})
 			}
 			Mode::Poprf => {
+				let info = info.unwrap();
+
 				let server = if let Some(secret_key) = secret_key {
-					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
-						.map_err(Error::into_random::<OsRng>)?
+					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)?
 				} else {
-					PoprfServer::new(&mut OsRng, info)?
+					PoprfServer::new(&mut rand::rng(), info)?
 				};
 
 				let BlindEvaluateResult {
@@ -575,8 +581,9 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 				} = server.blind_evaluate(&mut rng, blinded_element)?;
 
 				Ok(Self {
-					server: Server::Poprf { server, proof },
+					server: Server::Poprf(server),
 					evaluation_element,
+					proof: Some(proof),
 				})
 			}
 		}
@@ -584,7 +591,14 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 
 	#[must_use]
 	pub fn batch<const N: usize>(clients: &CommonClientBatch<Cs>) -> CommonServerBatch<Cs> {
-		Self::batch_with::<N>(clients.mode(), None, &clients.blinded_elements, None, INFO).unwrap()
+		Self::batch_with::<N>(
+			clients.mode(),
+			None,
+			&clients.blinded_elements,
+			None,
+			Some(INFO),
+		)
+		.unwrap()
 	}
 
 	pub fn batch_with<const N: usize>(
@@ -592,16 +606,16 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 		secret_key: Option<SecretKey<Cs::Group>>,
 		blinded_elements: &[BlindedElement<Cs>],
 		r: Option<&[u8]>,
-		info: &[u8],
-	) -> Result<CommonServerBatch<Cs>, Error<<OsRng as TryRngCore>::Error>> {
-		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
+		info: Option<&[u8]>,
+	) -> Result<CommonServerBatch<Cs>> {
+		let mut rng = r.map_or_else(MockRng::new_rng, MockRng::new);
 
 		match mode {
 			Mode::Oprf => {
 				let server = if let Some(secret_key) = secret_key {
 					OprfServer::from_key(secret_key)
 				} else {
-					OprfServer::new(&mut OsRng).map_err(Error::Random)?
+					OprfServer::new(&mut rand::rng()).map_err(Error::Random)?
 				};
 
 				let evaluation_elements =
@@ -609,14 +623,15 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 
 				Ok(CommonServerBatch {
 					server: Server::Oprf(server),
-					evaluation_elements: evaluation_elements.to_vec(),
+					evaluation_elements: evaluation_elements.into(),
+					proof: None,
 				})
 			}
 			Mode::Voprf => {
 				let server = if let Some(secret_key) = secret_key {
 					VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key))
 				} else {
-					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
+					VoprfServer::new(&mut rand::rng()).map_err(Error::Random)?
 				};
 
 				let BatchBlindEvaluateResult {
@@ -626,16 +641,16 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 					.batch_blind_evaluate::<_, N>(&mut rng, blinded_elements.try_into().unwrap())?;
 
 				Ok(CommonServerBatch {
-					server: Server::Voprf { server, proof },
-					evaluation_elements: evaluation_elements.to_vec(),
+					server: Server::Voprf(server),
+					evaluation_elements: evaluation_elements.into(),
+					proof: Some(proof),
 				})
 			}
 			Mode::Poprf => {
 				let server = if let Some(secret_key) = secret_key {
-					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
-						.map_err(Error::into_random::<OsRng>)?
+					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info.unwrap())?
 				} else {
-					PoprfServer::new(&mut OsRng, info)?
+					PoprfServer::new(&mut rand::rng(), info.unwrap())?
 				};
 
 				let BatchBlindEvaluateResult {
@@ -645,8 +660,9 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 					.batch_blind_evaluate::<_, N>(&mut rng, blinded_elements.try_into().unwrap())?;
 
 				Ok(CommonServerBatch {
-					server: Server::Poprf { server, proof },
-					evaluation_elements: evaluation_elements.to_vec(),
+					server: Server::Poprf(server),
+					evaluation_elements: evaluation_elements.into(),
+					proof: Some(proof),
 				})
 			}
 		}
@@ -665,15 +681,15 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 		blinded_elements: &[BlindedElement<Cs>],
 		r: Option<&[u8]>,
 		info: &[u8],
-	) -> Result<CommonServerBatch<Cs>, Error<<OsRng as TryRngCore>::Error>> {
-		let mut rng = r.map_or_else(MockRng::new_os_rng, MockRng::new);
+	) -> Result<CommonServerBatch<Cs>> {
+		let mut rng = r.map_or_else(MockRng::new_rng, MockRng::new);
 
 		match mode {
 			Mode::Oprf => {
 				let server = if let Some(secret_key) = secret_key {
 					OprfServer::from_key(secret_key)
 				} else {
-					OprfServer::new(&mut OsRng).map_err(Error::Random)?
+					OprfServer::new(&mut rand::rng()).map_err(Error::Random)?
 				};
 
 				let evaluation_elements =
@@ -682,13 +698,14 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 				Ok(CommonServerBatch {
 					server: Server::Oprf(server),
 					evaluation_elements,
+					proof: None,
 				})
 			}
 			Mode::Voprf => {
 				let server = if let Some(secret_key) = secret_key {
 					VoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key))
 				} else {
-					VoprfServer::new(&mut OsRng).map_err(Error::Random)?
+					VoprfServer::new(&mut rand::rng()).map_err(Error::Random)?
 				};
 
 				let BatchAllocBlindEvaluateResult {
@@ -697,16 +714,16 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 				} = server.batch_alloc_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
 				Ok(CommonServerBatch {
-					server: Server::Voprf { server, proof },
+					server: Server::Voprf(server),
 					evaluation_elements,
+					proof: Some(proof),
 				})
 			}
 			Mode::Poprf => {
 				let server = if let Some(secret_key) = secret_key {
-					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)
-						.map_err(Error::into_random::<OsRng>)?
+					PoprfServer::from_key_pair(KeyPair::from_secret_key(secret_key), info)?
 				} else {
-					PoprfServer::new(&mut OsRng, info)?
+					PoprfServer::new(&mut rand::rng(), info)?
 				};
 
 				let BatchAllocBlindEvaluateResult {
@@ -715,33 +732,39 @@ impl<Cs: CipherSuite> CommonServer<Cs> {
 				} = server.batch_alloc_blind_evaluate(&mut rng, blinded_elements.iter())?;
 
 				Ok(CommonServerBatch {
-					server: Server::Poprf { server, proof },
+					server: Server::Poprf(server),
 					evaluation_elements,
+					proof: Some(proof),
 				})
 			}
 		}
 	}
 
 	pub fn evaluate(&self) -> Output<Cs::Hash> {
-		self.evaluate_with(INPUT, INFO).unwrap()
+		self.evaluate_with(INPUT, Some(INFO)).unwrap()
 	}
 
-	pub fn evaluate_with(&self, input: &[&[u8]], info: &[u8]) -> Result<Output<Cs::Hash>> {
+	pub fn evaluate_with(&self, input: &[&[u8]], info: Option<&[u8]>) -> Result<Output<Cs::Hash>> {
 		match &self.server {
 			Server::Oprf(server) => server.evaluate(input),
-			Server::Voprf { server, .. } => server.evaluate(input),
-			Server::Poprf { server, .. } => server.evaluate(input, info),
+			Server::Voprf(server) => server.evaluate(input),
+			Server::Poprf(server) => server.evaluate(input, info.unwrap()),
 		}
 	}
 }
 
 impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 	#[must_use]
+	pub const fn server(&self) -> &Server<Cs> {
+		&self.server
+	}
+
+	#[must_use]
 	pub const fn secret_key(&self) -> &SecretKey<Cs::Group> {
 		match &self.server {
 			Server::Oprf(server) => server.secret_key(),
-			Server::Voprf { server, .. } => server.key_pair().secret_key(),
-			Server::Poprf { server, .. } => server.key_pair().secret_key(),
+			Server::Voprf(server) => server.key_pair().secret_key(),
+			Server::Poprf(server) => server.key_pair().secret_key(),
 		}
 	}
 
@@ -749,8 +772,8 @@ impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 	pub const fn public_key(&self) -> Option<&PublicKey<Cs::Group>> {
 		match &self.server {
 			Server::Oprf(_) => None,
-			Server::Voprf { server, .. } => Some(server.public_key()),
-			Server::Poprf { server, .. } => Some(server.public_key()),
+			Server::Voprf(server) => Some(server.public_key()),
+			Server::Poprf(server) => Some(server.public_key()),
 		}
 	}
 
@@ -761,10 +784,7 @@ impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 
 	#[must_use]
 	pub const fn proof(&self) -> Option<&Proof<Cs>> {
-		match &self.server {
-			Server::Oprf(_) => None,
-			Server::Voprf { proof, .. } | Server::Poprf { proof, .. } => Some(proof),
-		}
+		self.proof.as_ref()
 	}
 
 	pub fn push(&mut self, evaluation_element: EvaluationElement<Cs>) {
@@ -778,13 +798,13 @@ impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 		[Output<Cs::Hash>; N]:
 			AssocArraySize<Size: ArraySize<ArrayType<Output<Cs::Hash>> = [Output<Cs::Hash>; N]>>,
 	{
-		self.evaluate_with(&[INPUT; N], INFO).unwrap()
+		self.evaluate_with(&[INPUT; N], Some(INFO)).unwrap()
 	}
 
 	pub fn evaluate_with<const N: usize>(
 		&self,
 		inputs: &[&[&[u8]]],
-		info: &[u8],
+		info: Option<&[u8]>,
 	) -> Result<[Output<Cs::Hash>; N]>
 	where
 		[Element<Cs>; N]:
@@ -794,8 +814,10 @@ impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 	{
 		match &self.server {
 			Server::Oprf(server) => server.batch_evaluate(inputs.try_into().unwrap()),
-			Server::Voprf { server, .. } => server.batch_evaluate(inputs.try_into().unwrap()),
-			Server::Poprf { server, .. } => server.batch_evaluate(inputs.try_into().unwrap(), info),
+			Server::Voprf(server) => server.batch_evaluate(inputs.try_into().unwrap()),
+			Server::Poprf(server) => {
+				server.batch_evaluate(inputs.try_into().unwrap(), info.unwrap())
+			}
 		}
 	}
 
@@ -813,8 +835,8 @@ impl<Cs: CipherSuite> CommonServerBatch<Cs> {
 	) -> Result<Vec<Output<Cs::Hash>>> {
 		match &self.server {
 			Server::Oprf(server) => server.batch_alloc_evaluate(inputs),
-			Server::Voprf { server, .. } => server.batch_alloc_evaluate(inputs),
-			Server::Poprf { server, .. } => server.batch_alloc_evaluate(inputs, info),
+			Server::Voprf(server) => server.batch_alloc_evaluate(inputs),
+			Server::Poprf(server) => server.batch_alloc_evaluate(inputs, info),
 		}
 	}
 }

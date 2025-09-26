@@ -6,10 +6,10 @@ use ed448_goldilocks::elliptic_curve::ops::{BatchInvert, Invert, LinearCombinati
 use ed448_goldilocks::elliptic_curve::point::NonIdentity;
 use ed448_goldilocks::elliptic_curve::{Group as _, PrimeField};
 use ed448_goldilocks::sha3::Shake256;
-use ed448_goldilocks::{Ed448, Ed448NonZeroScalar, EdwardsPoint, EdwardsScalar};
+use ed448_goldilocks::{Ed448, Ed448NonZeroScalar, EdwardsPoint, Scalar};
 use hash2curve::{ExpandMsg, GroupDigest, MapToCurve};
 use hybrid_array::Array;
-use hybrid_array::typenum::{U57, U64, U84};
+use hybrid_array::typenum::{U56, U57, U64, U84};
 use oprf::cipher_suite::{CipherSuite, Id};
 use oprf::error::InternalError;
 use oprf::group::Group;
@@ -31,8 +31,8 @@ impl Group for Edwards448 {
 	type SecurityLevel = <Ed448 as MapToCurve>::SecurityLevel;
 
 	type NonZeroScalar = Ed448NonZeroScalar;
-	type Scalar = EdwardsScalar;
-	type ScalarLength = U57;
+	type Scalar = Scalar;
+	type ScalarLength = U56;
 
 	type NonIdentityElement = NonIdentity<EdwardsPoint>;
 	type Element = EdwardsPoint;
@@ -98,9 +98,7 @@ impl Group for Edwards448 {
 	fn scalar_from_repr(
 		repr: &Array<u8, Self::ScalarLength>,
 	) -> Result<Self::Scalar, InternalError> {
-		EdwardsScalar::from_repr(*repr)
-			.into_option()
-			.ok_or(InternalError)
+		Scalar::from_repr(*repr).into_option().ok_or(InternalError)
 	}
 
 	fn element_identity() -> Self::Element {

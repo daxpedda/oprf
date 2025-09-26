@@ -68,10 +68,13 @@ test_ciphersuites!(
 	batch_alloc,
 	Mode,
 	[
+		Secp256k1 as k256,
 		NistP256 as p256,
 		NistP384 as p384,
 		NistP521 as p521,
+		Edwards25519 as edwards25519,
 		Ristretto255 as ristretto255,
+		Edwards448 as edwards448,
 		Decaf448 as decaf448,
 		MockCs as mock
 	]

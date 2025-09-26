@@ -23,14 +23,15 @@ fn empty<Cs: CipherSuite>(mode: Mode) {
 
 	// Failure on zero blinded elements.
 	if let Mode::Voprf | Mode::Poprf = mode {
-		let result = CommonServer::<Cs>::batch_with::<0>(mode, None, &[], None, INFO);
+		let result = CommonServer::<Cs>::batch_with::<0>(mode, None, &[], None, Some(INFO));
 		assert_eq!(result.unwrap_err(), Error::Batch);
 	}
 
 	let server = CommonServer::<Cs>::batch::<1>(&clients);
 
 	// Failure on equal but zero elements for all parameters.
-	let result = clients.finalize_with::<0>(server.public_key(), &[], &[], server.proof(), INFO);
+	let result =
+		clients.finalize_with::<0>(server.public_key(), &[], &[], server.proof(), Some(INFO));
 	assert_eq!(result.unwrap_err(), Error::Batch);
 
 	#[cfg(feature = "alloc")]

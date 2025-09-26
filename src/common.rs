@@ -56,6 +56,30 @@ impl Mode {
 	}
 }
 
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Mode {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		serde::mode(deserializer)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for Mode {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		match self {
+			Self::Oprf => serializer.serialize_unit_variant("Mode", 0, "Oprf"),
+			Self::Voprf => serializer.serialize_unit_variant("Mode", 1, "Voprf"),
+			Self::Poprf => serializer.serialize_unit_variant("Mode", 2, "Poprf"),
+		}
+	}
+}
+
 /// Returned by [`*Client::blind()`]. Sent to the server to be
 /// [`*Server::blind_evaluate()`]d.
 ///

@@ -13,6 +13,8 @@ use oprf::voprf::{VoprfClient, VoprfServer};
 use oprf::{Decaf448, NistP256, NistP384, NistP521};
 use serde_test::Token;
 
+use crate::{Edwards448, Edwards25519, Secp256k1};
+
 /// Defines how certain cipher suites differ in their serialization format of
 /// scalars. By default this assumes [`Token::Bytes`] is used.
 pub trait ScalarRepr {
@@ -23,11 +25,21 @@ pub trait ScalarRepr {
 	}
 }
 
+impl ScalarRepr for Secp256k1 {}
+
 impl ScalarRepr for NistP256 {}
 
 impl ScalarRepr for NistP384 {}
 
 impl ScalarRepr for NistP521 {}
+
+impl ScalarRepr for Edwards25519 {
+	fn scalar_repr(bytes: &'static [u8]) -> impl Iterator<Item = Token> {
+		iter::once(Token::Tuple { len: bytes.len() })
+			.chain(bytes.iter().copied().map(Token::U8))
+			.chain(iter::once(Token::TupleEnd))
+	}
+}
 
 impl ScalarRepr for Ristretto255 {
 	fn scalar_repr(bytes: &'static [u8]) -> impl Iterator<Item = Token> {
@@ -36,6 +48,8 @@ impl ScalarRepr for Ristretto255 {
 			.chain(iter::once(Token::TupleEnd))
 	}
 }
+
+impl ScalarRepr for Edwards448 {}
 
 impl ScalarRepr for Decaf448 {}
 

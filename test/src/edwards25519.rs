@@ -202,7 +202,7 @@ impl Group for Edwards25519 {
 /// Analogous to [`elliptic_curve::NonZeroScalar`].
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(transparent))]
 pub struct NonZeroScalar(Scalar);
 
 impl NonZeroScalar {

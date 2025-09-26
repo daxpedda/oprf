@@ -65,10 +65,13 @@ macro_rules! test_ciphersuites {
 			internal: $name,
 			$($mode,)?
 			[
+				$crate::Secp256k1 as k256,
 				$crate::oprf::NistP256 as p256,
 				$crate::oprf::NistP384 as p384,
 				$crate::oprf::NistP521 as p521,
+				$crate::Edwards25519 as edwards25519,
 				$crate::oprf::Ristretto255 as ristretto255,
+				$crate::Edwards448 as edwards448,
 				$crate::oprf::Decaf448 as decaf448
 			]
 		);

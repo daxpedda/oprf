@@ -21,10 +21,10 @@ fn input<Cs: CipherSuite>(mode: Mode) {
 			&[b"wrong"],
 			server.evaluation_element(),
 			server.proof(),
-			INFO,
+			Some(INFO),
 		)
 		.unwrap();
-	let wrong_server_output = server.evaluate_with(&[b"wrong"], INFO).unwrap();
+	let wrong_server_output = server.evaluate_with(&[b"wrong"], Some(INFO)).unwrap();
 	assert_ne!(wrong_client_output, wrong_server_output);
 
 	// Failure on wrong input during `Finalize`.
@@ -50,10 +50,10 @@ fn input_batch<Cs: CipherSuite>(mode: Mode) {
 			&[&[b"wrong"]],
 			server.evaluation_elements(),
 			server.proof(),
-			INFO,
+			Some(INFO),
 		)
 		.unwrap();
-	let wrong_server_output = server.evaluate_with(&[&[b"wrong"]], INFO).unwrap();
+	let wrong_server_output = server.evaluate_with(&[&[b"wrong"]], Some(INFO)).unwrap();
 	assert_ne!(wrong_client_output, wrong_server_output);
 
 	// Failure on wrong input during `Finalize`.
@@ -73,7 +73,7 @@ fn info<Cs: CipherSuite>(mode: Mode) {
 	let server = CommonServer::blind_evaluate(&client);
 
 	let client_output = client.finalize(&server);
-	let server_output = server.evaluate_with(INPUT, b"wrong").unwrap();
+	let server_output = server.evaluate_with(INPUT, Some(b"wrong")).unwrap();
 	assert_ne!(client_output, server_output);
 }
 
@@ -85,7 +85,7 @@ fn info_batch<Cs: CipherSuite>(_: Mode) {
 	let server = CommonServer::batch::<1>(&clients);
 
 	let client_output = clients.finalize::<1>(&server);
-	let server_output = server.evaluate_with(&[INPUT], b"wrong").unwrap();
+	let server_output = server.evaluate_with(&[INPUT], Some(b"wrong")).unwrap();
 	assert_ne!(client_output, server_output);
 }
 

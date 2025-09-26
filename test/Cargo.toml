@@ -6,7 +6,7 @@ version = "0.0.0"
 
 [features]
 alloc = ["curve25519-dalek/alloc", "k256/alloc", "oprf/alloc"]
-serde = ["curve25519-dalek/serde", "oprf/serde", "dep:serde_test"]
+serde = ["curve25519-dalek/serde", "k256/serde", "oprf/serde", "dep:serde_test"]
 
 [dependencies]
 curve25519-dalek = { workspace = true }
@@ -23,6 +23,7 @@ p256 = { workspace = true }
 p384 = { workspace = true }
 p521 = { workspace = true }
 paste = { workspace = true }
+rand = { workspace = true }
 rand_core = { workspace = true, features = ["os_rng"] }
 serde = { workspace = true }
 serde_test = { workspace = true, optional = true }

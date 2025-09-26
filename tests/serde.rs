@@ -9,12 +9,12 @@ use std::iter;
 
 use hybrid_array::{Array, ArraySize};
 use oprf::cipher_suite::CipherSuite;
-use oprf::common::{BlindedElement, EvaluationElement, Proof};
+use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::key::{KeyPair, PublicKey, SecretKey};
 use oprf::oprf::{OprfClient, OprfServer};
 use oprf::poprf::{PoprfClient, PoprfServer};
 use oprf::voprf::{VoprfClient, VoprfServer};
-use oprf_test::{ScalarRepr, TypeRepr, test_ciphersuites};
+use oprf_test::{MockCs, ScalarRepr, TypeRepr, test_ciphersuites};
 use serde::{Deserialize, Serialize};
 use serde_test::de::Deserializer;
 use serde_test::{Compact, Configure, Token};
@@ -86,6 +86,75 @@ where
 		"PublicKey",
 		element,
 		[invalid_element, identity_element],
+	);
+}
+
+test_ciphersuites!(mode, Mode, [MockCs as mock]);
+
+#[expect(clippy::extra_unused_type_parameters, reason = "only testing `Mode`")]
+fn mode<Cs>(mode: Mode) {
+	let name = Box::leak(Box::new(format!("{mode:?}")));
+
+	serde_test::assert_tokens(
+		&mode,
+		&[Token::Enum { name: "Mode" }, Token::Str(name), Token::Unit],
+	);
+
+	serde_test::assert_de_tokens(
+		&mode,
+		&[
+			Token::Enum { name: "Mode" },
+			#[expect(clippy::as_conversions, reason = "no other way")]
+			Token::U8(mode as u8),
+			Token::Unit,
+		],
+	);
+
+	serde_test::assert_de_tokens(
+		&mode,
+		&[
+			Token::Enum { name: "Mode" },
+			Token::Bytes(name.as_bytes()),
+			Token::Unit,
+		],
+	);
+
+	serde_test::assert_de_tokens_error::<Mode>(
+		&[Token::Enum { name: "Mode" }, Token::Unit],
+		"invalid type: unit value, expected variant identifier",
+	);
+
+	serde_test::assert_de_tokens_error::<Mode>(
+		&[Token::Enum { name: "Test" }, Token::Str(name), Token::Unit],
+		&format!("invalid type: string \"{name}\", expected enum Mode"),
+	);
+
+	serde_test::assert_de_tokens_error::<Mode>(
+		&[Token::Enum { name: "Mode" }, Token::Str(name), Token::U8(0)],
+		"invalid type: integer `0`, expected unit",
+	);
+
+	serde_test::assert_de_tokens_error::<Mode>(
+		&[Token::Enum { name: "Mode" }, Token::U8(3), Token::Unit],
+		"invalid value: integer `3`, expected variant index 0 <= i < 3",
+	);
+
+	serde_test::assert_de_tokens_error::<Mode>(
+		&[
+			Token::Enum { name: "Mode" },
+			Token::Str("Test"),
+			Token::Unit,
+		],
+		"unknown variant `Test`, expected one of `Oprf`, `Voprf`, `Poprf`",
+	);
+
+	serde_test::assert_de_tokens_error::<Mode>(
+		&[
+			Token::Enum { name: "Mode" },
+			Token::Bytes(b"Test"),
+			Token::Unit,
+		],
+		"unknown variant `Test`, expected one of `Oprf`, `Voprf`, `Poprf`",
 	);
 }
 

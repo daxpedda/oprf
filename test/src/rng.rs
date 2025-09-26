@@ -1,15 +1,16 @@
-//! Mock [`TryRngCore`] implementation.
+//! Mock [`CryptoRng`] implementation.
 
-use rand_core::{OsRng, TryCryptoRng, TryRngCore};
+use rand_core::{CryptoRng, RngCore};
 
 /// A mock RNG. Will panic if the provided `bytes` are exhausted. Can function
-/// like a redirect to [`OsRng`] as well.
+/// like a redirect to [`ThreadRng`](rand::rngs::ThreadRng) as well.
 pub(crate) struct MockRng<'bytes>(Option<&'bytes [u8]>);
 
 impl<'bytes> MockRng<'bytes> {
-	/// Creates a new [`MockRng`] which redirects to [`OsRng`].
+	/// Creates a new [`MockRng`] which redirects to
+	/// [`ThreadRng`](rand::rngs::ThreadRng).
 	#[must_use]
-	pub(crate) const fn new_os_rng() -> Self {
+	pub(crate) const fn new_rng() -> Self {
 		Self(None)
 	}
 
@@ -21,38 +22,35 @@ impl<'bytes> MockRng<'bytes> {
 	}
 }
 
-impl TryRngCore for MockRng<'_> {
-	type Error = <OsRng as TryRngCore>::Error;
-
-	fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+impl RngCore for MockRng<'_> {
+	fn next_u32(&mut self) -> u32 {
 		if self.0.is_some() {
 			let mut bytes = [0; size_of::<u32>()];
-			self.try_fill_bytes(&mut bytes)?;
-			Ok(u32::from_be_bytes(bytes))
+			self.fill_bytes(&mut bytes);
+			u32::from_be_bytes(bytes)
 		} else {
-			OsRng.try_next_u32()
+			rand::rng().next_u32()
 		}
 	}
 
-	fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+	fn next_u64(&mut self) -> u64 {
 		if self.0.is_some() {
 			let mut bytes = [0; size_of::<u64>()];
-			self.try_fill_bytes(&mut bytes)?;
-			Ok(u64::from_be_bytes(bytes))
+			self.fill_bytes(&mut bytes);
+			u64::from_be_bytes(bytes)
 		} else {
-			OsRng.try_next_u64()
+			rand::rng().next_u64()
 		}
 	}
 
-	fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
+	fn fill_bytes(&mut self, dst: &mut [u8]) {
 		if let Some(bytes) = self.0.as_mut() {
 			dst.copy_from_slice(&bytes[..dst.len()]);
 			*bytes = &bytes[dst.len()..];
-			Ok(())
 		} else {
-			OsRng.try_fill_bytes(dst)
+			rand::rng().fill_bytes(dst);
 		}
 	}
 }
 
-impl TryCryptoRng for MockRng<'_> {}
+impl CryptoRng for MockRng<'_> {}

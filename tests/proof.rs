@@ -23,7 +23,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 		None,
 		client.blinded_element(),
 		None,
-		b"wrong",
+		Some(b"wrong"),
 	)
 	.unwrap();
 
@@ -33,7 +33,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 		INPUT,
 		server.evaluation_element(),
 		server.proof(),
-		INFO,
+		Some(INFO),
 	);
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
@@ -43,7 +43,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 		INPUT,
 		wrong_server.evaluation_element(),
 		server.proof(),
-		INFO,
+		Some(INFO),
 	);
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
@@ -53,7 +53,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 		INPUT,
 		server.evaluation_element(),
 		wrong_server.proof(),
-		INFO,
+		Some(INFO),
 	);
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
@@ -64,7 +64,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 			INPUT,
 			server.evaluation_element(),
 			server.proof(),
-			b"wrong",
+			Some(b"wrong"),
 		);
 		assert_eq!(result.unwrap_err(), Error::Proof);
 	}
@@ -86,7 +86,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 		&[INPUT],
 		server.evaluation_elements(),
 		server.proof(),
-		INFO,
+		Some(INFO),
 	);
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
@@ -96,7 +96,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 		&[INPUT],
 		wrong_server.evaluation_elements(),
 		server.proof(),
-		INFO,
+		Some(INFO),
 	);
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
@@ -106,7 +106,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 		&[INPUT],
 		server.evaluation_elements(),
 		wrong_server.proof(),
-		INFO,
+		Some(INFO),
 	);
 	assert_eq!(result.unwrap_err(), Error::Proof);
 
@@ -117,7 +117,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 			&[INPUT],
 			server.evaluation_elements(),
 			server.proof(),
-			b"wrong",
+			Some(b"wrong"),
 		);
 		assert_eq!(result.unwrap_err(), Error::Proof);
 	}

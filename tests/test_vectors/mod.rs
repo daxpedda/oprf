@@ -5,11 +5,6 @@
 
 mod basic;
 mod batch;
+#[cfg(feature = "serde")]
+mod generate;
 mod parse;
-
-use hex_literal::hex;
-
-/// Seed `info` used in every test vector.
-const KEY_INFO: &[u8] = b"test key";
-/// Seed used in every test vector.
-const SEED: [u8; 32] = hex!("a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3");

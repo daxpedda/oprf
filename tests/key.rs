@@ -10,13 +10,12 @@ use oprf::oprf::OprfServer;
 use oprf::poprf::PoprfServer;
 use oprf::voprf::VoprfServer;
 use oprf_test::{INFO, test_ciphersuites};
-use rand_core::{OsRng, TryRngCore};
 
 test_ciphersuites!(basic);
 
 // Tests basic key functionality.
 fn basic<Cs: CipherSuite>() {
-	let key_pair = KeyPair::<Cs::Group>::generate(&mut OsRng).unwrap();
+	let key_pair = KeyPair::<Cs::Group>::generate(&mut rand::rng()).unwrap();
 
 	// Check `from_secret_key()`.
 	assert_eq!(
@@ -56,8 +55,7 @@ test_ciphersuites!(derive, Mode);
 
 // Tests key deriviation.
 fn derive<Cs: CipherSuite>(mode: Mode) {
-	let mut seed = [0; 32];
-	OsRng.try_fill_bytes(&mut seed).unwrap();
+	let seed = rand::random();
 
 	let key_pair = KeyPair::derive::<Cs>(mode, &seed, &[]).unwrap();
 
@@ -70,8 +68,7 @@ fn derive<Cs: CipherSuite>(mode: Mode) {
 test_ciphersuites!(oprf_from_seed);
 
 fn oprf_from_seed<Cs: CipherSuite>() {
-	let mut seed = [0; 32];
-	OsRng.try_fill_bytes(&mut seed).unwrap();
+	let seed = rand::random();
 
 	let server = OprfServer::<Cs>::from_seed(&seed, &[]).unwrap();
 
@@ -84,8 +81,7 @@ fn oprf_from_seed<Cs: CipherSuite>() {
 test_ciphersuites!(voprf_from_seed);
 
 fn voprf_from_seed<Cs: CipherSuite>() {
-	let mut seed = [0; 32];
-	OsRng.try_fill_bytes(&mut seed).unwrap();
+	let seed = rand::random();
 
 	let server = VoprfServer::<Cs>::from_seed(&seed, &[]).unwrap();
 
@@ -98,8 +94,7 @@ fn voprf_from_seed<Cs: CipherSuite>() {
 test_ciphersuites!(poprf_from_seed);
 
 fn poprf_from_seed<Cs: CipherSuite>() {
-	let mut seed = [0; 32];
-	OsRng.try_fill_bytes(&mut seed).unwrap();
+	let seed = rand::random();
 
 	let server = PoprfServer::<Cs>::from_seed(&seed, &[], INFO).unwrap();
 

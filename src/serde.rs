@@ -7,8 +7,12 @@ use alloc::string::String;
 use core::fmt::{self, Formatter};
 use core::marker::PhantomData;
 
-use serde::de::{DeserializeSeed, Error, MapAccess, SeqAccess, Unexpected, Visitor};
+use serde::de::{
+	DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, Unexpected, VariantAccess, Visitor,
+};
 use serde::{Deserialize, Deserializer};
+
+use crate::common::Mode;
 
 /// Copy of Serde's proc-macro output for a newtype struct.
 pub(crate) fn newtype_struct<'de, D, T>(deserializer: D, name: &'static str) -> Result<T, D::Error>
@@ -221,11 +225,113 @@ where
 	)
 }
 
+/// Copy of Serde's proc-macro output for [`Mode`].
+pub(crate) fn mode<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Mode, D::Error> {
+	const VARIANTS: &[&str] = &["Oprf", "Voprf", "Poprf"];
+
+	struct VisitorImpl;
+
+	impl<'de> Visitor<'de> for VisitorImpl {
+		type Value = Mode;
+
+		fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+			formatter.write_str("enum Mode")
+		}
+
+		fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+		where
+			A: EnumAccess<'de>,
+		{
+			let (field, variant) = data.variant()?;
+			variant.unit_variant()?;
+
+			Ok(match field {
+				Variant::Oprf => Mode::Oprf,
+				Variant::Voprf => Mode::Voprf,
+				Variant::Poprf => Mode::Poprf,
+			})
+		}
+	}
+
+	enum Variant {
+		/// [`Mode::Oprf`].
+		Oprf,
+		/// [`Mode::Voprf`].
+		Voprf,
+		/// [`Mode::Poprf`].
+		Poprf,
+	}
+
+	struct VariantVisitor;
+
+	impl Visitor<'_> for VariantVisitor {
+		type Value = Variant;
+
+		fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+			formatter.write_str("variant identifier")
+		}
+
+		fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+		where
+			E: Error,
+		{
+			match v {
+				0 => Ok(Variant::Oprf),
+				1 => Ok(Variant::Voprf),
+				2 => Ok(Variant::Poprf),
+				_ => Err(Error::invalid_value(
+					Unexpected::Unsigned(v),
+					&"variant index 0 <= i < 3",
+				)),
+			}
+		}
+
+		fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+		where
+			E: Error,
+		{
+			match v {
+				"Oprf" => Ok(Variant::Oprf),
+				"Voprf" => Ok(Variant::Voprf),
+				"Poprf" => Ok(Variant::Poprf),
+				_ => Err(Error::unknown_variant(v, VARIANTS)),
+			}
+		}
+
+		fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+		where
+			E: Error,
+		{
+			match v {
+				b"Oprf" => Ok(Variant::Oprf),
+				b"Voprf" => Ok(Variant::Voprf),
+				b"Poprf" => Ok(Variant::Poprf),
+				#[cfg_attr(
+					not(feature = "alloc"),
+					expect(clippy::needless_borrow, reason = "return type differs")
+				)]
+				_ => Err(Error::unknown_variant(&from_utf8_lossy(v), VARIANTS)),
+			}
+		}
+	}
+
+	impl<'de> Deserialize<'de> for Variant {
+		fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+		where
+			D: Deserializer<'de>,
+		{
+			deserializer.deserialize_identifier(VariantVisitor)
+		}
+	}
+
+	deserializer.deserialize_enum("Mode", VARIANTS, VisitorImpl)
+}
+
 /// Copied from
 /// [Serde](https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/mod.rs#L29-L47).
 #[cfg(feature = "alloc")]
 #[cfg_attr(coverage_nightly, coverage(off))]
-pub(crate) fn from_utf8_lossy(bytes: &[u8]) -> Cow<'_, str> {
+fn from_utf8_lossy(bytes: &[u8]) -> Cow<'_, str> {
 	String::from_utf8_lossy(bytes)
 }
 
@@ -233,14 +339,14 @@ pub(crate) fn from_utf8_lossy(bytes: &[u8]) -> Cow<'_, str> {
 /// [Serde](https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/mod.rs#L29-L47).
 #[cfg(not(feature = "alloc"))]
 #[cfg_attr(coverage_nightly, coverage(off))]
-pub(crate) fn from_utf8_lossy(bytes: &[u8]) -> &str {
+fn from_utf8_lossy(bytes: &[u8]) -> &str {
 	str::from_utf8(bytes).unwrap_or("\u{fffd}\u{fffd}\u{fffd}")
 }
 
 /// Copied from
 /// [Serde](https://github.com/serde-rs/serde/blob/49d098debdf8b5c38bfb6868f455c6ce542c422c/serde/src/private/de.rs#L21-L59).
 #[cfg_attr(coverage_nightly, coverage(off))]
-pub(crate) fn missing_field<'de, V, E>(field: &'static str) -> Result<V, E>
+fn missing_field<'de, V, E>(field: &'static str) -> Result<V, E>
 where
 	V: Deserialize<'de>,
 	E: Error,

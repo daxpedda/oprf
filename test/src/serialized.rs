@@ -5,12 +5,11 @@
 use hybrid_array::Array;
 use oprf::cipher_suite::CipherSuite;
 use oprf::group::Group;
-use rand_core::OsRng;
 
 /// Generates a valid non-zero scalar.
 #[must_use]
 pub fn scalar<Cs: CipherSuite>() -> Array<u8, <Cs::Group as Group>::ScalarLength> {
-	let scalar = Cs::Group::scalar_random(&mut OsRng).unwrap();
+	let scalar = Cs::Group::scalar_random(&mut rand::rng()).unwrap();
 	Cs::Group::scalar_to_repr(&scalar)
 }
 
@@ -29,7 +28,7 @@ pub fn zero_scalar<Cs: CipherSuite>() -> Array<u8, <Cs::Group as Group>::ScalarL
 /// Generates a valid non-identity element.
 #[must_use]
 pub fn element<Cs: CipherSuite>() -> Array<u8, <Cs::Group as Group>::ElementLength> {
-	let scalar = Cs::Group::scalar_random(&mut OsRng).unwrap();
+	let scalar = Cs::Group::scalar_random(&mut rand::rng()).unwrap();
 	let element = Cs::Group::scalar_mul_by_generator(&scalar);
 	Cs::Group::element_to_repr(&element)
 }

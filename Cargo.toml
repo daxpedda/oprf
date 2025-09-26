@@ -63,6 +63,7 @@ p256 = { workspace = true }
 p384 = { workspace = true }
 p521 = { workspace = true }
 paste = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_test = { workspace = true }
@@ -71,6 +72,10 @@ zeroize = { workspace = true, features = ["derive"] }
 
 [lib]
 bench = false
+
+[[test]]
+name = "rfc_test_vectors"
+path = "tests/rfc_test_vectors/mod.rs"
 
 [[test]]
 name = "test_vectors"
@@ -134,6 +139,7 @@ p521 = { version = "=0.14.0-pre.11", default-features = false, features = [
 	"hash2curve",
 ] }
 paste = "1"
+rand = "0.9"
 rand_core = { version = "0.9", default-features = false }
 serde = { version = "1", default-features = false }
 serde_json = "1"
@@ -146,8 +152,8 @@ subtle = { version = "2", default-features = false }
 zeroize = { version = "1.5", default-features = false }
 
 [patch.crates-io]
-curve25519-dalek = { git = "https://github.com/dalek-cryptography/curve25519-dalek", rev = "225eaf0280042edf38a00c6a90f9fe4137eebed0" }
-ed448-goldilocks = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "e8ad52a3cbb519354d6ed980dd08e4cf45d1a308" }
+curve25519-dalek = { git = "https://github.com/dalek-cryptography/curve25519-dalek", rev = "0ed51ae9330153271e6143db26905a701e3d40e3" }
+ed448-goldilocks = { git = "https://github.com/RustCrypto/elliptic-curves", rev = "bde9ae62e0af40e0b03ec9e3926da874d29c36b6" }
 
 [profile.bench]
 debug = true

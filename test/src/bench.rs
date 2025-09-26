@@ -7,7 +7,6 @@ use oprf::cipher_suite::CipherSuite;
 use oprf::common::{BlindedElement, EvaluationElement, Mode, Proof};
 use oprf::group::Group;
 use oprf::key::{PublicKey, SecretKey};
-use rand_core::OsRng;
 
 use crate::{CommonClient, CommonServer, INFO, INPUT};
 
@@ -24,12 +23,12 @@ pub struct Setup<Cs: CipherSuite> {
 
 impl<Cs: CipherSuite> Default for Setup<Cs> {
 	fn default() -> Self {
-		let blind = <Cs::Group as Group>::scalar_random(&mut OsRng).unwrap();
+		let blind = <Cs::Group as Group>::scalar_random(&mut rand::rng()).unwrap();
 		let blind = <Cs::Group as Group>::scalar_to_repr(&blind);
 
-		let secret_key = SecretKey::generate(&mut OsRng).unwrap();
+		let secret_key = SecretKey::generate(&mut rand::rng()).unwrap();
 
-		let r = <Cs::Group as Group>::scalar_random(&mut OsRng).unwrap();
+		let r = <Cs::Group as Group>::scalar_random(&mut rand::rng()).unwrap();
 		let r = <Cs::Group as Group>::scalar_to_repr(&r);
 
 		Self {
@@ -61,7 +60,7 @@ pub fn bench<Cs: CipherSuite>(
 		Some(secret_key),
 		&blinded_element,
 		Some(&r),
-		INFO,
+		Some(INFO),
 	)
 	.unwrap();
 	let public_key = server.public_key().map(PublicKey::as_repr);
@@ -78,7 +77,7 @@ pub fn bench<Cs: CipherSuite>(
 			INPUT,
 			&evaluation_element,
 			proof.as_ref(),
-			INFO,
+			Some(INFO),
 		)
 		.unwrap();
 

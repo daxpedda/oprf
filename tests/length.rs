@@ -31,8 +31,13 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result =
-			CommonServer::blind_evaluate_with(mode, None, client.blinded_element(), None, &TEST);
+		let result = CommonServer::blind_evaluate_with(
+			mode,
+			None,
+			client.blinded_element(),
+			None,
+			Some(&TEST),
+		);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
@@ -42,7 +47,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 		None,
 		client.blinded_element(),
 		None,
-		&TEST[..u16::MAX.into()],
+		Some(&TEST[..u16::MAX.into()]),
 	)
 	.unwrap();
 
@@ -52,7 +57,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 		&[&TEST],
 		server.evaluation_element(),
 		server.proof(),
-		&TEST[..u16::MAX.into()],
+		Some(&TEST[..u16::MAX.into()]),
 	);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
@@ -63,7 +68,7 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 			&[&TEST],
 			server.evaluation_element(),
 			server.proof(),
-			&TEST,
+			Some(&TEST),
 		);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
@@ -75,23 +80,23 @@ fn basic<Cs: CipherSuite>(mode: Mode) {
 			&[&TEST[..u16::MAX.into()]],
 			server.evaluation_element(),
 			server.proof(),
-			&TEST[..u16::MAX.into()],
+			Some(&TEST[..u16::MAX.into()]),
 		)
 		.unwrap();
 
 	// Failure on too large input.
-	let result = server.evaluate_with(&[&TEST], &TEST[..u16::MAX.into()]);
+	let result = server.evaluate_with(&[&TEST], Some(&TEST[..u16::MAX.into()]));
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = server.evaluate_with(&[&TEST], &TEST);
+		let result = server.evaluate_with(&[&TEST], Some(&TEST));
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of input and info.
 	let _ = server
-		.evaluate_with(&[&TEST[..u16::MAX.into()]], &TEST[..u16::MAX.into()])
+		.evaluate_with(&[&TEST[..u16::MAX.into()]], Some(&TEST[..u16::MAX.into()]))
 		.unwrap();
 }
 
@@ -127,8 +132,13 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result =
-			CommonServer::batch_with::<1>(mode, None, clients.blinded_elements(), None, &TEST);
+		let result = CommonServer::batch_with::<1>(
+			mode,
+			None,
+			clients.blinded_elements(),
+			None,
+			Some(&TEST),
+		);
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
@@ -138,7 +148,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 		None,
 		clients.blinded_elements(),
 		None,
-		&TEST[..u16::MAX.into()],
+		Some(&TEST[..u16::MAX.into()]),
 	)
 	.unwrap();
 
@@ -148,7 +158,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 		&[&[&TEST]],
 		server.evaluation_elements(),
 		server.proof(),
-		&TEST[..u16::MAX.into()],
+		Some(&TEST[..u16::MAX.into()]),
 	);
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
@@ -159,7 +169,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 			&[&[&TEST]],
 			server.evaluation_elements(),
 			server.proof(),
-			&TEST,
+			Some(&TEST),
 		);
 		assert_eq!(result, Err(Error::InfoLength));
 	}
@@ -171,7 +181,7 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 			&[&[&TEST[..u16::MAX.into()]]],
 			server.evaluation_elements(),
 			server.proof(),
-			&TEST[..u16::MAX.into()],
+			Some(&TEST[..u16::MAX.into()]),
 		)
 		.unwrap();
 
@@ -215,18 +225,21 @@ fn batch<Cs: CipherSuite>(mode: Mode) {
 	}
 
 	// Failure on too large input.
-	let result = server.evaluate_with::<1>(&[&[&TEST]], &TEST[..u16::MAX.into()]);
+	let result = server.evaluate_with::<1>(&[&[&TEST]], Some(&TEST[..u16::MAX.into()]));
 	assert_eq!(result.unwrap_err(), Error::InputLength);
 
 	// Failure on too large info.
 	if let Mode::Poprf = mode {
-		let result = server.evaluate_with::<1>(&[&[&TEST]], &TEST);
+		let result = server.evaluate_with::<1>(&[&[&TEST]], Some(&TEST));
 		assert_eq!(result.unwrap_err(), Error::InfoLength);
 	}
 
 	// Success on maximum length of input and info.
 	let _ = server
-		.evaluate_with::<1>(&[&[&TEST[..u16::MAX.into()]]], &TEST[..u16::MAX.into()])
+		.evaluate_with::<1>(
+			&[&[&TEST[..u16::MAX.into()]]],
+			Some(&TEST[..u16::MAX.into()]),
+		)
 		.unwrap();
 
 	#[cfg(feature = "alloc")]
